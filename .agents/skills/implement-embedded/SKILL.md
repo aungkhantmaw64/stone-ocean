@@ -93,7 +93,9 @@ Start only after the developer has agreed to proceed. Follow `docs/unit-testing-
   - Source files take the component name as a prefix: `<component>_<area>.c` (for example `node_hal_gpio.c` in component `node_hal`). A host mock or fake that replaces a source file uses the same file name in its own directory.
   - Every function, static helpers included, takes its source file's name as a prefix: functions in `node_hal_gpio.c` are `node_hal_gpio_*`. Test-only helpers in a mock follow their file too (`node_hal_gpio_mock_set_input`).
   - Public types, enum values and macros take the component prefix (`node_hal_err_t`, `NODE_HAL_OK`).
+  - Global variables, meaning any variable at file scope, `static` ones included, take a `g_` prefix: `g_isr_service_installed`.
   - Exceptions: `main/` keeps ESP-IDF's fixed names, such as `app_main`. Unit test files and test functions follow `docs/unit-testing-standards.md` (`test_<module>.c`, `test_<sentence>`).
+- Zero-initialize every variable where you declare it (`int count = 0;`, `node_hal_gpio_config_t config = {0};`, `char buf[16] = {0};`), globals and locals alike, even when it is assigned before it is used.
 - Document every public function, type and macro in its header with a Doxygen block (`/** @brief … */` plus `@param`, and `@return` where there is a return value). Document behaviour, preconditions, units and calling context (for example "ISR context"), not the implementation.
 - Avoid inline comments that explain what the code does. If code needs explaining, make it self-explanatory instead: use clearer names, extract a well-named function, or use a named constant. Keep a comment only for what the code cannot say, such as a datasheet reference, a hardware quirk or the reason for a non-obvious choice.
 - Respect embedded constraints stated in the spec or README: memory budget, no dynamic allocation where forbidden, ISR versus task context, timing limits, `-Werror`.
