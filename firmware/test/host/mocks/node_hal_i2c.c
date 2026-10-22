@@ -83,109 +83,83 @@ static char g_failure[FAILURE_MESSAGE_SIZE] = {0};
 static bool g_failed = false;
 
 /* ==========================================================================
- * PRIVATE FUNCTIONS
+ * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
 
-static void node_hal_i2c_record_failure(const char *message, uint8_t addr7) {
-  if (!g_failed) {
-    /* snprintf always terminates the string, and a truncated message still
-     * names the transfer. */
-    (void)snprintf(g_failure, sizeof g_failure, "transfer to 0x%02X: %s", addr7,
-                   message);
-    g_failed = true;
-  }
-}
+/**
+ * @brief Record the first transfer that does not match the script.
+ *
+ * Later calls are ignored until node_hal_i2c_mock_reset().
+ *
+ * @param message What went wrong; must not be NULL.
+ * @param addr7   Address of the transfer.
+ */
+static void node_hal_i2c_record_failure(const char *message, uint8_t addr7);
 
+/**
+ * @brief Append a step to the test script.
+ *
+ * A step that does not fit is recorded as a failure instead.
+ *
+ * @param kind  Kind of step.
+ * @param addr7 Address the step is for.
+ * @param data  Bytes to expect or return; may be NULL only if @p len is 0.
+ * @param len   Number of bytes in @p data; at most NODE_HAL_MOCK_I2C_MAX_DATA.
+ * @param err   Error an error step returns; NODE_HAL_OK otherwise.
+ */
 static void node_hal_i2c_queue_step(node_hal_i2c_mock_step_kind_t kind,
                                     uint8_t addr7, const uint8_t *data,
-                                    size_t len, node_hal_err_t err) {
-  if (g_steps_queued == NODE_HAL_MOCK_I2C_MAX_STEPS ||
-      len > NODE_HAL_MOCK_I2C_MAX_DATA || (len > 0 && data == NULL)) {
-    node_hal_i2c_record_failure(
-        "test script step rejected (too many steps, "
-        "too long or no data)",
-        addr7);
-    return;
-  }
-  node_hal_i2c_mock_step_t *step = &g_steps[g_steps_queued++];
-  *step = (node_hal_i2c_mock_step_t){
-      .kind = kind, .addr7 = addr7, .len = len, .err = err};
-  if (len > 0) {
-    memcpy(step->data, data, len);
-  }
-}
+                                    size_t len, node_hal_err_t err);
 
-static bool node_hal_i2c_bus_is_valid(node_hal_i2c_bus_t bus) {
-  for (size_t i = 0; i < I2C_PORT_COUNT; i++) {
-    if (bus == &g_buses[i]) {
-      return bus->in_use;
-    }
-  }
-  return false;
-}
+/**
+ * @brief Whether @p bus is an initialised handle from g_buses.
+ *
+ * @param bus Handle to check; may be NULL or any pointer.
+ * @return True if @p bus points into g_buses and is in use.
+ */
+static bool node_hal_i2c_bus_is_valid(node_hal_i2c_bus_t bus);
 
-static bool node_hal_i2c_dev_is_valid(node_hal_i2c_dev_t dev) {
-  for (size_t i = 0; i < I2C_MAX_DEVICES; i++) {
-    if (dev == &g_devices[i]) {
-      return dev->in_use;
-    }
-  }
-  return false;
-}
+/**
+ * @brief Whether @p dev is an added handle from g_devices.
+ *
+ * @param dev Handle to check; may be NULL or any pointer.
+ * @return True if @p dev points into g_devices and is in use.
+ */
+static bool node_hal_i2c_dev_is_valid(node_hal_i2c_dev_t dev);
 
-static const node_hal_i2c_mock_step_t *node_hal_i2c_next_step(uint8_t addr7) {
-  if (g_steps_consumed == g_steps_queued) {
-    node_hal_i2c_record_failure("no scripted step left", addr7);
-    return NULL;
-  }
-  const node_hal_i2c_mock_step_t *step = &g_steps[g_steps_consumed++];
-  if (step->addr7 != addr7) {
-    node_hal_i2c_record_failure("next scripted step is for another address",
-                                addr7);
-    return NULL;
-  }
-  return step;
-}
+/**
+ * @brief Consume the next scripted step, which must be for @p addr7.
+ *
+ * @param addr7 Address of the transfer.
+ * @return The step, or NULL after recording a failure if no step is left or
+ *         it is for another address.
+ */
+static const node_hal_i2c_mock_step_t *node_hal_i2c_next_step(uint8_t addr7);
 
-/* Consumes the write step, or an error step in its place. Returns
- * NODE_HAL_OK when the bytes match. */
+/**
+ * @brief Match a write against the next scripted step.
+ *
+ * @param addr7 Address of the transfer.
+ * @param buf   Bytes written; must not be NULL.
+ * @param len   Number of bytes in @p buf.
+ * @return NODE_HAL_OK if the step is a write of the same bytes, the step's
+ *         error for an error step, or NODE_HAL_ERR_IO after recording a
+ *         failure.
+ */
 static node_hal_err_t node_hal_i2c_match_write(uint8_t addr7,
-                                               const uint8_t *buf, size_t len) {
-  const node_hal_i2c_mock_step_t *step = node_hal_i2c_next_step(addr7);
-  if (step == NULL) {
-    return NODE_HAL_ERR_IO;
-  }
-  if (step->kind == STEP_ERROR) {
-    return step->err;
-  }
-  if (step->kind != STEP_WRITE) {
-    node_hal_i2c_record_failure("expected a read, got a write", addr7);
-    return NODE_HAL_ERR_IO;
-  }
-  if (step->len != len || memcmp(step->data, buf, len) != 0) {
-    node_hal_i2c_record_failure("written bytes differ from the script", addr7);
-    return NODE_HAL_ERR_IO;
-  }
-  return NODE_HAL_OK;
-}
+                                               const uint8_t *buf, size_t len);
 
+/**
+ * @brief Match a read against the next scripted step and return its bytes.
+ *
+ * @param addr7 Address of the transfer.
+ * @param r     Receives the scripted bytes; must not be NULL.
+ * @param rlen  Number of bytes to read.
+ * @return NODE_HAL_OK if the step is a read of @p rlen bytes, or
+ *         NODE_HAL_ERR_IO after recording a failure.
+ */
 static node_hal_err_t node_hal_i2c_match_read(uint8_t addr7, uint8_t *r,
-                                              size_t rlen) {
-  const node_hal_i2c_mock_step_t *step = node_hal_i2c_next_step(addr7);
-  if (step == NULL) {
-    return NODE_HAL_ERR_IO;
-  }
-  if (step->kind != STEP_READ) {
-    node_hal_i2c_record_failure("expected a write, got a read", addr7);
-    return NODE_HAL_ERR_IO;
-  }
-  if (step->len != rlen) {
-    node_hal_i2c_record_failure("read length differs from the script", addr7);
-    return NODE_HAL_ERR_IO;
-  }
-  memcpy(r, step->data, rlen);
-  return NODE_HAL_OK;
-}
+                                              size_t rlen);
 
 /* ==========================================================================
  * PUBLIC FUNCTIONS
@@ -290,4 +264,109 @@ node_hal_err_t node_hal_i2c_write_read(node_hal_i2c_dev_t dev, const uint8_t *w,
     return err;
   }
   return node_hal_i2c_match_read(dev->addr7, r, rlen);
+}
+
+/* ==========================================================================
+ * PRIVATE FUNCTIONS
+ * ========================================================================== */
+
+static void node_hal_i2c_record_failure(const char *message, uint8_t addr7) {
+  if (!g_failed) {
+    /* snprintf always terminates the string, and a truncated message still
+     * names the transfer. */
+    (void)snprintf(g_failure, sizeof g_failure, "transfer to 0x%02X: %s", addr7,
+                   message);
+    g_failed = true;
+  }
+}
+
+static void node_hal_i2c_queue_step(node_hal_i2c_mock_step_kind_t kind,
+                                    uint8_t addr7, const uint8_t *data,
+                                    size_t len, node_hal_err_t err) {
+  if (g_steps_queued == NODE_HAL_MOCK_I2C_MAX_STEPS ||
+      len > NODE_HAL_MOCK_I2C_MAX_DATA || (len > 0 && data == NULL)) {
+    node_hal_i2c_record_failure(
+        "test script step rejected (too many steps, "
+        "too long or no data)",
+        addr7);
+    return;
+  }
+  node_hal_i2c_mock_step_t *step = &g_steps[g_steps_queued++];
+  *step = (node_hal_i2c_mock_step_t){
+      .kind = kind, .addr7 = addr7, .len = len, .err = err};
+  if (len > 0) {
+    memcpy(step->data, data, len);
+  }
+}
+
+static bool node_hal_i2c_bus_is_valid(node_hal_i2c_bus_t bus) {
+  for (size_t i = 0; i < I2C_PORT_COUNT; i++) {
+    if (bus == &g_buses[i]) {
+      return bus->in_use;
+    }
+  }
+  return false;
+}
+
+static bool node_hal_i2c_dev_is_valid(node_hal_i2c_dev_t dev) {
+  for (size_t i = 0; i < I2C_MAX_DEVICES; i++) {
+    if (dev == &g_devices[i]) {
+      return dev->in_use;
+    }
+  }
+  return false;
+}
+
+static const node_hal_i2c_mock_step_t *node_hal_i2c_next_step(uint8_t addr7) {
+  if (g_steps_consumed == g_steps_queued) {
+    node_hal_i2c_record_failure("no scripted step left", addr7);
+    return NULL;
+  }
+  const node_hal_i2c_mock_step_t *step = &g_steps[g_steps_consumed++];
+  if (step->addr7 != addr7) {
+    node_hal_i2c_record_failure("next scripted step is for another address",
+                                addr7);
+    return NULL;
+  }
+  return step;
+}
+
+/* Consumes the write step, or an error step in its place. Returns
+ * NODE_HAL_OK when the bytes match. */
+static node_hal_err_t node_hal_i2c_match_write(uint8_t addr7,
+                                               const uint8_t *buf, size_t len) {
+  const node_hal_i2c_mock_step_t *step = node_hal_i2c_next_step(addr7);
+  if (step == NULL) {
+    return NODE_HAL_ERR_IO;
+  }
+  if (step->kind == STEP_ERROR) {
+    return step->err;
+  }
+  if (step->kind != STEP_WRITE) {
+    node_hal_i2c_record_failure("expected a read, got a write", addr7);
+    return NODE_HAL_ERR_IO;
+  }
+  if (step->len != len || memcmp(step->data, buf, len) != 0) {
+    node_hal_i2c_record_failure("written bytes differ from the script", addr7);
+    return NODE_HAL_ERR_IO;
+  }
+  return NODE_HAL_OK;
+}
+
+static node_hal_err_t node_hal_i2c_match_read(uint8_t addr7, uint8_t *r,
+                                              size_t rlen) {
+  const node_hal_i2c_mock_step_t *step = node_hal_i2c_next_step(addr7);
+  if (step == NULL) {
+    return NODE_HAL_ERR_IO;
+  }
+  if (step->kind != STEP_READ) {
+    node_hal_i2c_record_failure("expected a write, got a read", addr7);
+    return NODE_HAL_ERR_IO;
+  }
+  if (step->len != rlen) {
+    node_hal_i2c_record_failure("read length differs from the script", addr7);
+    return NODE_HAL_ERR_IO;
+  }
+  memcpy(r, step->data, rlen);
+  return NODE_HAL_OK;
 }

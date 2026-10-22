@@ -27,24 +27,27 @@ typedef struct {
 static node_hal_gpio_mock_pin_t g_pins[NODE_HAL_MOCK_GPIO_COUNT] = {0};
 
 /* ==========================================================================
- * PRIVATE FUNCTIONS
+ * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
 
-static bool node_hal_gpio_pin_in_range(int pin) {
-  return pin >= 0 && pin < NODE_HAL_MOCK_GPIO_COUNT;
-}
+/**
+ * @brief Whether @p pin is a GPIO number the mock simulates.
+ *
+ * @param pin GPIO number.
+ * @return True if 0 <= @p pin < NODE_HAL_MOCK_GPIO_COUNT.
+ */
+static bool node_hal_gpio_pin_in_range(int pin);
 
+/**
+ * @brief Whether a level change from @p from to @p to triggers @p edge.
+ *
+ * @param edge Edge the pin's interrupt watches for.
+ * @param from Level before the change, 0 or 1.
+ * @param to   Level after the change, 0 or 1.
+ * @return True if the change is an edge of that kind.
+ */
 static bool node_hal_gpio_edge_matches(node_hal_gpio_edge_t edge, int from,
-                                       int to) {
-  switch (edge) {
-    case NODE_HAL_GPIO_EDGE_RISING:
-      return from == 0 && to == 1;
-    case NODE_HAL_GPIO_EDGE_FALLING:
-      return from == 1 && to == 0;
-    default:
-      return from != to;
-  }
-}
+                                       int to);
 
 /* ==========================================================================
  * PUBLIC FUNCTIONS
@@ -111,5 +114,25 @@ void node_hal_gpio_mock_set_input(int pin, int level) {
   p->level = to;
   if (p->cb != NULL && node_hal_gpio_edge_matches(p->edge, from, to)) {
     p->cb(pin, p->ctx);
+  }
+}
+
+/* ==========================================================================
+ * PRIVATE FUNCTIONS
+ * ========================================================================== */
+
+static bool node_hal_gpio_pin_in_range(int pin) {
+  return pin >= 0 && pin < NODE_HAL_MOCK_GPIO_COUNT;
+}
+
+static bool node_hal_gpio_edge_matches(node_hal_gpio_edge_t edge, int from,
+                                       int to) {
+  switch (edge) {
+    case NODE_HAL_GPIO_EDGE_RISING:
+      return from == 0 && to == 1;
+    case NODE_HAL_GPIO_EDGE_FALLING:
+      return from == 1 && to == 0;
+    default:
+      return from != to;
   }
 }

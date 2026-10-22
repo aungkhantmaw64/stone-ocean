@@ -53,58 +53,61 @@ static struct node_hal_i2c_bus g_buses[SOC_I2C_NUM] = {0};
 static struct node_hal_i2c_dev g_devices[I2C_MAX_DEVICES] = {0};
 
 /* ==========================================================================
- * PRIVATE FUNCTIONS
+ * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
 
-static bool node_hal_i2c_bus_is_valid(node_hal_i2c_bus_t bus) {
-  for (size_t i = 0; i < SOC_I2C_NUM; i++) {
-    if (bus == &g_buses[i]) {
-      return bus->in_use;
-    }
-  }
-  return false;
-}
+/**
+ * @brief Whether @p bus is an initialised handle from g_buses.
+ *
+ * @param bus Handle to check; may be NULL or any pointer.
+ * @return True if @p bus points into g_buses and is in use.
+ */
+static bool node_hal_i2c_bus_is_valid(node_hal_i2c_bus_t bus);
 
-static bool node_hal_i2c_dev_is_valid(node_hal_i2c_dev_t dev) {
-  for (size_t i = 0; i < I2C_MAX_DEVICES; i++) {
-    if (dev == &g_devices[i]) {
-      return dev->in_use;
-    }
-  }
-  return false;
-}
+/**
+ * @brief Whether @p dev is an added handle from g_devices.
+ *
+ * @param dev Handle to check; may be NULL or any pointer.
+ * @return True if @p dev points into g_devices and is in use.
+ */
+static bool node_hal_i2c_dev_is_valid(node_hal_i2c_dev_t dev);
 
-static int node_hal_i2c_timeout_for_idf(uint32_t timeout_ms) {
-  return timeout_ms > INT_MAX ? INT_MAX : (int)timeout_ms;
-}
+/**
+ * @brief Convert a timeout to the int that ESP-IDF I2C calls take.
+ *
+ * @param timeout_ms Timeout in ms.
+ * @return @p timeout_ms, capped at INT_MAX.
+ */
+static int node_hal_i2c_timeout_for_idf(uint32_t timeout_ms);
 
-static struct node_hal_i2c_dev *node_hal_i2c_free_device_slot(void) {
-  for (size_t i = 0; i < I2C_MAX_DEVICES; i++) {
-    if (!g_devices[i].in_use) {
-      return &g_devices[i];
-    }
-  }
-  return NULL;
-}
+/**
+ * @brief First unused entry of g_devices.
+ *
+ * @return The entry, or NULL if every entry is in use.
+ */
+static struct node_hal_i2c_dev *node_hal_i2c_free_device_slot(void);
 
-static node_hal_err_t node_hal_i2c_probe_result(esp_err_t err) {
-  return err == ESP_ERR_NOT_FOUND ? NODE_HAL_ERR_NACK
-                                  : node_hal_err_from_esp(err);
-}
+/**
+ * @brief Map the result of i2c_master_probe() to a HAL error.
+ *
+ * @param err Result of i2c_master_probe().
+ * @return NODE_HAL_ERR_NACK if no device acknowledged, else the mapped error.
+ */
+static node_hal_err_t node_hal_i2c_probe_result(esp_err_t err);
 
-/* In IDF 5.4.4 a synchronous transfer reports both a NACK and a hardware bus
- * timeout as ESP_ERR_INVALID_STATE (i2c_master.c, s_i2c_transaction_start).
- * Probing the address afterwards tells them apart: if the address is now
- * acknowledged, the failure was in the data phase and is reported as IO. */
+/**
+ * @brief Map the result of a write or write-read to a HAL error, telling a
+ *        NACK of the address from a failure later in the transfer.
+ *
+ * @param dev        Device the transfer was for; must be valid.
+ * @param err        Result of the ESP-IDF transfer.
+ * @param timeout_ms Timeout for the probe used to tell the cases apart.
+ * @return NODE_HAL_OK, NODE_HAL_ERR_NACK, NODE_HAL_ERR_IO, or another mapped
+ *         error.
+ */
 static node_hal_err_t node_hal_i2c_transfer_result(node_hal_i2c_dev_t dev,
                                                    esp_err_t err,
-                                                   uint32_t timeout_ms) {
-  if (err != ESP_ERR_INVALID_STATE) {
-    return node_hal_err_from_esp(err);
-  }
-  node_hal_err_t probed = node_hal_i2c_probe(dev->bus, dev->addr7, timeout_ms);
-  return probed == NODE_HAL_OK ? NODE_HAL_ERR_IO : probed;
-}
+                                                   uint32_t timeout_ms);
 
 /* ==========================================================================
  * PUBLIC FUNCTIONS
@@ -193,4 +196,58 @@ node_hal_err_t node_hal_i2c_write_read(node_hal_i2c_dev_t dev, const uint8_t *w,
   esp_err_t err = i2c_master_transmit_receive(
       dev->handle, w, wlen, r, rlen, node_hal_i2c_timeout_for_idf(timeout_ms));
   return node_hal_i2c_transfer_result(dev, err, timeout_ms);
+}
+
+/* ==========================================================================
+ * PRIVATE FUNCTIONS
+ * ========================================================================== */
+
+static bool node_hal_i2c_bus_is_valid(node_hal_i2c_bus_t bus) {
+  for (size_t i = 0; i < SOC_I2C_NUM; i++) {
+    if (bus == &g_buses[i]) {
+      return bus->in_use;
+    }
+  }
+  return false;
+}
+
+static bool node_hal_i2c_dev_is_valid(node_hal_i2c_dev_t dev) {
+  for (size_t i = 0; i < I2C_MAX_DEVICES; i++) {
+    if (dev == &g_devices[i]) {
+      return dev->in_use;
+    }
+  }
+  return false;
+}
+
+static int node_hal_i2c_timeout_for_idf(uint32_t timeout_ms) {
+  return timeout_ms > INT_MAX ? INT_MAX : (int)timeout_ms;
+}
+
+static struct node_hal_i2c_dev *node_hal_i2c_free_device_slot(void) {
+  for (size_t i = 0; i < I2C_MAX_DEVICES; i++) {
+    if (!g_devices[i].in_use) {
+      return &g_devices[i];
+    }
+  }
+  return NULL;
+}
+
+static node_hal_err_t node_hal_i2c_probe_result(esp_err_t err) {
+  return err == ESP_ERR_NOT_FOUND ? NODE_HAL_ERR_NACK
+                                  : node_hal_err_from_esp(err);
+}
+
+/* In IDF 5.4.4 a synchronous transfer reports both a NACK and a hardware bus
+ * timeout as ESP_ERR_INVALID_STATE (i2c_master.c, s_i2c_transaction_start).
+ * Probing the address afterwards tells them apart: if the address is now
+ * acknowledged, the failure was in the data phase and is reported as IO. */
+static node_hal_err_t node_hal_i2c_transfer_result(node_hal_i2c_dev_t dev,
+                                                   esp_err_t err,
+                                                   uint32_t timeout_ms) {
+  if (err != ESP_ERR_INVALID_STATE) {
+    return node_hal_err_from_esp(err);
+  }
+  node_hal_err_t probed = node_hal_i2c_probe(dev->bus, dev->addr7, timeout_ms);
+  return probed == NODE_HAL_OK ? NODE_HAL_ERR_IO : probed;
 }

@@ -38,26 +38,35 @@ static int g_callback_pin = 0;
 static void *g_callback_ctx = NULL;
 
 /* ==========================================================================
- * PRIVATE FUNCTIONS
+ * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
 
-static void record_callback(int pin, void *ctx) {
-  g_callback_count++;
-  g_callback_pin = pin;
-  g_callback_ctx = ctx;
-}
+/**
+ * @brief GPIO callback that records its call in g_callback_count,
+ *        g_callback_pin and g_callback_ctx.
+ *
+ * @param pin GPIO number of the edge.
+ * @param ctx Context given to node_hal_gpio_set_isr().
+ */
+static void record_callback(int pin, void *ctx);
 
+/**
+ * @brief Configure a pin and fail the test if that fails.
+ *
+ * @param pin  GPIO number.
+ * @param dir  Direction.
+ * @param pull Pull resistor.
+ */
 static void configure_pin(int pin, node_hal_gpio_dir_t dir,
-                          node_hal_gpio_pull_t pull) {
-  TEST_ASSERT_EQUAL_INT(NODE_HAL_OK, node_hal_gpio_config(pin, dir, pull));
-}
+                          node_hal_gpio_pull_t pull);
 
-static void watch_button(node_hal_gpio_edge_t edge) {
-  configure_pin(BUTTON_PIN, NODE_HAL_GPIO_IN, NODE_HAL_GPIO_PULL_NONE);
-  TEST_ASSERT_EQUAL_INT(
-      NODE_HAL_OK,
-      node_hal_gpio_set_isr(BUTTON_PIN, edge, record_callback, NULL));
-}
+/**
+ * @brief Configure BUTTON_PIN as an input and register record_callback() for
+ *        @p edge. Fails the test if either step fails.
+ *
+ * @param edge Edge to watch for.
+ */
+static void watch_button(node_hal_gpio_edge_t edge);
 
 /* ==========================================================================
  * PUBLIC FUNCTIONS
@@ -221,4 +230,26 @@ int main(void) {
   RUN_TEST(test_watching_edges_without_a_callback_is_rejected);
   RUN_TEST(test_writing_to_a_pin_not_set_up_as_output_is_rejected);
   return UNITY_END();
+}
+
+/* ==========================================================================
+ * PRIVATE FUNCTIONS
+ * ========================================================================== */
+
+static void record_callback(int pin, void *ctx) {
+  g_callback_count++;
+  g_callback_pin = pin;
+  g_callback_ctx = ctx;
+}
+
+static void configure_pin(int pin, node_hal_gpio_dir_t dir,
+                          node_hal_gpio_pull_t pull) {
+  TEST_ASSERT_EQUAL_INT(NODE_HAL_OK, node_hal_gpio_config(pin, dir, pull));
+}
+
+static void watch_button(node_hal_gpio_edge_t edge) {
+  configure_pin(BUTTON_PIN, NODE_HAL_GPIO_IN, NODE_HAL_GPIO_PULL_NONE);
+  TEST_ASSERT_EQUAL_INT(
+      NODE_HAL_OK,
+      node_hal_gpio_set_isr(BUTTON_PIN, edge, record_callback, NULL));
 }

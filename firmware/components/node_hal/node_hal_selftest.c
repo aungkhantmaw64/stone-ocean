@@ -73,6 +73,72 @@ static const char *const TAG = "node_hal_selftest";
 static QueueHandle_t g_edge_queue = NULL;
 
 /* ==========================================================================
+ * PRIVATE FUNCTION PROTOTYPES
+ * ========================================================================== */
+
+/**
+ * @brief Probe every non-reserved 7-bit address on the self-test I2C bus and
+ *        log which acknowledge, including whether the SHTC3 is present.
+ */
+static void node_hal_selftest_scan_i2c(void);
+
+/**
+ * @brief GPIO ISR callback that queues the pin of a button edge.
+ *
+ * Runs in ISR context. An edge is dropped if g_edge_queue is full.
+ *
+ * @param pin GPIO number of the edge.
+ * @param ctx Unused.
+ */
+static void node_hal_selftest_on_button_edge(int pin, void *ctx);
+
+/**
+ * @brief Configure the button GPIO as an input with pull-up and watch it for
+ *        edges in both directions.
+ *
+ * @return True on success; false after logging the failure.
+ */
+static bool node_hal_selftest_watch_button(void);
+
+/**
+ * @brief Configure the output GPIO for toggling, if one is set.
+ *
+ * @return True if the output is ready to toggle; false if none is configured
+ *         or setup failed, which is logged.
+ */
+static bool node_hal_selftest_prepare_output(void);
+
+/**
+ * @brief Self-test task: scan I2C once, then log button edges and toggle the
+ *        output every TOGGLE_PERIOD_MS, forever.
+ *
+ * @param arg Unused.
+ */
+static void node_hal_selftest_task(void *arg);
+
+/* ==========================================================================
+ * PUBLIC FUNCTIONS
+ * ========================================================================== */
+
+void node_hal_selftest_start(void) {
+  if (g_edge_queue != NULL) {
+    ESP_LOGW(TAG, "self-test already started");
+    return;
+  }
+  g_edge_queue = xQueueCreate(EDGE_QUEUE_LENGTH, sizeof(int));
+  if (g_edge_queue == NULL) {
+    ESP_LOGE(TAG, "could not create the button edge queue");
+    return;
+  }
+  if (xTaskCreate(node_hal_selftest_task, TAG, TASK_STACK_BYTES, NULL,
+                  TASK_PRIORITY, NULL) != pdPASS) {
+    ESP_LOGE(TAG, "could not start the self-test task");
+    vQueueDelete(g_edge_queue);
+    g_edge_queue = NULL;
+  }
+}
+
+/* ==========================================================================
  * PRIVATE FUNCTIONS
  * ========================================================================== */
 
@@ -176,28 +242,6 @@ static void node_hal_selftest_task(void *arg) {
       }
       next_toggle_ms += TOGGLE_PERIOD_MS;
     }
-  }
-}
-
-/* ==========================================================================
- * PUBLIC FUNCTIONS
- * ========================================================================== */
-
-void node_hal_selftest_start(void) {
-  if (g_edge_queue != NULL) {
-    ESP_LOGW(TAG, "self-test already started");
-    return;
-  }
-  g_edge_queue = xQueueCreate(EDGE_QUEUE_LENGTH, sizeof(int));
-  if (g_edge_queue == NULL) {
-    ESP_LOGE(TAG, "could not create the button edge queue");
-    return;
-  }
-  if (xTaskCreate(node_hal_selftest_task, TAG, TASK_STACK_BYTES, NULL,
-                  TASK_PRIORITY, NULL) != pdPASS) {
-    ESP_LOGE(TAG, "could not start the self-test task");
-    vQueueDelete(g_edge_queue);
-    g_edge_queue = NULL;
   }
 }
 
