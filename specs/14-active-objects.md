@@ -90,12 +90,16 @@ Host-only helpers, declared in `node_ao_port_mock.h`:
 - **On hardware:** the HAL self-test, now an AO, still logs the I2C scan, BOOT-button edges and the output toggle as before (spec 02 verification steps).
 
 ## Acceptance criteria
-- [ ] AOs start, receive events in order, and dispatch the init event first (host tests).
-- [ ] Posting from tasks and ISRs never blocks, and rejects bad sizes, a full queue and an AO that is not started (host tests).
-- [ ] One-shot and periodic time events fire on virtual time, survive the millisecond wrap-around and never burst (host tests).
-- [ ] The public header compiles in the ESP-IDF and host builds with no FreeRTOS or ESP-IDF includes.
-- [ ] The HAL self-test runs as an AO, and no firmware code creates a plain FreeRTOS task or timer.
+- [x] AOs start, receive events in order, and dispatch the init event first (host tests).
+- [x] Posting from tasks and ISRs never blocks, and rejects bad sizes, a full queue and an AO that is not started (host tests).
+- [x] One-shot and periodic time events fire on virtual time, survive the millisecond wrap-around and never burst (host tests).
+- [x] The public header compiles in the ESP-IDF and host builds with no FreeRTOS or ESP-IDF includes.
+- [x] The HAL self-test runs as an AO, and no firmware code creates a plain FreeRTOS task or timer.
 - [ ] On hardware, the self-test log output is unchanged.
+
+Host tests: `test_node_ao` (15 tests) and `test_node_ao_time` (16 tests) pass under ASan, LSan and UBSan (commit 33e19fc). The FreeRTOS port is the only `xTaskCreate` in the firmware.
+
+Not yet verified on hardware: the self-test log on the board (AC 6). A QEMU boot of the hardware config (commit 87275ec) showed the self-test AO running its init event: the I2C scan and the button setup were logged as before. Button edges and the output toggle need the board.
 
 ## Open questions
 - None.
