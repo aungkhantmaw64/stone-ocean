@@ -1,6 +1,6 @@
 # 07 — GPIO drivers: PIR & LED
 
-**Status:** todo
+**Status:** in-progress
 **Depends on:** 06
 **Target:** ESP32-DevKitC · ESP-IDF v5.x · `firmware/components/node_dev/node_dev_pir.c`, `node_dev_led.c`
 
@@ -46,11 +46,19 @@ node_dev_err_t node_dev_led_register(void);   /* registers the LED driver (NODE_
   - Write configs with `default_on` true and false, and with `active_high` true and false, and check the LED's state after each boot. Switching the LED on and off at runtime is verified over the mesh in specs 11 and 12.
 
 ## Acceptance criteria
-- [ ] PIR and LED drivers register and instantiate from config.
-- [ ] PIR debounce and polarity behave as specified (host tests).
-- [ ] The PIR ISR does no work beyond posting an event.
-- [ ] LED honours `default_on` and `active_high`, and emits events only on change (host tests).
+- [x] PIR and LED drivers register and instantiate from config.
+- [x] PIR debounce and polarity behave as specified (host tests).
+- [x] The PIR ISR does no work beyond posting an event.
+- [x] LED honours `default_on` and `active_high`, and emits events only on change (host tests).
 - [ ] On hardware, motion events are logged and the LED's boot state follows `default_on` and `active_high`.
+
+Host tests: `test_node_dev_pir` (14 tests) and `test_node_dev_led` (12 tests) run the real drivers on the framework and mock HAL, and pass under ASan, LSan and UBSan (commit 21adf40). Mutation checks confirmed the tests catch a missing debounce, ignored PIR or LED polarity, a same-state switch that rewrites the pin, and a failed switch recorded as done.
+
+The PIR ISR (AC 3) is a single `node_dev_post_from_isr` call. The host tests check that an edge publishes and logs nothing until the devices AO runs, and that it queues exactly one event. An edge dropped because the devices AO's queue is full is not reported; the PIR keeps working from the next edge.
+
+A QEMU boot with `configs/example-shtc3-pir-led.json` (commit c3d4301) logged `pir1` and `led1` as ok, with `motion=0` and `on=0` published once after start.
+
+Not yet verified on hardware: AC 5.
 
 ## Open questions
 - Exact PIR module and its output voltage. Confirm 3.3 V-compatible output before wiring.

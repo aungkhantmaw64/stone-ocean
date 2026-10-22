@@ -3,6 +3,7 @@
  * ========================================================================== */
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #include "node_hal_mock.h"
 
@@ -17,6 +18,7 @@ typedef struct {
   node_hal_gpio_isr_cb cb;
   void *ctx;
   node_hal_gpio_edge_t edge;
+  size_t write_count; /**< Successful writes since the last reset. */
 } node_hal_gpio_mock_pin_t;
 
 /* ==========================================================================
@@ -25,6 +27,10 @@ typedef struct {
 
 /** @brief Simulated state of every pin, indexed by GPIO number. */
 static node_hal_gpio_mock_pin_t g_pins[NODE_HAL_MOCK_GPIO_COUNT] = {0};
+
+/** @brief Error the next write to a valid output pin returns; NODE_HAL_OK
+ *         if none is pending. Set by node_hal_gpio_mock_fail_next_write(). */
+static node_hal_err_t g_next_write_error = NODE_HAL_OK;
 
 /* ==========================================================================
  * PRIVATE FUNCTION PROTOTYPES
@@ -57,6 +63,7 @@ void node_hal_gpio_mock_reset(void) {
   for (int pin = 0; pin < NODE_HAL_MOCK_GPIO_COUNT; pin++) {
     g_pins[pin] = (node_hal_gpio_mock_pin_t){0};
   }
+  g_next_write_error = NODE_HAL_OK;
 }
 
 node_hal_err_t node_hal_gpio_config(int pin, node_hal_gpio_dir_t dir,
@@ -80,7 +87,13 @@ node_hal_err_t node_hal_gpio_write(int pin, int level) {
       g_pins[pin].dir != NODE_HAL_GPIO_OUT) {
     return NODE_HAL_ERR_ARG;
   }
+  if (g_next_write_error != NODE_HAL_OK) {
+    const node_hal_err_t err = g_next_write_error;
+    g_next_write_error = NODE_HAL_OK;
+    return err;
+  }
   g_pins[pin].level = level != 0;
+  g_pins[pin].write_count++;
   return NODE_HAL_OK;
 }
 
@@ -115,6 +128,17 @@ void node_hal_gpio_mock_set_input(int pin, int level) {
   if (p->cb != NULL && node_hal_gpio_edge_matches(p->edge, from, to)) {
     p->cb(pin, p->ctx);
   }
+}
+
+size_t node_hal_gpio_mock_write_count(int pin) {
+  if (!node_hal_gpio_pin_in_range(pin)) {
+    return 0;
+  }
+  return g_pins[pin].write_count;
+}
+
+void node_hal_gpio_mock_fail_next_write(node_hal_err_t err) {
+  g_next_write_error = err;
 }
 
 /* ==========================================================================
