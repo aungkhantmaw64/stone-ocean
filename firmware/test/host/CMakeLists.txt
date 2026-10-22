@@ -90,6 +90,26 @@ target_include_directories(node_config PUBLIC mocks PRIVATE ${NODE_CONFIG_DIR})
 target_compile_options(node_config PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(node_config PUBLIC node_config_api PRIVATE cjson)
 
+add_library(node_dev_api INTERFACE)
+target_include_directories(node_dev_api INTERFACE
+  ${FIRMWARE_DIR}/components/node_dev/include)
+target_link_libraries(node_dev_api INTERFACE node_ao_api node_config_api)
+
+add_library(node_dev_header_check OBJECT node_dev_header_check.c)
+target_compile_options(node_dev_header_check PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_dev_header_check PRIVATE node_dev_api)
+
+# The real node_dev sources, on the host node_ao port and the mock HAL, with
+# the host log mock in place of node_dev_log.c.
+set(NODE_DEV_DIR ${FIRMWARE_DIR}/components/node_dev)
+add_library(node_dev STATIC
+  ${NODE_DEV_DIR}/node_dev.c
+  ${NODE_DEV_DIR}/node_dev_report.c
+  mocks/node_dev_log.c)
+target_include_directories(node_dev PUBLIC mocks PRIVATE ${NODE_DEV_DIR})
+target_compile_options(node_dev PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_dev PUBLIC node_dev_api node_ao node_config PRIVATE m)
+
 add_library(config_store_api INTERFACE)
 target_include_directories(config_store_api INTERFACE
   ${FIRMWARE_DIR}/components/config_store/include)
@@ -170,6 +190,14 @@ target_link_libraries(test_node_ao_time PRIVATE node_ao)
 
 add_host_test(test_node_ao_pubsub test_node_ao_pubsub.c)
 target_link_libraries(test_node_ao_pubsub PRIVATE node_ao)
+
+add_host_test(test_node_dev_report test_node_dev_report.c)
+target_include_directories(test_node_dev_report PRIVATE ${NODE_DEV_DIR})
+target_link_libraries(test_node_dev_report PRIVATE node_dev)
+
+add_host_test(test_node_dev test_node_dev.c)
+target_include_directories(test_node_dev PRIVATE ${NODE_DEV_DIR})
+target_link_libraries(test_node_dev PRIVATE node_dev)
 
 add_host_test(test_node_config_parse test_node_config_parse.c)
 target_link_libraries(test_node_config_parse PRIVATE node_config

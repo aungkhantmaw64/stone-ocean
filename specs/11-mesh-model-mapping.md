@@ -9,7 +9,7 @@ Expose each configured device on the mesh through standard SIG models, so a gate
 
 ## Context
 - Composition and elements come from spec 10. This spec provides the `mesh_models_builder_t`.
-- Device data and commands go through the driver framework (06): this module is a `dev_listener_t`, and calls `device_set_onoff` / `device_get_value`.
+- Device data and commands go through the driver framework (06): this module subscribes to the `NODE_DEV_SIG_*` published events (spec 15) and keeps the latest value of each device in its own cache, and switches actuators with `node_dev_set_onoff`. Each device's config comes from the active config, at the device index.
 - The gateway script (12) is the counterpart client.
 
 ## Hardware details
@@ -29,15 +29,15 @@ N/A.
   - Sensor Server handles Sensor Descriptor Get and Sensor Get (all properties, or a single property).
   - Generic OnOff Server handles Get / Set / Set Unacknowledged, and replies with Status.
   - Publication: when the gateway has configured a publish address for a model, publish Sensor Status / Generic OnOff Status:
-    - on every `DEV_EVT_READING`, which the framework already throttles with min/max/delta (spec 06)
-    - immediately on `DEV_EVT_MOTION`
-    - on `DEV_EVT_ONOFF_CHANGED`, from any source
-  - Fault mapping: a device in `FAULT` answers Sensor Get with an empty/unknown value per the spec's "value unknown" rules. It also logs.
+    - on every `NODE_DEV_SIG_READING`, which the framework already throttles with min/max/delta (spec 06)
+    - immediately on `NODE_DEV_SIG_MOTION`
+    - on `NODE_DEV_SIG_ONOFF_CHANGED`, from any source
+  - Fault mapping: a device whose last `NODE_DEV_SIG_FAULT` had `fault=true` answers Sensor Get with an empty/unknown value per the spec's "value unknown" rules. It also logs.
 - Out of scope: Sensor Cadence/Settings beyond what the Setup Server needs to compile, vendor models, Generic OnOff transition time / delay (accepted but applied instantly in v1).
 
 ## Interface
 ```c
-void mesh_models_init(void);   /* registers builder with mesh_node and listener with devices */
+void mesh_models_init(void);   /* registers builder with mesh_node and subscribes to the NODE_DEV_SIG_* events */
 /* Internal helpers, exposed for host tests: */
 size_t mesh_encode_temp(float temp_c, uint8_t *out);      /* returns bytes written */
 size_t mesh_encode_rh(float rh_pct, uint8_t *out);
@@ -46,7 +46,7 @@ size_t mesh_build_sensor_status(int dev_index, uint16_t prop_id /* 0 = all */, u
 ```
 
 ## Behavior & constraints
-- Message handlers run in the BLE mesh task. They must not block. Reading the latest value is a cached read via `device_get_value`, and actuating posts via `device_set_onoff`.
+- Message handlers run in the BLE mesh task. They must not block. Reading the latest value comes from this module's own cache of published device events, and actuating posts via `node_dev_set_onoff`.
 - A Generic OnOff Set to the current state still replies with Status (acknowledged variant) but does not republish.
 - Encoding is little-endian, per the mesh spec. Out-of-range values are clamped to the characteristic's range.
 - Only enabled when the node is provisioned and composition matches (spec 10).
@@ -56,7 +56,7 @@ size_t mesh_build_sensor_status(int dev_index, uint16_t prop_id /* 0 = all */, u
   - value encoders (known answers incl. negative temperature, 0/100 % RH, rounding)
   - Sensor Status marshalling, both the single-property and all-properties forms (Marshalled Property ID format A/B per spec)
   - the event → publish decision table
-  - OnOff Set → `device_set_onoff` routing (mocked)
+  - OnOff Set → `node_dev_set_onoff` routing (mocked)
 - **On hardware**, with the gateway script (spec 12):
   - Sensor Get on the SHTC3 element returns values matching `devices`.
   - Motion publishes reach the gateway within 1 s.

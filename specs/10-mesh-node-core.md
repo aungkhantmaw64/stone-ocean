@@ -55,7 +55,7 @@ void mesh_node_set_models_builder(mesh_models_builder_t builder);
 - Unprovisioned: send unprovisioned beacons until provisioned.
 - After provisioning: persist state, and enable relay (the node is mains powered).
 - A reboot of a provisioned node resumes with the same unicast address and keys, with no reprovisioning.
-- Mesh tasks run at ESP-IDF default priorities. The devices task must stay below them (spec 06).
+- Mesh tasks run at ESP-IDF default priorities. The devices AO must stay below them (spec 06).
 - RAM: measure free heap after mesh start and log it. Fail the acceptance check if it is below 40 KB.
 
 ## Verification

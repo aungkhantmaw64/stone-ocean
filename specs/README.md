@@ -67,7 +67,7 @@ firmware/                 ESP-IDF project
     node_ao/              active object framework (event queues, time events) + FreeRTOS port
     node_config/          JSON parse + validate → node_config_t
     config_store/         LittleFS persistence of the raw config
-    drivers/              driver framework + pir, led, shtc3
+    node_dev/             device driver framework (devices AO) + pir, led, shtc3
     node_health/          watchdog, reset reason, crash counter, factory reset
     node_mesh/            ESP-BLE-MESH node, composition, model mapping
   test/host/              host unit tests (CMake + Unity + mock HAL)
@@ -89,7 +89,7 @@ tools/
 | 03 | [Config schema & parser](03-config-parser.md) | 01 | done |
 | 04 | [Config storage](04-config-storage.md) | 03 | done |
 | 05 | [PC config flashing tool](05-config-flash-tool.md) | 04 | done |
-| 06 | [Driver framework](06-driver-framework.md) | 02, 03, 14, 15 | todo |
+| 06 | [Driver framework](06-driver-framework.md) | 02, 03, 14, 15 | in-progress |
 | 07 | [GPIO drivers: PIR & LED](07-gpio-drivers.md) | 06 | todo |
 | 08 | [SHTC3 driver](08-shtc3-driver.md) | 06 | todo |
 | 09 | [Watchdog, reset reason & factory reset](09-health-factory-reset.md) | 02, 04, 05 | todo |

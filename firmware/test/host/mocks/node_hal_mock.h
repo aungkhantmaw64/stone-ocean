@@ -105,6 +105,16 @@ void node_hal_i2c_mock_queue_error(uint8_t addr7, node_hal_err_t err);
 void node_hal_i2c_mock_set_present(uint8_t addr7, bool present);
 
 /**
+ * @brief Make the next node_hal_i2c_bus_init() with valid arguments fail.
+ *
+ * The bus is not initialised and its port stays free, so a later init of
+ * the same port succeeds.
+ *
+ * @param err Error the init returns, for example NODE_HAL_ERR_IO.
+ */
+void node_hal_i2c_mock_fail_next_bus_init(node_hal_err_t err);
+
+/**
  * @brief Describe the first transfer that did not match the script.
  *
  * A mismatching transfer returns NODE_HAL_ERR_IO to its caller.
