@@ -18,7 +18,7 @@ Work through the phases below in order.
 
 1. Read the spec in full, plus `specs/README.md` for project-wide context (target hardware, toolchain, repository layout, simulation strategy).
 2. Read every spec listed under `Depends on`. Check that their code exists in the repo. If a dependency is missing or still `todo`, tell the developer and ask whether to continue anyway, stub it, or stop.
-3. Skim the existing code the feature touches: build files, the HAL, neighbouring components, existing tests. Match its naming, layout, error-handling style and comment density.
+3. Skim the existing code the feature touches: build files, the HAL, neighbouring components, existing tests. Match its naming, layout and error-handling style. Follow the documentation rules under **Rules**.
 4. Read `docs/unit-testing-standards.md`. You will need it in Phase 3.
 5. If the spec has **Open questions** that block implementation, or something in it is ambiguous, ask the developer now (AskUserQuestion when the answers fit a few clear options). Do not guess hardware facts such as pins, addresses, timings or register values.
 6. Check the git branch. If you are on `main` or `master`, propose a feature branch name (for example `feature/03-config-parser`) and create it once the developer agrees.
@@ -43,7 +43,7 @@ Present the plan as a numbered list. For each chunk give a title, the files it w
 For each chunk, in order:
 
 1. **Implement** only that chunk. Do not start work that belongs to a later chunk.
-2. **Verify** it as far as the environment allows. Build the affected targets (for example `scripts/build.sh`, `scripts/host_test.sh`, `idf.py build`) and run any existing tests. Fix failures before presenting. If something cannot be verified here (it needs real hardware, or the toolchain is missing), say so plainly.
+2. **Format and verify** it. First run `clang-format -i` (it uses the repo's `.clang-format`) on every C/C++ source and header you created or changed, so every chunk you present, including test chunks, is already formatted. Then verify it as far as the environment allows. Build the affected targets (for example `scripts/build.sh`, `scripts/host_test.sh`, `idf.py build`) and run any existing tests. Fix failures before presenting. If something cannot be verified here (it needs real hardware, or the toolchain is missing), say so plainly.
 3. **Present** a short review summary:
    - what changed and why, with `file:line` references to the key parts;
    - which acceptance criteria it covers;
@@ -88,5 +88,7 @@ Start only after the developer has agreed to proceed. Follow `docs/unit-testing-
 - Do not commit a chunk the developer has not approved. Do not push unless asked.
 - Never invent hardware facts (pins, I2C addresses, register maps, timings, emulator support). Ask, or leave a clearly marked `TODO(confirm):` and tell the developer.
 - Keep hardware access behind the project's HAL so logic stays host-testable.
+- Document every public function, type and macro in its header with a Doxygen block (`/** @brief … */` plus `@param`, and `@return` where there is a return value). Document behaviour, preconditions, units and calling context (for example "ISR context"), not the implementation.
+- Avoid inline comments that explain what the code does. If code needs explaining, make it self-explanatory instead: use clearer names, extract a well-named function, or use a named constant. Keep a comment only for what the code cannot say, such as a datasheet reference, a hardware quirk or the reason for a non-obvious choice.
 - Respect embedded constraints stated in the spec or README: memory budget, no dynamic allocation where forbidden, ISR versus task context, timing limits, `-Werror`.
 - Report results honestly. If a build or test fails, show the output. If a step was skipped, say so.
