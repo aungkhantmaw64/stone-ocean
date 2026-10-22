@@ -1,3 +1,7 @@
+/* ==========================================================================
+ * INCLUDES
+ * ========================================================================== */
+
 #include <limits.h>
 #include <stdbool.h>
 
@@ -7,9 +11,23 @@
 #include "node_hal_err.h"
 #include "node_hal_gpio_internal.h"
 
+/* ==========================================================================
+ * MACROS
+ * ========================================================================== */
+
+/** @brief Size of the device handle pool shared by all buses. */
 #define I2C_MAX_DEVICES 8
+
+/** @brief Highest 7-bit I2C address. */
 #define I2C_ADDR7_MAX 0x7F
+
+/** @brief Pulses on SDA or SCL shorter than this many I2C source clock cycles
+ *         are filtered out as glitches. */
 #define I2C_GLITCH_IGNORE_CYCLES 7
+
+/* ==========================================================================
+ * TYPES
+ * ========================================================================== */
 
 struct node_hal_i2c_bus {
   bool in_use;
@@ -24,12 +42,23 @@ struct node_hal_i2c_dev {
   i2c_master_dev_handle_t handle;
 };
 
-static struct node_hal_i2c_bus buses[SOC_I2C_NUM];
-static struct node_hal_i2c_dev devices[I2C_MAX_DEVICES];
+/* ==========================================================================
+ * GLOBAL VARIABLES
+ * ========================================================================== */
+
+/** @brief Bus handle pool, one entry per I2C controller, indexed by port. */
+static struct node_hal_i2c_bus g_buses[SOC_I2C_NUM] = {0};
+
+/** @brief Device handle pool, handed out by node_hal_i2c_dev_add(). */
+static struct node_hal_i2c_dev g_devices[I2C_MAX_DEVICES] = {0};
+
+/* ==========================================================================
+ * PRIVATE FUNCTIONS
+ * ========================================================================== */
 
 static bool node_hal_i2c_bus_is_valid(node_hal_i2c_bus_t bus) {
   for (size_t i = 0; i < SOC_I2C_NUM; i++) {
-    if (bus == &buses[i]) {
+    if (bus == &g_buses[i]) {
       return bus->in_use;
     }
   }
@@ -38,7 +67,7 @@ static bool node_hal_i2c_bus_is_valid(node_hal_i2c_bus_t bus) {
 
 static bool node_hal_i2c_dev_is_valid(node_hal_i2c_dev_t dev) {
   for (size_t i = 0; i < I2C_MAX_DEVICES; i++) {
-    if (dev == &devices[i]) {
+    if (dev == &g_devices[i]) {
       return dev->in_use;
     }
   }
@@ -49,10 +78,42 @@ static int node_hal_i2c_timeout_for_idf(uint32_t timeout_ms) {
   return timeout_ms > INT_MAX ? INT_MAX : (int)timeout_ms;
 }
 
+static struct node_hal_i2c_dev *node_hal_i2c_free_device_slot(void) {
+  for (size_t i = 0; i < I2C_MAX_DEVICES; i++) {
+    if (!g_devices[i].in_use) {
+      return &g_devices[i];
+    }
+  }
+  return NULL;
+}
+
+static node_hal_err_t node_hal_i2c_probe_result(esp_err_t err) {
+  return err == ESP_ERR_NOT_FOUND ? NODE_HAL_ERR_NACK
+                                  : node_hal_err_from_esp(err);
+}
+
+/* In IDF 5.4.4 a synchronous transfer reports both a NACK and a hardware bus
+ * timeout as ESP_ERR_INVALID_STATE (i2c_master.c, s_i2c_transaction_start).
+ * Probing the address afterwards tells them apart: if the address is now
+ * acknowledged, the failure was in the data phase and is reported as IO. */
+static node_hal_err_t node_hal_i2c_transfer_result(node_hal_i2c_dev_t dev,
+                                                   esp_err_t err,
+                                                   uint32_t timeout_ms) {
+  if (err != ESP_ERR_INVALID_STATE) {
+    return node_hal_err_from_esp(err);
+  }
+  node_hal_err_t probed = node_hal_i2c_probe(dev->bus, dev->addr7, timeout_ms);
+  return probed == NODE_HAL_OK ? NODE_HAL_ERR_IO : probed;
+}
+
+/* ==========================================================================
+ * PUBLIC FUNCTIONS
+ * ========================================================================== */
+
 node_hal_err_t node_hal_i2c_bus_init(int port, int sda, int scl,
                                      uint32_t freq_hz,
                                      node_hal_i2c_bus_t *out) {
-  if (port < 0 || port >= SOC_I2C_NUM || buses[port].in_use ||
+  if (port < 0 || port >= SOC_I2C_NUM || g_buses[port].in_use ||
       !node_hal_gpio_pin_is_usable(sda) || !node_hal_gpio_pin_is_usable(scl) ||
       sda == scl || freq_hz == 0 || out == NULL) {
     return NODE_HAL_ERR_ARG;
@@ -66,7 +127,7 @@ node_hal_err_t node_hal_i2c_bus_init(int port, int sda, int scl,
       .glitch_ignore_cnt = I2C_GLITCH_IGNORE_CYCLES,
       .flags.enable_internal_pullup = true,
   };
-  struct node_hal_i2c_bus *bus = &buses[port];
+  struct node_hal_i2c_bus *bus = &g_buses[port];
   node_hal_err_t err =
       node_hal_err_from_esp(i2c_new_master_bus(&cfg, &bus->handle));
   if (err != NODE_HAL_OK) {
@@ -76,15 +137,6 @@ node_hal_err_t node_hal_i2c_bus_init(int port, int sda, int scl,
   bus->in_use = true;
   *out = bus;
   return NODE_HAL_OK;
-}
-
-static struct node_hal_i2c_dev *node_hal_i2c_free_device_slot(void) {
-  for (size_t i = 0; i < I2C_MAX_DEVICES; i++) {
-    if (!devices[i].in_use) {
-      return &devices[i];
-    }
-  }
-  return NULL;
 }
 
 node_hal_err_t node_hal_i2c_dev_add(node_hal_i2c_bus_t bus, uint8_t addr7,
@@ -112,11 +164,6 @@ node_hal_err_t node_hal_i2c_dev_add(node_hal_i2c_bus_t bus, uint8_t addr7,
   return NODE_HAL_OK;
 }
 
-static node_hal_err_t node_hal_i2c_probe_result(esp_err_t err) {
-  return err == ESP_ERR_NOT_FOUND ? NODE_HAL_ERR_NACK
-                                  : node_hal_err_from_esp(err);
-}
-
 node_hal_err_t node_hal_i2c_probe(node_hal_i2c_bus_t bus, uint8_t addr7,
                                   uint32_t timeout_ms) {
   if (!node_hal_i2c_bus_is_valid(bus) || addr7 > I2C_ADDR7_MAX) {
@@ -124,20 +171,6 @@ node_hal_err_t node_hal_i2c_probe(node_hal_i2c_bus_t bus, uint8_t addr7,
   }
   return node_hal_i2c_probe_result(i2c_master_probe(
       bus->handle, addr7, node_hal_i2c_timeout_for_idf(timeout_ms)));
-}
-
-/* In IDF 5.4.4 a synchronous transfer reports both a NACK and a hardware bus
- * timeout as ESP_ERR_INVALID_STATE (i2c_master.c, s_i2c_transaction_start).
- * Probing the address afterwards tells them apart: if the address is now
- * acknowledged, the failure was in the data phase and is reported as IO. */
-static node_hal_err_t node_hal_i2c_transfer_result(node_hal_i2c_dev_t dev,
-                                                   esp_err_t err,
-                                                   uint32_t timeout_ms) {
-  if (err != ESP_ERR_INVALID_STATE) {
-    return node_hal_err_from_esp(err);
-  }
-  node_hal_err_t probed = node_hal_i2c_probe(dev->bus, dev->addr7, timeout_ms);
-  return probed == NODE_HAL_OK ? NODE_HAL_ERR_IO : probed;
 }
 
 node_hal_err_t node_hal_i2c_write(node_hal_i2c_dev_t dev, const uint8_t *buf,

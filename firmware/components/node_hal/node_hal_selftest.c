@@ -1,3 +1,7 @@
+/* ==========================================================================
+ * INCLUDES
+ * ========================================================================== */
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -12,20 +16,65 @@
 
 #if CONFIG_NODE_HAL_SELFTEST
 
+/* ==========================================================================
+ * MACROS
+ * ========================================================================== */
+
+/** @brief I2C controller used for the bus scan. */
 #define I2C_PORT 0
+
+/** @brief Bus clock for the scan, in Hz. */
 #define I2C_FREQ_HZ 100000
+
+/** @brief Time to wait for each address to acknowledge, in ms. */
 #define I2C_PROBE_TIMEOUT_MS 50
+
+/** @brief First address scanned; 0x00–0x07 are reserved by the I2C
+ *         specification. */
 #define I2C_SCAN_FIRST_ADDR 0x08
+
+/** @brief Last address scanned; 0x78–0x7F are reserved by the I2C
+ *         specification. */
 #define I2C_SCAN_LAST_ADDR 0x77
+
+/** @brief 7-bit address of the SHTC3 temperature and humidity sensor. */
 #define SHTC3_ADDR7 0x70
+
+/** @brief Value of CONFIG_NODE_HAL_SELFTEST_OUTPUT_GPIO meaning "do not
+ *         toggle an output". */
 #define NO_OUTPUT_GPIO (-1)
+
+/** @brief Time between output toggles, and the longest wait for a button
+ *         edge, in ms. */
 #define TOGGLE_PERIOD_MS 500
+
+/** @brief Button edges buffered between the ISR and the self-test task. */
 #define EDGE_QUEUE_LENGTH 8
+
+/** @brief Stack size of the self-test task, in bytes. */
 #define TASK_STACK_BYTES 3072
+
+/** @brief FreeRTOS priority of the self-test task. */
 #define TASK_PRIORITY 5
 
-static const char *TAG = "node_hal_selftest";
-static QueueHandle_t edge_queue;
+/* ==========================================================================
+ * GLOBAL VARIABLES
+ * ========================================================================== */
+
+/** @brief Log tag for self-test output and name of the self-test task. */
+static const char *const TAG = "node_hal_selftest";
+
+/**
+ * @brief Pin numbers of button edges.
+ *
+ * Sent from ISR context by node_hal_selftest_on_button_edge() and received by
+ * the self-test task.
+ */
+static QueueHandle_t g_edge_queue = NULL;
+
+/* ==========================================================================
+ * PRIVATE FUNCTIONS
+ * ========================================================================== */
 
 static void node_hal_selftest_scan_i2c(void) {
   node_hal_i2c_bus_t bus = NULL;
@@ -61,7 +110,9 @@ static void node_hal_selftest_scan_i2c(void) {
 static void node_hal_selftest_on_button_edge(int pin, void *ctx) {
   (void)ctx;
   BaseType_t woken = pdFALSE;
-  xQueueSendFromISR(edge_queue, &pin, &woken);
+  /* An ISR must not block, so an edge that arrives while the queue is full
+   * is dropped. */
+  (void)xQueueSendFromISR(g_edge_queue, &pin, &woken);
   portYIELD_FROM_ISR(woken);
 }
 
@@ -101,31 +152,52 @@ static bool node_hal_selftest_prepare_output(void) {
 static void node_hal_selftest_task(void *arg) {
   (void)arg;
   node_hal_selftest_scan_i2c();
-  node_hal_selftest_watch_button();
+  /* A failed button setup is already logged; the output toggle still runs. */
+  (void)node_hal_selftest_watch_button();
   bool toggling = node_hal_selftest_prepare_output();
 
   int level = 0;
   uint32_t next_toggle_ms = node_hal_time_ms() + TOGGLE_PERIOD_MS;
   for (;;) {
-    int pin;
-    if (xQueueReceive(edge_queue, &pin, pdMS_TO_TICKS(TOGGLE_PERIOD_MS))) {
+    int pin = 0;
+    if (xQueueReceive(g_edge_queue, &pin, pdMS_TO_TICKS(TOGGLE_PERIOD_MS)) ==
+        pdTRUE) {
       ESP_LOGI(TAG, "edge on GPIO %d at %lu ms, level now %d", pin,
                (unsigned long)node_hal_time_ms(), node_hal_gpio_read(pin));
     }
     if (toggling && (int32_t)(node_hal_time_ms() - next_toggle_ms) >= 0) {
       level = !level;
-      node_hal_gpio_write(CONFIG_NODE_HAL_SELFTEST_OUTPUT_GPIO, level);
+      node_hal_err_t err =
+          node_hal_gpio_write(CONFIG_NODE_HAL_SELFTEST_OUTPUT_GPIO, level);
+      if (err != NODE_HAL_OK) {
+        ESP_LOGE(TAG, "output GPIO %d write failed: %d; stopped toggling",
+                 CONFIG_NODE_HAL_SELFTEST_OUTPUT_GPIO, err);
+        toggling = false;
+      }
       next_toggle_ms += TOGGLE_PERIOD_MS;
     }
   }
 }
 
+/* ==========================================================================
+ * PUBLIC FUNCTIONS
+ * ========================================================================== */
+
 void node_hal_selftest_start(void) {
-  edge_queue = xQueueCreate(EDGE_QUEUE_LENGTH, sizeof(int));
-  if (edge_queue == NULL ||
-      xTaskCreate(node_hal_selftest_task, TAG, TASK_STACK_BYTES, NULL,
+  if (g_edge_queue != NULL) {
+    ESP_LOGW(TAG, "self-test already started");
+    return;
+  }
+  g_edge_queue = xQueueCreate(EDGE_QUEUE_LENGTH, sizeof(int));
+  if (g_edge_queue == NULL) {
+    ESP_LOGE(TAG, "could not create the button edge queue");
+    return;
+  }
+  if (xTaskCreate(node_hal_selftest_task, TAG, TASK_STACK_BYTES, NULL,
                   TASK_PRIORITY, NULL) != pdPASS) {
     ESP_LOGE(TAG, "could not start the self-test task");
+    vQueueDelete(g_edge_queue);
+    g_edge_queue = NULL;
   }
 }
 

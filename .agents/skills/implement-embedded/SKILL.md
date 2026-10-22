@@ -10,7 +10,7 @@ You are acting as an embedded firmware implementer. You turn **one feature spec*
 The feature specification is: `$ARGUMENTS`.
 - If it is a path to a spec (for example `specs/03-config-parser.md`), read that file. It is the source of truth.
 - If it is a free-text description, treat it as the spec. Before Phase 1, write it to `specs/NN-<kebab-name>.md` using the template in `specs/README.md` or the existing specs (continue the numbering), and add it to the chunk table in `specs/README.md`. Show the developer the spec file and get their confirmation first.
-- If it is empty, ask the developer for a spec path or a feature description and stop until they answer.
+- If it is empty, ask the developer "What are you working on?" and stop until they answer. Treat their answer as a free-text feature description and handle it as in the previous point.
 
 Work through the phases below in order.
 
@@ -93,8 +93,34 @@ Start only after the developer has agreed to proceed. Follow `docs/unit-testing-
   - Source files take the component name as a prefix: `<component>_<area>.c` (for example `node_hal_gpio.c` in component `node_hal`). A host mock or fake that replaces a source file uses the same file name in its own directory.
   - Every function, static helpers included, takes its source file's name as a prefix: functions in `node_hal_gpio.c` are `node_hal_gpio_*`. Test-only helpers in a mock follow their file too (`node_hal_gpio_mock_set_input`).
   - Public types, enum values and macros take the component prefix (`node_hal_err_t`, `NODE_HAL_OK`).
+  - Global variables, meaning any variable at file scope, `static` ones included, take a `g_` prefix: `g_isr_service_installed`.
   - Exceptions: `main/` keeps ESP-IDF's fixed names, such as `app_main`. Unit test files and test functions follow `docs/unit-testing-standards.md` (`test_<module>.c`, `test_<sentence>`).
+- Zero-initialize every variable where you declare it (`int count = 0;`, `node_hal_gpio_config_t config = {0};`, `char buf[16] = {0};`), globals and locals alike, even when it is assigned before it is used.
 - Document every public function, type and macro in its header with a Doxygen block (`/** @brief … */` plus `@param`, and `@return` where there is a return value). Document behaviour, preconditions, units and calling context (for example "ISR context"), not the implementation.
+- Document every global variable and every macro, private ones in `.c` files included, with a Doxygen block where it is defined: `/** @brief … */`, or a trailing `/**< … */` for a short one. Say what it holds, its units, and who writes it (for example "written from ISR context").
+- Split every source and header file into sections, each opened by a banner, in this order. Leave out a section that would be empty.
+
+  ```c
+  /* ==========================================================================
+   * MACROS
+   * ========================================================================== */
+  ```
+
+  - `.c` files: `INCLUDES`, `MACROS`, `TYPES`, `GLOBAL VARIABLES`, `PRIVATE FUNCTION PROTOTYPES`, `PRIVATE FUNCTIONS`, `PUBLIC FUNCTIONS`.
+  - Headers: `INCLUDES`, `MACROS`, `TYPES`, `PUBLIC FUNCTIONS`. The include guard and any `@file` block come before the first section. An `extern "C"` block opens after `INCLUDES` and closes at the end of the file.
+
+  `PRIVATE FUNCTIONS` holds the `static` functions and `PUBLIC FUNCTIONS` the ones declared in a header. A file that keeps its private functions above their first use needs no `PRIVATE FUNCTION PROTOTYPES`. In a unit test file, `setUp()`, `tearDown()`, the tests and `main()` go under `PUBLIC FUNCTIONS`, and the test groups keep their own headings inside it. Unit test files follow `docs/unit-testing-standards.md` where it says otherwise.
 - Avoid inline comments that explain what the code does. If code needs explaining, make it self-explanatory instead: use clearer names, extract a well-named function, or use a named constant. Keep a comment only for what the code cannot say, such as a datasheet reference, a hardware quirk or the reason for a non-obvious choice.
+- Do not use `extern` or `volatile` without a reason you can justify, and put that reason in a comment next to it.
+  - `extern`: share state through functions declared in a header, not through `extern` variables. The `extern "C"` block in a header is fine.
+  - `volatile`: use it only for memory-mapped registers or a variable that an ISR shares with a task. Even then, it gives no atomicity or ordering. Use a critical section, a FreeRTOS primitive or `<stdatomic.h>` when those are needed.
+- Code defensively and use safe C wherever possible:
+  - Validate every argument of a public function: `NULL` pointers, out-of-range values, enum values and buffer lengths. Return an error code; never crash or assert on bad input from a caller.
+  - Check every return value that can report an error, and pass the error on or handle it. Cast an ignored result to `(void)` only where ignoring it is deliberate, and say why.
+  - Bounds-check every array index and buffer write. Use `snprintf`, `memcpy` with a checked length, and `sizeof` of the destination. Never use `strcpy`, `strcat`, `sprintf`, `gets` or other unbounded string functions.
+  - Use fixed-width integer types (`uint8_t`, `int32_t`, `size_t` for sizes) wherever width matters. Guard against overflow, wrap-around and signed/unsigned mix-ups in arithmetic and comparisons, and cast explicitly.
+  - Make pointers and data `const` wherever they are not written, and make file-local functions and variables `static`.
+  - Give every `switch` a `default`, every `if`/`else` and loop body braces, and every loop a fixed bound, except the endless main loop of a task.
+  - No recursion and no variable-length arrays. Keep stack use bounded, especially in ISRs and small tasks.
 - Respect embedded constraints stated in the spec or README: memory budget, no dynamic allocation where forbidden, ISR versus task context, timing limits, `-Werror`.
 - Report results honestly. If a build or test fails, show the output. If a step was skipped, say so.

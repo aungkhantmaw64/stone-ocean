@@ -1,36 +1,78 @@
+/* ==========================================================================
+ * INCLUDES
+ * ========================================================================== */
+
 #include <stdint.h>
 
 #include "node_hal_mock.h"
 #include "unity.h"
 
+/* ==========================================================================
+ * MACROS
+ * ========================================================================== */
+
+/** @brief I2C controller of the test bus. */
 #define I2C_PORT 0
+
+/** @brief Data pin of the test bus. */
 #define SDA_PIN 32
+
+/** @brief Clock pin of the test bus. */
 #define SCL_PIN 33
+
+/** @brief Clock of the test bus, in Hz. */
 #define BUS_FREQ_HZ 100000
+
+/** @brief Timeout passed to every transfer and probe, in ms. */
 #define TIMEOUT_MS 50
+
+/** @brief Address of the scripted sensor. */
 #define SENSOR_ADDR 0x70
+
+/** @brief Address of a second device, distinct from SENSOR_ADDR. */
 #define OTHER_ADDR 0x44
+
+/** @brief Lowest address that does not fit in 7 bits. */
 #define FIRST_INVALID_ADDR 0x80
+
+/** @brief Number of devices the HAL can register at once. */
 #define DEVICE_POOL_SIZE 8
 
-/* A sensor command and a 3-byte answer; the values only need to be distinct. */
+/* ==========================================================================
+ * GLOBAL VARIABLES
+ * ========================================================================== */
+
+/** @brief A sensor command; the values only need to differ from
+ *         sensor_answer. */
 static const uint8_t measure_command[] = {0x78, 0x66};
+
+/** @brief A 3-byte sensor answer; the values only need to differ from
+ *         measure_command. */
 static const uint8_t sensor_answer[] = {0x66, 0x66, 0x93};
 
-static node_hal_i2c_bus_t bus;
+/** @brief Bus that setUp() initialises for every test. */
+static node_hal_i2c_bus_t g_bus = NULL;
+
+/* ==========================================================================
+ * PRIVATE FUNCTIONS
+ * ========================================================================== */
 
 static node_hal_i2c_dev_t add_device(uint8_t addr7) {
   node_hal_i2c_dev_t dev = NULL;
-  TEST_ASSERT_EQUAL_INT(NODE_HAL_OK, node_hal_i2c_dev_add(bus, addr7, &dev));
+  TEST_ASSERT_EQUAL_INT(NODE_HAL_OK, node_hal_i2c_dev_add(g_bus, addr7, &dev));
   return dev;
 }
 
+/* ==========================================================================
+ * PUBLIC FUNCTIONS
+ * ========================================================================== */
+
 void setUp(void) {
   node_hal_mock_reset();
-  bus = NULL;
+  g_bus = NULL;
   TEST_ASSERT_EQUAL_INT(
       NODE_HAL_OK,
-      node_hal_i2c_bus_init(I2C_PORT, SDA_PIN, SCL_PIN, BUS_FREQ_HZ, &bus));
+      node_hal_i2c_bus_init(I2C_PORT, SDA_PIN, SCL_PIN, BUS_FREQ_HZ, &g_bus));
 }
 
 void tearDown(void) {}
@@ -121,8 +163,9 @@ void test_script_reports_steps_that_were_never_used(void) {
   node_hal_i2c_mock_queue_read(SENSOR_ADDR, sensor_answer,
                                sizeof sensor_answer);
 
-  node_hal_i2c_write(sensor, measure_command, sizeof measure_command,
-                     TIMEOUT_MS);
+  TEST_ASSERT_EQUAL_INT(NODE_HAL_OK,
+                        node_hal_i2c_write(sensor, measure_command,
+                                           sizeof measure_command, TIMEOUT_MS));
 
   TEST_ASSERT_EQUAL_size_t(1, node_hal_i2c_mock_pending_steps());
 }
@@ -132,9 +175,9 @@ void test_probe_finds_only_devices_marked_present(void) {
   node_hal_i2c_mock_set_present(SENSOR_ADDR, true);
 
   TEST_ASSERT_EQUAL_INT(NODE_HAL_OK,
-                        node_hal_i2c_probe(bus, SENSOR_ADDR, TIMEOUT_MS));
+                        node_hal_i2c_probe(g_bus, SENSOR_ADDR, TIMEOUT_MS));
   TEST_ASSERT_EQUAL_INT(NODE_HAL_ERR_NACK,
-                        node_hal_i2c_probe(bus, OTHER_ADDR, TIMEOUT_MS));
+                        node_hal_i2c_probe(g_bus, OTHER_ADDR, TIMEOUT_MS));
 }
 
 /* AC: specs/02-hal.md #3 */
@@ -145,7 +188,9 @@ void test_reset_clears_the_script_and_any_recorded_failure(void) {
   node_hal_i2c_mock_expect_write(SENSOR_ADDR, measure_command,
                                  sizeof measure_command);
   const uint8_t wrong_command[] = {0x00};
-  node_hal_i2c_write(sensor, wrong_command, sizeof wrong_command, TIMEOUT_MS);
+  TEST_ASSERT_EQUAL_INT(NODE_HAL_ERR_IO,
+                        node_hal_i2c_write(sensor, wrong_command,
+                                           sizeof wrong_command, TIMEOUT_MS));
 
   node_hal_mock_reset();
 
@@ -201,10 +246,10 @@ void test_device_address_above_7_bits_is_rejected(void) {
   node_hal_i2c_dev_t dev = NULL;
 
   TEST_ASSERT_EQUAL_INT(NODE_HAL_ERR_ARG,
-                        node_hal_i2c_dev_add(bus, FIRST_INVALID_ADDR, &dev));
+                        node_hal_i2c_dev_add(g_bus, FIRST_INVALID_ADDR, &dev));
   TEST_ASSERT_EQUAL_INT(
       NODE_HAL_ERR_ARG,
-      node_hal_i2c_probe(bus, FIRST_INVALID_ADDR, TIMEOUT_MS));
+      node_hal_i2c_probe(g_bus, FIRST_INVALID_ADDR, TIMEOUT_MS));
 }
 
 /* AC: specs/02-hal.md #4 */
@@ -214,7 +259,7 @@ void test_ninth_device_is_rejected_when_the_device_pool_is_full(void) {
   }
   node_hal_i2c_dev_t ninth = NULL;
 
-  node_hal_err_t err = node_hal_i2c_dev_add(bus, SENSOR_ADDR, &ninth);
+  node_hal_err_t err = node_hal_i2c_dev_add(g_bus, SENSOR_ADDR, &ninth);
 
   TEST_ASSERT_EQUAL_INT(NODE_HAL_ERR_ARG, err);
 }

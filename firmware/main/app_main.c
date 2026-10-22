@@ -1,3 +1,7 @@
+/* ==========================================================================
+ * INCLUDES
+ * ========================================================================== */
+
 #include "esp_app_desc.h"
 #include "esp_idf_version.h"
 #include "esp_log.h"
@@ -5,13 +9,27 @@
 
 #include "boot_sequence.h"
 
+/* ==========================================================================
+ * MACROS
+ * ========================================================================== */
+
+/** @brief Build flavour named in the boot banner: real hardware or QEMU. */
 #if CONFIG_NODE_MESH_ENABLE
 #define BUILD_FLAVOUR "hw"
 #else
 #define BUILD_FLAVOUR "qemu"
 #endif
 
-static const char *TAG = "app_main";
+/* ==========================================================================
+ * GLOBAL VARIABLES
+ * ========================================================================== */
+
+/** @brief Log tag for the boot banner. */
+static const char *const TAG = "app_main";
+
+/* ==========================================================================
+ * PUBLIC FUNCTIONS
+ * ========================================================================== */
 
 void app_main(void) {
   const esp_app_desc_t *app = esp_app_get_description();

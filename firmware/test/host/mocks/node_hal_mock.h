@@ -8,11 +8,19 @@
  * every test's setUp() so tests stay independent.
  */
 
+/* ==========================================================================
+ * INCLUDES
+ * ========================================================================== */
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include "node_hal.h"
+
+/* ==========================================================================
+ * MACROS
+ * ========================================================================== */
 
 /** @brief Number of GPIO numbers the mock accepts: 0 to 39, as on ESP32. */
 #define NODE_HAL_MOCK_GPIO_COUNT 40
@@ -22,6 +30,10 @@
 
 /** @brief Maximum number of bytes in one scripted I2C write or read. */
 #define NODE_HAL_MOCK_I2C_MAX_DATA 32
+
+/* ==========================================================================
+ * PUBLIC FUNCTIONS
+ * ========================================================================== */
 
 /** @brief Clear all GPIO, I2C and time state. */
 void node_hal_mock_reset(void);

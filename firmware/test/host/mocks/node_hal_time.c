@@ -1,13 +1,27 @@
+/* ==========================================================================
+ * INCLUDES
+ * ========================================================================== */
+
 #include "node_hal_mock.h"
 
-static uint32_t now_ms;
+/* ==========================================================================
+ * GLOBAL VARIABLES
+ * ========================================================================== */
 
-void node_hal_time_mock_reset(void) { now_ms = 0; }
+/** @brief Virtual time since the last reset, in ms; wraps around like the
+ *         real clock. */
+static uint32_t g_now_ms = 0;
 
-void node_hal_time_mock_advance(uint32_t ms) { now_ms += ms; }
+/* ==========================================================================
+ * PUBLIC FUNCTIONS
+ * ========================================================================== */
 
-void node_hal_time_mock_set(uint32_t ms) { now_ms = ms; }
+void node_hal_time_mock_reset(void) { g_now_ms = 0; }
 
-uint32_t node_hal_time_ms(void) { return now_ms; }
+void node_hal_time_mock_advance(uint32_t ms) { g_now_ms += ms; }
 
-void node_hal_time_delay_ms(uint32_t ms) { now_ms += ms; }
+void node_hal_time_mock_set(uint32_t ms) { g_now_ms = ms; }
+
+uint32_t node_hal_time_ms(void) { return g_now_ms; }
+
+void node_hal_time_delay_ms(uint32_t ms) { g_now_ms += ms; }

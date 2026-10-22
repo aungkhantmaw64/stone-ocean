@@ -1,11 +1,29 @@
+/* ==========================================================================
+ * INCLUDES
+ * ========================================================================== */
+
 #include <stdint.h>
 
 #include "node_hal_mock.h"
 #include "unity.h"
 
+/* ==========================================================================
+ * MACROS
+ * ========================================================================== */
+
+/** @brief One second, in ms. */
 #define ONE_SECOND_MS 1000
+
+/** @brief Example sensor polling interval, in ms. */
 #define SENSOR_INTERVAL_MS 250
+
+/** @brief How long before the clock wraps the wrap-around tests start, in ms.
+ */
 #define MS_BEFORE_WRAP 100
+
+/* ==========================================================================
+ * PUBLIC FUNCTIONS
+ * ========================================================================== */
 
 void setUp(void) { node_hal_mock_reset(); }
 
