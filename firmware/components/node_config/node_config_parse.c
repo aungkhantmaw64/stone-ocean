@@ -238,6 +238,9 @@ node_config_err_code_t node_config_parse(const char *json, size_t len,
 
   node_config_err_code_t code = node_config_parse_root(root, out, err);
   cJSON_Delete(root);
+  if (code == NODE_CONFIG_OK) {
+    code = node_config_validate(out, err);
+  }
   if (code != NODE_CONFIG_OK) {
     (void)memset(out, 0, sizeof(*out));
   }
@@ -323,8 +326,8 @@ node_config_parse_i2c_buses(const cJSON *root, node_config_t *out,
 }
 
 /* Port and frequency limits are checked here, per field. Rules that relate
- * several fields or entries (pins, duplicates) are checked once the whole
- * config is parsed. */
+ * several fields or entries (pins, duplicates) are checked by
+ * node_config_validate() once the whole config is parsed. */
 static node_config_err_code_t
 node_config_parse_i2c_bus(const cJSON *item, const char *path,
                           node_config_i2c_bus_t *bus, node_config_err_t *err) {
@@ -466,7 +469,7 @@ node_config_parse_shtc3(const cJSON *item, const char *path,
   return code;
 }
 
-/* The order of min and max is checked once the whole config is parsed. */
+/* The order of min and max is checked by node_config_validate(). */
 static node_config_err_code_t
 node_config_parse_report(const cJSON *item, const char *path,
                          node_config_report_t *report, node_config_err_t *err) {

@@ -42,6 +42,21 @@ node_config_err_set(node_config_err_t *err, node_config_err_code_t code,
     __attribute__((format(printf, 4, 5)));
 
 /**
+ * @brief Check the rules that span fields or entries of a parsed config.
+ *
+ * Checks, in config order: ids unique across buses and devices, I2C ports
+ * unique, pin rules for each GPIO and how it is used, no GPIO claimed twice,
+ * and report min_interval_ms <= max_interval_ms. Strapping pins are logged as
+ * warnings. Stops at the first error.
+ *
+ * @param cfg Config filled by the parser; must not be NULL.
+ * @param err Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, or the code of the first error found.
+ */
+node_config_err_code_t node_config_validate(const node_config_t *cfg,
+                                            node_config_err_t *err);
+
+/**
  * @brief Log a warning about a config value that is accepted anyway.
  *
  * Logs "<path>: <reason>" with ESP_LOGW on the target. The host mock records
