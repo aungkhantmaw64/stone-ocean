@@ -18,7 +18,7 @@ ESP32-DevKitC with on-board USB-UART bridge. Flashing and logging go through `id
 
 ## Scope
 - In scope:
-  - Repository layout as listed in `specs/README.md`, with empty component stubs that compile.
+  - The `firmware/` ESP-IDF project with `main/`. Each component under `firmware/components/` is created by the spec that implements it, not stubbed in advance.
   - A custom partition table with a factory app partition large enough for Bluedroid + BLE Mesh (2 MB to start; the rest of the 16 MB flash stays unallocated), plus `nvs` and `phy_init`.
   - `sdkconfig.defaults`: Bluetooth enabled (BLE only, Bluedroid), `CONFIG_BLE_MESH=y`, and a project Kconfig option `NODE_MESH_ENABLE` (default `y`).
   - `sdkconfig.qemu`: `NODE_MESH_ENABLE=n`, Bluetooth disabled.

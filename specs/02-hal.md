@@ -2,12 +2,14 @@
 
 **Status:** todo
 **Depends on:** 01
-**Target:** ESP32-DevKitC · ESP-IDF v5.x · `firmware/components/hal`
+**Target:** ESP32-DevKitC · ESP-IDF v5.x · `firmware/components/node_hal`
 
 ## Goal
 Provide a thin hardware abstraction for GPIO, I2C and time so drivers and logic can be unit-tested on the host with a mock. Without this seam, everything above would only be testable on hardware.
 
 ## Context
+The component is named `node_hal`, not `hal`. ESP-IDF has a built-in `hal` component, and a project component with the same name replaces it and breaks the build. For the same reason, public headers must not be placed under a `hal/` include directory. The `hal_` function prefix is fine.
+
 Drivers (specs 07, 08) and the health module (09) use only this HAL, never ESP-IDF driver headers directly. Two implementations exist:
 - `hal_esp`: ESP-IDF implementation, using the `driver/gpio.h` and `driver/i2c_master.h` new I2C master API (IDF ≥ 5.2).
 - `hal_mock`: host implementation in `firmware/test/host/mocks/`, with scripted I2C responses and controllable time and GPIO levels.

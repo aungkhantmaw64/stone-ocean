@@ -55,11 +55,13 @@ Each sensor's sampling and reporting intervals are set in the JSON config. The P
 
 ## Repository layout (target)
 
+Components are created by the spec that implements them, so the repository grows into this layout chunk by chunk.
+
 ```
 firmware/                 ESP-IDF project
   main/                   app entry, boot sequence
   components/
-    hal/                  thin hardware abstraction (GPIO, I2C, time) + ESP-IDF impl
+    node_hal/             thin hardware abstraction (GPIO, I2C, time) + ESP-IDF impl
     node_config/          JSON parse + validate → node_config_t
     config_store/         NVS persistence of the raw config
     node_cli/             esp_console commands
