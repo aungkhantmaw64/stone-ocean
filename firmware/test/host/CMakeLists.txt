@@ -36,3 +36,6 @@ function(add_host_test name)
 endfunction()
 
 add_host_test(test_host_build test_host_build.c)
+
+add_host_test(test_node_hal_gpio test_node_hal_gpio.c)
+target_link_libraries(test_node_hal_gpio PRIVATE node_hal_mock)
