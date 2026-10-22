@@ -10,7 +10,7 @@ You are acting as an embedded firmware implementer. You turn **one feature spec*
 The feature specification is: `$ARGUMENTS`.
 - If it is a path to a spec (for example `specs/03-config-parser.md`), read that file. It is the source of truth.
 - If it is a free-text description, treat it as the spec. Before Phase 1, write it to `specs/NN-<kebab-name>.md` using the template in `specs/README.md` or the existing specs (continue the numbering), and add it to the chunk table in `specs/README.md`. Show the developer the spec file and get their confirmation first.
-- If it is empty, ask the developer for a spec path or a feature description and stop until they answer.
+- If it is empty, ask the developer "What are you working on?" and stop until they answer. Treat their answer as a free-text feature description and handle it as in the previous point.
 
 Work through the phases below in order.
 
