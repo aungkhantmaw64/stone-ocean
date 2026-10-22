@@ -7,6 +7,18 @@ FetchContent_Declare(unity
   URL_HASH SHA256=e84eb301ca7967831e68b1728f911e87fa2d345d8ddb64f897bc2f2ee24a321c)
 FetchContent_MakeAvailable(unity)
 
+# Same cJSON version as ESP-IDF v5.4.4's json component. SOURCE_SUBDIR points
+# at a directory that does not exist so only the sources are downloaded; cJSON's
+# own CMake project is not used.
+FetchContent_Declare(cjson
+  URL https://github.com/DaveGamble/cJSON/archive/refs/tags/v1.7.19.tar.gz
+  URL_HASH SHA256=7fa616e3046edfa7a28a32d5f9eacfd23f92900fe1f8ccd988c1662f30454562
+  SOURCE_SUBDIR do-not-configure)
+FetchContent_MakeAvailable(cjson)
+
+add_library(cjson STATIC ${cjson_SOURCE_DIR}/cJSON.c)
+target_include_directories(cjson SYSTEM PUBLIC ${cjson_SOURCE_DIR})
+
 set(FIRMWARE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 
 add_library(node_hal_api INTERFACE)
@@ -34,6 +46,16 @@ target_link_libraries(node_config_api INTERFACE node_hal_api)
 add_library(node_config_header_check OBJECT node_config_header_check.c)
 target_compile_options(node_config_header_check PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(node_config_header_check PRIVATE node_config_api)
+
+# The real parser sources, with the host log mock in place of
+# node_config_log.c.
+set(NODE_CONFIG_DIR ${FIRMWARE_DIR}/components/node_config)
+add_library(node_config STATIC
+  ${NODE_CONFIG_DIR}/node_config_err.c
+  mocks/node_config_log.c)
+target_include_directories(node_config PUBLIC mocks PRIVATE ${NODE_CONFIG_DIR})
+target_compile_options(node_config PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_config PUBLIC node_config_api PRIVATE cjson)
 
 enable_testing()
 
