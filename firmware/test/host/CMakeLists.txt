@@ -152,3 +152,11 @@ target_link_libraries(test_node_config_validate PRIVATE node_config)
 add_host_test(test_node_config_composition test_node_config_composition.c)
 target_link_libraries(test_node_config_composition PRIVATE node_config
                       node_config_example)
+
+add_host_test(test_config_store_crc test_config_store_crc.c)
+target_include_directories(test_config_store_crc PRIVATE ${CONFIG_STORE_DIR})
+target_link_libraries(test_config_store_crc PRIVATE config_store)
+
+add_host_test(test_config_store test_config_store.c)
+target_include_directories(test_config_store PRIVATE ${CONFIG_STORE_DIR})
+target_link_libraries(test_config_store PRIVATE config_store)
