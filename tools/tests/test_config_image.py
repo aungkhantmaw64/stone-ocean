@@ -4,7 +4,7 @@ import struct
 
 import pytest
 
-from config_image import pack_config
+from config_format import pack_config
 
 HEADER_FORMAT = "<IIII"  # magic, format version, JSON length, CRC32; little-endian
 HEADER_LEN = struct.calcsize(HEADER_FORMAT)

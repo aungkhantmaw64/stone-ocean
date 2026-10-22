@@ -24,7 +24,15 @@ esac
 
 "$scripts_dir/build.sh" qemu build
 if [[ "$reuse" == false ]]; then
-    python "$repo_dir/tools/config_image.py" --build-dir "$build_dir" \
+    # The PC tools' packages, in a venv kept apart from ESP-IDF's Python and
+    # reinstalled whenever tools/requirements.txt changes.
+    tools_venv="$repo_dir/build/tools_venv"
+    if ! cmp -s "$repo_dir/tools/requirements.txt" "$tools_venv/requirements.txt"; then
+        python -m venv "$tools_venv"
+        "$tools_venv/bin/pip" install --quiet -r "$repo_dir/tools/requirements.txt"
+        cp "$repo_dir/tools/requirements.txt" "$tools_venv/requirements.txt"
+    fi
+    "$tools_venv/bin/python" "$repo_dir/tools/config_image.py" --build-dir "$build_dir" \
         --output "$flash_image" ${config:+--config "$config"}
 elif [[ ! -f "$flash_image" ]]; then
     echo "no flash image from a previous run; run without --reuse first" >&2
