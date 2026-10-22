@@ -70,6 +70,17 @@ target_include_directories(node_config PUBLIC mocks PRIVATE ${NODE_CONFIG_DIR})
 target_compile_options(node_config PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(node_config PUBLIC node_config_api PRIVATE cjson)
 
+add_library(config_store_api INTERFACE)
+target_include_directories(config_store_api INTERFACE
+  ${FIRMWARE_DIR}/components/config_store/include)
+target_link_libraries(config_store_api INTERFACE node_config_api)
+
+add_library(config_store_header_check OBJECT config_store_header_check.c)
+target_compile_options(config_store_header_check PRIVATE -Wall -Wextra -Werror)
+target_include_directories(config_store_header_check PRIVATE
+  ${FIRMWARE_DIR}/components/config_store)
+target_link_libraries(config_store_header_check PRIVATE config_store_api)
+
 # Embed configs/example-shtc3-pir-led.json in the tests as a byte array, so
 # they check the same file the JSON Schema validates without reading files at
 # run time. Editing the JSON re-runs this step.
