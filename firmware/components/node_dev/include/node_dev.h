@@ -187,9 +187,10 @@ typedef struct node_dev_driver {
  * its driver.
  *
  * @param drv Driver; must not be NULL, must stay valid forever, must have an
- *            init method and a valid type and sample signal.
- * @return NODE_DEV_OK, NODE_DEV_ERR_ARG for a bad driver, or
- *         NODE_DEV_ERR_STATE after node_dev_start().
+ *            init method and one of the three sample signals.
+ * @return NODE_DEV_OK, NODE_DEV_ERR_ARG for a bad driver,
+ *         NODE_DEV_ERR_STATE after node_dev_start(), or NODE_DEV_ERR_FULL if
+ *         eight driver types are already registered.
  */
 node_dev_err_t node_dev_register_driver(const node_dev_driver_t *drv);
 
