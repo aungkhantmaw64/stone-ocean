@@ -97,6 +97,19 @@ Start only after the developer has agreed to proceed. Follow `docs/unit-testing-
   - Exceptions: `main/` keeps ESP-IDF's fixed names, such as `app_main`. Unit test files and test functions follow `docs/unit-testing-standards.md` (`test_<module>.c`, `test_<sentence>`).
 - Zero-initialize every variable where you declare it (`int count = 0;`, `node_hal_gpio_config_t config = {0};`, `char buf[16] = {0};`), globals and locals alike, even when it is assigned before it is used.
 - Document every public function, type and macro in its header with a Doxygen block (`/** @brief … */` plus `@param`, and `@return` where there is a return value). Document behaviour, preconditions, units and calling context (for example "ISR context"), not the implementation.
+- Document every global variable and every macro, private ones in `.c` files included, with a Doxygen block where it is defined: `/** @brief … */`, or a trailing `/**< … */` for a short one. Say what it holds, its units, and who writes it (for example "written from ISR context").
+- Split every source and header file into sections, each opened by a banner, in this order. Leave out a section that would be empty.
+
+  ```c
+  /* ==========================================================================
+   * MACROS
+   * ========================================================================== */
+  ```
+
+  - `.c` files: `INCLUDES`, `MACROS`, `TYPES`, `GLOBAL VARIABLES`, `PRIVATE FUNCTION PROTOTYPES`, `PRIVATE FUNCTIONS`, `PUBLIC FUNCTIONS`.
+  - Headers: `INCLUDES`, `MACROS`, `TYPES`, `PUBLIC FUNCTIONS`. The include guard and any `extern "C"` block wrap all the sections.
+
+  `PRIVATE FUNCTIONS` holds the `static` functions and `PUBLIC FUNCTIONS` the ones declared in a header. Unit test files follow `docs/unit-testing-standards.md` where it says otherwise.
 - Avoid inline comments that explain what the code does. If code needs explaining, make it self-explanatory instead: use clearer names, extract a well-named function, or use a named constant. Keep a comment only for what the code cannot say, such as a datasheet reference, a hardware quirk or the reason for a non-obvious choice.
 - Respect embedded constraints stated in the spec or README: memory budget, no dynamic allocation where forbidden, ISR versus task context, timing limits, `-Werror`.
 - Report results honestly. If a build or test fails, show the output. If a step was skipped, say so.
