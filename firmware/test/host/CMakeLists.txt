@@ -48,6 +48,25 @@ add_library(node_hal_header_check OBJECT node_hal_header_check.c)
 target_compile_options(node_hal_header_check PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(node_hal_header_check PRIVATE node_hal_api)
 
+add_library(node_ao_api INTERFACE)
+target_include_directories(node_ao_api INTERFACE
+  ${FIRMWARE_DIR}/components/node_ao/include)
+
+add_library(node_ao_header_check OBJECT node_ao_header_check.c)
+target_compile_options(node_ao_header_check PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_ao_header_check PRIVATE node_ao_api)
+
+# The real node_ao core, with the synchronous host port in place of the
+# FreeRTOS node_ao_port.c. Time events run on the mock HAL clock.
+set(NODE_AO_DIR ${FIRMWARE_DIR}/components/node_ao)
+add_library(node_ao STATIC
+  ${NODE_AO_DIR}/node_ao.c
+  ${NODE_AO_DIR}/node_ao_time.c
+  mocks/node_ao_port.c)
+target_include_directories(node_ao PUBLIC mocks PRIVATE ${NODE_AO_DIR})
+target_compile_options(node_ao PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_ao PUBLIC node_ao_api node_hal_mock)
+
 add_library(node_config_api INTERFACE)
 target_include_directories(node_config_api INTERFACE
   ${FIRMWARE_DIR}/components/node_config/include)
@@ -141,6 +160,12 @@ target_link_libraries(test_node_hal_i2c PRIVATE node_hal_mock)
 
 add_host_test(test_node_hal_time test_node_hal_time.c)
 target_link_libraries(test_node_hal_time PRIVATE node_hal_mock)
+
+add_host_test(test_node_ao test_node_ao.c)
+target_link_libraries(test_node_ao PRIVATE node_ao)
+
+add_host_test(test_node_ao_time test_node_ao_time.c)
+target_link_libraries(test_node_ao_time PRIVATE node_ao)
 
 add_host_test(test_node_config_parse test_node_config_parse.c)
 target_link_libraries(test_node_config_parse PRIVATE node_config

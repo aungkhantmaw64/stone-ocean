@@ -1,7 +1,7 @@
 # 06 — Driver framework
 
 **Status:** todo
-**Depends on:** 02, 03
+**Depends on:** 02, 03, 14
 **Target:** ESP32 · ESP-IDF v5.x / FreeRTOS · `firmware/components/drivers`
 
 ## Goal

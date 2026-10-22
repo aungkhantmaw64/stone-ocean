@@ -5,7 +5,7 @@
  * ========================================================================== */
 
 /**
- * @brief Start the HAL hardware self-test in its own task.
+ * @brief Start the HAL hardware self-test as an active object.
  *
  * ESP-IDF build only. Initialises I2C port 0 on the configured pins, logs
  * every address from 0x08 to 0x77 that acknowledges and whether the SHTC3

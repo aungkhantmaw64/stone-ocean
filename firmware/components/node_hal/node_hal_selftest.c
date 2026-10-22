@@ -6,11 +6,9 @@
 #include <stdint.h>
 
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
-#include "freertos/task.h"
 #include "sdkconfig.h"
 
+#include "node_ao.h"
 #include "node_hal.h"
 #include "node_hal_selftest.h"
 
@@ -44,37 +42,63 @@
  *         toggle an output". */
 #define NO_OUTPUT_GPIO (-1)
 
-/** @brief Time between output toggles, and the longest wait for a button
- *         edge, in ms. */
+/** @brief Time between output toggles, in ms. */
 #define TOGGLE_PERIOD_MS 500
 
-/** @brief Button edges buffered between the ISR and the self-test task. */
+/** @brief Events the self-test AO's queue holds. */
 #define EDGE_QUEUE_LENGTH 8
 
-/** @brief Stack size of the self-test task, in bytes. */
+/** @brief Stack size of the self-test AO's thread, in bytes. */
 #define TASK_STACK_BYTES 3072
 
-/** @brief FreeRTOS priority of the self-test task. */
+/** @brief FreeRTOS priority of the self-test AO's thread. */
 #define TASK_PRIORITY 5
+
+/* ==========================================================================
+ * TYPES
+ * ========================================================================== */
+
+/** @brief Signals of the self-test AO. */
+enum {
+  NODE_HAL_SELFTEST_SIG_BUTTON_EDGE = NODE_AO_SIG_USER, /**< The button pin
+                                                           changed level. */
+  NODE_HAL_SELFTEST_SIG_TOGGLE, /**< Time to toggle the output pin. */
+};
+
+/** @brief A button edge, posted from ISR context. */
+typedef struct {
+  node_ao_evt_t super; /**< Signal NODE_HAL_SELFTEST_SIG_BUTTON_EDGE. */
+  int pin;             /**< GPIO number of the edge. */
+} node_hal_selftest_edge_evt_t;
+
+/** @brief The self-test active object. */
+typedef struct {
+  node_ao_t super;           /**< Framework part; must be first. */
+  node_ao_time_evt_t toggle; /**< Periodic TOGGLE_PERIOD_MS output toggle. */
+  int level;                 /**< Level last written to the output pin. */
+} node_hal_selftest_ao_t;
 
 /* ==========================================================================
  * GLOBAL VARIABLES
  * ========================================================================== */
 
-/** @brief Log tag for self-test output and name of the self-test task. */
+/** @brief Log tag for self-test output and name of the self-test AO. */
 static const char *const TAG = "node_hal_selftest";
 
-/**
- * @brief Pin numbers of button edges.
- *
- * Sent from ISR context by node_hal_selftest_on_button_edge() and received by
- * the self-test task.
- */
-static QueueHandle_t g_edge_queue = NULL;
+/** @brief The self-test AO; its state is touched only in its own thread. */
+static node_hal_selftest_ao_t g_selftest = {0};
 
 /* ==========================================================================
  * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
+
+/**
+ * @brief Handle one event of the self-test AO.
+ *
+ * @param me The self-test AO.
+ * @param e  INIT, a button edge or a toggle tick.
+ */
+static void node_hal_selftest_dispatch(node_ao_t *me, const node_ao_evt_t *e);
 
 /**
  * @brief Probe every non-reserved 7-bit address on the self-test I2C bus and
@@ -83,9 +107,9 @@ static QueueHandle_t g_edge_queue = NULL;
 static void node_hal_selftest_scan_i2c(void);
 
 /**
- * @brief GPIO ISR callback that queues the pin of a button edge.
+ * @brief GPIO ISR callback that posts a button edge to the self-test AO.
  *
- * Runs in ISR context. An edge is dropped if g_edge_queue is full.
+ * Runs in ISR context. An edge is dropped if the AO's queue is full.
  *
  * @param pin GPIO number of the edge.
  * @param ctx Unused.
@@ -109,38 +133,70 @@ static bool node_hal_selftest_watch_button(void);
 static bool node_hal_selftest_prepare_output(void);
 
 /**
- * @brief Self-test task: scan I2C once, then log button edges and toggle the
- *        output every TOGGLE_PERIOD_MS, forever.
+ * @brief Toggle the output pin; stop toggling after logging a failed write.
  *
- * @param arg Unused.
+ * @param me The self-test AO.
  */
-static void node_hal_selftest_task(void *arg);
+static void node_hal_selftest_toggle_output(node_hal_selftest_ao_t *me);
 
 /* ==========================================================================
  * PUBLIC FUNCTIONS
  * ========================================================================== */
 
 void node_hal_selftest_start(void) {
-  if (g_edge_queue != NULL) {
+  node_ao_err_t err = node_ao_time_evt_init(
+      &g_selftest.toggle, &g_selftest.super, NODE_HAL_SELFTEST_SIG_TOGGLE);
+  if (err == NODE_AO_ERR_STATE) {
     ESP_LOGW(TAG, "self-test already started");
     return;
   }
-  g_edge_queue = xQueueCreate(EDGE_QUEUE_LENGTH, sizeof(int));
-  if (g_edge_queue == NULL) {
-    ESP_LOGE(TAG, "could not create the button edge queue");
-    return;
+  const node_ao_config_t cfg = {
+      .name = TAG,
+      .priority = TASK_PRIORITY,
+      .stack_bytes = TASK_STACK_BYTES,
+      .queue_len = EDGE_QUEUE_LENGTH,
+      .evt_size = sizeof(node_hal_selftest_edge_evt_t),
+  };
+  if (err == NODE_AO_OK) {
+    err = node_ao_start(&g_selftest.super, node_hal_selftest_dispatch, &cfg);
   }
-  if (xTaskCreate(node_hal_selftest_task, TAG, TASK_STACK_BYTES, NULL,
-                  TASK_PRIORITY, NULL) != pdPASS) {
-    ESP_LOGE(TAG, "could not start the self-test task");
-    vQueueDelete(g_edge_queue);
-    g_edge_queue = NULL;
+  if (err != NODE_AO_OK) {
+    ESP_LOGE(TAG, "could not start the self-test: %d", err);
   }
 }
 
 /* ==========================================================================
  * PRIVATE FUNCTIONS
  * ========================================================================== */
+
+static void node_hal_selftest_dispatch(node_ao_t *me, const node_ao_evt_t *e) {
+  node_hal_selftest_ao_t *self = (node_hal_selftest_ao_t *)me;
+  switch (e->sig) {
+    case NODE_AO_SIG_INIT:
+      node_hal_selftest_scan_i2c();
+      /* A failed button setup is already logged; the output toggle still
+       * runs. */
+      (void)node_hal_selftest_watch_button();
+      if (node_hal_selftest_prepare_output()) {
+        (void)node_ao_time_evt_arm(&self->toggle, TOGGLE_PERIOD_MS,
+                                   TOGGLE_PERIOD_MS);
+      }
+      break;
+    case NODE_HAL_SELFTEST_SIG_BUTTON_EDGE: {
+      const node_hal_selftest_edge_evt_t *edge =
+          (const node_hal_selftest_edge_evt_t *)e;
+      ESP_LOGI(TAG, "edge on GPIO %d at %lu ms, level now %d", edge->pin,
+               (unsigned long)node_hal_time_ms(),
+               node_hal_gpio_read(edge->pin));
+      break;
+    }
+    case NODE_HAL_SELFTEST_SIG_TOGGLE:
+      node_hal_selftest_toggle_output(self);
+      break;
+    default:
+      break;
+  }
+}
 
 static void node_hal_selftest_scan_i2c(void) {
   node_hal_i2c_bus_t bus = NULL;
@@ -175,11 +231,12 @@ static void node_hal_selftest_scan_i2c(void) {
 
 static void node_hal_selftest_on_button_edge(int pin, void *ctx) {
   (void)ctx;
-  BaseType_t woken = pdFALSE;
-  /* An ISR must not block, so an edge that arrives while the queue is full
-   * is dropped. */
-  (void)xQueueSendFromISR(g_edge_queue, &pin, &woken);
-  portYIELD_FROM_ISR(woken);
+  const node_hal_selftest_edge_evt_t edge = {
+      .super = {.sig = NODE_HAL_SELFTEST_SIG_BUTTON_EDGE},
+      .pin = pin,
+  };
+  /* An ISR cannot log, so an edge that finds the queue full is dropped. */
+  (void)node_ao_post_from_isr(&g_selftest.super, &edge, sizeof(edge));
 }
 
 static bool node_hal_selftest_watch_button(void) {
@@ -215,33 +272,14 @@ static bool node_hal_selftest_prepare_output(void) {
   return true;
 }
 
-static void node_hal_selftest_task(void *arg) {
-  (void)arg;
-  node_hal_selftest_scan_i2c();
-  /* A failed button setup is already logged; the output toggle still runs. */
-  (void)node_hal_selftest_watch_button();
-  bool toggling = node_hal_selftest_prepare_output();
-
-  int level = 0;
-  uint32_t next_toggle_ms = node_hal_time_ms() + TOGGLE_PERIOD_MS;
-  for (;;) {
-    int pin = 0;
-    if (xQueueReceive(g_edge_queue, &pin, pdMS_TO_TICKS(TOGGLE_PERIOD_MS)) ==
-        pdTRUE) {
-      ESP_LOGI(TAG, "edge on GPIO %d at %lu ms, level now %d", pin,
-               (unsigned long)node_hal_time_ms(), node_hal_gpio_read(pin));
-    }
-    if (toggling && (int32_t)(node_hal_time_ms() - next_toggle_ms) >= 0) {
-      level = !level;
-      node_hal_err_t err =
-          node_hal_gpio_write(CONFIG_NODE_HAL_SELFTEST_OUTPUT_GPIO, level);
-      if (err != NODE_HAL_OK) {
-        ESP_LOGE(TAG, "output GPIO %d write failed: %d; stopped toggling",
-                 CONFIG_NODE_HAL_SELFTEST_OUTPUT_GPIO, err);
-        toggling = false;
-      }
-      next_toggle_ms += TOGGLE_PERIOD_MS;
-    }
+static void node_hal_selftest_toggle_output(node_hal_selftest_ao_t *me) {
+  me->level = !me->level;
+  node_hal_err_t err =
+      node_hal_gpio_write(CONFIG_NODE_HAL_SELFTEST_OUTPUT_GPIO, me->level);
+  if (err != NODE_HAL_OK) {
+    ESP_LOGE(TAG, "output GPIO %d write failed: %d; stopped toggling",
+             CONFIG_NODE_HAL_SELFTEST_OUTPUT_GPIO, err);
+    (void)node_ao_time_evt_disarm(&me->toggle);
   }
 }
 
