@@ -33,6 +33,13 @@
 /** @brief Most drivers the framework can hold, as in node_dev.c. */
 #define MAX_DRIVERS 8
 
+/** @brief Events the devices AO's queue holds, as in node_dev.c. */
+#define DEVICES_QUEUE_LEN 16
+
+/** @brief Debounce delay the fake motion driver asks for after an
+ *         interrupt, in ms. */
+#define DEBOUNCE_MS 50u
+
 /* ==========================================================================
  * TYPES
  * ========================================================================== */
@@ -738,6 +745,239 @@ void test_device_on_a_failed_i2c_bus_is_retried_once_the_bus_can_be_set_up_again
       nth_event(&g_subscribers[0], NODE_DEV_SIG_FAULT, env, 1)->fault);
 }
 
+/* ---- Switching actuators on and off ---- */
+
+/* AC: specs/06-driver-framework.md #4 */
+void test_switching_on_an_led_publishes_its_new_state(void) {
+  const int led = add_device(NODE_CONFIG_DEV_LED, "led1");
+  register_fake_drivers();
+  start_devices();
+
+  TEST_ASSERT_EQUAL_INT(NODE_DEV_OK, node_dev_set_onoff(led, true));
+  run_until_idle();
+
+  TEST_ASSERT_EQUAL_INT(1, g_fakes[led].set_calls);
+  TEST_ASSERT_EQUAL_size_t(
+      2, count_events(&g_subscribers[0], NODE_DEV_SIG_ONOFF_CHANGED, led));
+  TEST_ASSERT_TRUE(
+      nth_event(&g_subscribers[0], NODE_DEV_SIG_ONOFF_CHANGED, led, 1)
+          ->value.on);
+}
+
+/* AC: specs/06-driver-framework.md #4 */
+void test_switching_an_led_to_its_current_state_publishes_nothing(void) {
+  const int led = add_device(NODE_CONFIG_DEV_LED, "led1");
+  register_fake_drivers();
+  start_devices();
+
+  TEST_ASSERT_EQUAL_INT(NODE_DEV_OK, node_dev_set_onoff(led, false));
+  run_until_idle();
+
+  TEST_ASSERT_EQUAL_INT(1, g_fakes[led].set_calls);
+  TEST_ASSERT_EQUAL_size_t(
+      1, count_events(&g_subscribers[0], NODE_DEV_SIG_ONOFF_CHANGED, led));
+}
+
+/* AC: specs/06-driver-framework.md #4 */
+void test_failed_switch_is_logged_and_publishes_nothing(void) {
+  const int led = add_device(NODE_CONFIG_DEV_LED, "led1");
+  g_fakes[led].set_result = NODE_DEV_ERR_IO;
+  register_fake_drivers();
+  start_devices();
+
+  TEST_ASSERT_EQUAL_INT(NODE_DEV_OK, node_dev_set_onoff(led, true));
+  run_until_idle();
+
+  TEST_ASSERT_EQUAL_size_t(1, node_dev_log_mock_warning_count());
+  TEST_ASSERT_NOT_NULL(
+      strstr(node_dev_log_mock_last_warning(), "switching on failed"));
+  TEST_ASSERT_EQUAL_size_t(
+      1, count_events(&g_subscribers[0], NODE_DEV_SIG_ONOFF_CHANGED, led));
+  TEST_ASSERT_EQUAL_size_t(
+      0, count_events(&g_subscribers[0], NODE_DEV_SIG_FAULT, led));
+}
+
+/* AC: specs/06-driver-framework.md #4 */
+void test_switching_a_device_that_is_not_an_actuator_is_ignored_with_a_warning(
+    void) {
+  const int env = add_device(NODE_CONFIG_DEV_SHTC3, "env1");
+  register_fake_drivers();
+  start_devices();
+
+  TEST_ASSERT_EQUAL_INT(NODE_DEV_OK, node_dev_set_onoff(env, true));
+  run_until_idle();
+
+  TEST_ASSERT_NOT_NULL(
+      strstr(node_dev_log_mock_last_warning(), "not an actuator"));
+  TEST_ASSERT_EQUAL_INT(0, g_fakes[env].set_calls);
+  TEST_ASSERT_EQUAL_size_t(
+      0, count_events(&g_subscribers[0], NODE_DEV_SIG_ONOFF_CHANGED, env));
+}
+
+/* AC: specs/06-driver-framework.md #4 */
+void test_switching_a_faulty_led_is_ignored_with_a_warning(void) {
+  const int led = add_device(NODE_CONFIG_DEV_LED, "led1");
+  g_fakes[led].init_result = NODE_DEV_ERR_IO;
+  register_fake_drivers();
+  start_devices();
+
+  TEST_ASSERT_EQUAL_INT(NODE_DEV_OK, node_dev_set_onoff(led, true));
+  run_until_idle();
+
+  TEST_ASSERT_NOT_NULL(
+      strstr(node_dev_log_mock_last_warning(), "device in FAULT"));
+  TEST_ASSERT_EQUAL_INT(0, g_fakes[led].set_calls);
+  TEST_ASSERT_EQUAL_size_t(
+      0, count_events(&g_subscribers[0], NODE_DEV_SIG_ONOFF_CHANGED, led));
+}
+
+/* AC: specs/06-driver-framework.md #4 */
+void test_switching_a_device_beyond_the_configured_devices_is_ignored(void) {
+  const int led = add_device(NODE_CONFIG_DEV_LED, "led1");
+  const int unconfigured = 5;
+  register_fake_drivers();
+  start_devices();
+
+  TEST_ASSERT_EQUAL_INT(NODE_DEV_OK, node_dev_set_onoff(unconfigured, true));
+  run_until_idle();
+
+  TEST_ASSERT_NOT_NULL(
+      strstr(node_dev_log_mock_last_warning(), "no such device"));
+  TEST_ASSERT_EQUAL_INT(0, g_fakes[led].set_calls);
+  TEST_ASSERT_EQUAL_size_t(
+      0, count_events(&g_subscribers[0], NODE_DEV_SIG_ONOFF_CHANGED,
+                      unconfigured));
+}
+
+/* AC: specs/06-driver-framework.md #4 */
+void test_switching_a_device_number_out_of_range_is_rejected(void) {
+  (void)add_device(NODE_CONFIG_DEV_LED, "led1");
+  register_fake_drivers();
+  start_devices();
+
+  TEST_ASSERT_EQUAL_INT(NODE_DEV_ERR_ARG, node_dev_set_onoff(-1, true));
+  TEST_ASSERT_EQUAL_INT(NODE_DEV_ERR_ARG,
+                        node_dev_set_onoff(NODE_CONFIG_MAX_DEVICES, true));
+}
+
+/* AC: specs/06-driver-framework.md #4 */
+void test_switching_before_the_devices_have_started_is_rejected(void) {
+  const int led = add_device(NODE_CONFIG_DEV_LED, "led1");
+  register_fake_drivers();
+
+  TEST_ASSERT_EQUAL_INT(NODE_DEV_ERR_STATE, node_dev_set_onoff(led, true));
+}
+
+/* AC: specs/06-driver-framework.md #4 */
+void test_switch_commands_are_rejected_without_blocking_when_the_queue_is_full(
+    void) {
+  const int led = add_device(NODE_CONFIG_DEV_LED, "led1");
+  register_fake_drivers();
+  start_devices();
+
+  for (int i = 0; i < DEVICES_QUEUE_LEN; i++) {
+    TEST_ASSERT_EQUAL_INT_MESSAGE(NODE_DEV_OK,
+                                  node_dev_set_onoff(led, (i % 2) == 0),
+                                  "queueing a command while there is room");
+  }
+  const node_dev_err_t overflow = node_dev_set_onoff(led, true);
+  run_until_idle();
+
+  TEST_ASSERT_EQUAL_INT(NODE_DEV_ERR_FULL, overflow);
+  TEST_ASSERT_EQUAL_INT(DEVICES_QUEUE_LEN, g_fakes[led].set_calls);
+}
+
+/* ---- Interrupts ---- */
+
+/* AC: specs/06-driver-framework.md #5 */
+void test_interrupt_triggers_a_sample_after_the_delay_the_driver_asks_for(
+    void) {
+  const int pir = add_device(NODE_CONFIG_DEV_PIR, "pir1");
+  g_fakes[pir].isr_delay_ms = DEBOUNCE_MS;
+  register_fake_drivers();
+  start_devices();
+
+  TEST_ASSERT_EQUAL_INT(NODE_DEV_OK, node_dev_post_from_isr(pir));
+  run_until_idle();
+  advance_and_run(DEBOUNCE_MS - 1u);
+  const int samples_before_delay = g_fakes[pir].sample_calls;
+  advance_and_run(1u);
+
+  TEST_ASSERT_EQUAL_INT(1, g_fakes[pir].isr_calls);
+  TEST_ASSERT_EQUAL_INT(1, samples_before_delay);
+  TEST_ASSERT_EQUAL_INT(2, g_fakes[pir].sample_calls);
+  TEST_ASSERT_EQUAL_UINT32(DEBOUNCE_MS, g_fakes[pir].last_sample_ms);
+}
+
+/* AC: specs/06-driver-framework.md #5 */
+void test_new_interrupt_before_the_delay_ends_restarts_the_delay(void) {
+  const uint32_t second_edge_ms = 30u;
+  const int pir = add_device(NODE_CONFIG_DEV_PIR, "pir1");
+  g_fakes[pir].isr_delay_ms = DEBOUNCE_MS;
+  register_fake_drivers();
+  start_devices();
+
+  TEST_ASSERT_EQUAL_INT(NODE_DEV_OK, node_dev_post_from_isr(pir));
+  run_until_idle();
+  advance_and_run(second_edge_ms);
+  TEST_ASSERT_EQUAL_INT(NODE_DEV_OK, node_dev_post_from_isr(pir));
+  run_until_idle();
+  advance_and_run(DEBOUNCE_MS - 1u);
+  const int samples_before_delay = g_fakes[pir].sample_calls;
+  advance_and_run(1u);
+
+  TEST_ASSERT_EQUAL_INT(1, samples_before_delay);
+  TEST_ASSERT_EQUAL_INT(2, g_fakes[pir].sample_calls);
+  TEST_ASSERT_EQUAL_UINT32(second_edge_ms + DEBOUNCE_MS,
+                           g_fakes[pir].last_sample_ms);
+}
+
+/* AC: specs/06-driver-framework.md #5 */
+void test_motion_is_published_when_the_sample_after_an_interrupt_shows_a_change(
+    void) {
+  const int pir = add_device(NODE_CONFIG_DEV_PIR, "pir1");
+  g_fakes[pir].isr_delay_ms = DEBOUNCE_MS;
+  register_fake_drivers();
+  start_devices();
+
+  g_fakes[pir].value.motion = true;
+  TEST_ASSERT_EQUAL_INT(NODE_DEV_OK, node_dev_post_from_isr(pir));
+  run_until_idle();
+  advance_and_run(DEBOUNCE_MS);
+
+  TEST_ASSERT_EQUAL_size_t(
+      2, count_events(&g_subscribers[0], NODE_DEV_SIG_MOTION, pir));
+  TEST_ASSERT_FALSE(
+      nth_event(&g_subscribers[0], NODE_DEV_SIG_MOTION, pir, 0)->value.motion);
+  TEST_ASSERT_TRUE(
+      nth_event(&g_subscribers[0], NODE_DEV_SIG_MOTION, pir, 1)->value.motion);
+}
+
+/* AC: specs/06-driver-framework.md #5 */
+void test_interrupt_for_a_device_without_an_interrupt_handler_is_ignored(void) {
+  const int led = add_device(NODE_CONFIG_DEV_LED, "led1");
+  register_fake_drivers();
+  start_devices();
+
+  TEST_ASSERT_EQUAL_INT(NODE_DEV_OK, node_dev_post_from_isr(led));
+  run_until_idle();
+  advance_and_run(SAMPLE_INTERVAL_MS);
+
+  TEST_ASSERT_EQUAL_INT(1, g_fakes[led].sample_calls);
+  TEST_ASSERT_EQUAL_size_t(0, node_dev_log_mock_warning_count());
+}
+
+/* AC: specs/06-driver-framework.md #5 */
+void test_interrupt_with_a_device_number_out_of_range_is_rejected(void) {
+  (void)add_device(NODE_CONFIG_DEV_PIR, "pir1");
+  register_fake_drivers();
+  start_devices();
+
+  TEST_ASSERT_EQUAL_INT(NODE_DEV_ERR_ARG, node_dev_post_from_isr(-1));
+  TEST_ASSERT_EQUAL_INT(NODE_DEV_ERR_ARG,
+                        node_dev_post_from_isr(NODE_CONFIG_MAX_DEVICES));
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_driver_without_an_init_method_is_rejected);
@@ -775,6 +1015,24 @@ int main(void) {
   RUN_TEST(test_faulty_device_does_not_stop_other_devices_from_being_sampled);
   RUN_TEST(
       test_device_on_a_failed_i2c_bus_is_retried_once_the_bus_can_be_set_up_again);
+  RUN_TEST(test_switching_on_an_led_publishes_its_new_state);
+  RUN_TEST(test_switching_an_led_to_its_current_state_publishes_nothing);
+  RUN_TEST(test_failed_switch_is_logged_and_publishes_nothing);
+  RUN_TEST(
+      test_switching_a_device_that_is_not_an_actuator_is_ignored_with_a_warning);
+  RUN_TEST(test_switching_a_faulty_led_is_ignored_with_a_warning);
+  RUN_TEST(test_switching_a_device_beyond_the_configured_devices_is_ignored);
+  RUN_TEST(test_switching_a_device_number_out_of_range_is_rejected);
+  RUN_TEST(test_switching_before_the_devices_have_started_is_rejected);
+  RUN_TEST(
+      test_switch_commands_are_rejected_without_blocking_when_the_queue_is_full);
+  RUN_TEST(
+      test_interrupt_triggers_a_sample_after_the_delay_the_driver_asks_for);
+  RUN_TEST(test_new_interrupt_before_the_delay_ends_restarts_the_delay);
+  RUN_TEST(
+      test_motion_is_published_when_the_sample_after_an_interrupt_shows_a_change);
+  RUN_TEST(test_interrupt_for_a_device_without_an_interrupt_handler_is_ignored);
+  RUN_TEST(test_interrupt_with_a_device_number_out_of_range_is_rejected);
   return UNITY_END();
 }
 
