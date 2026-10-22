@@ -216,6 +216,27 @@ static void advance_and_run(uint32_t ms);
 static size_t count_events(const subscriber_t *sub, node_ao_sig_t sig,
                            int dev_index);
 
+/**
+ * @brief The n-th event with this signal and device a subscriber got.
+ *
+ * @param sub       The subscriber.
+ * @param sig       Signal to look for.
+ * @param dev_index Device to look for.
+ * @param n         0 for the first matching event.
+ * @return The event; fails the test if there is no such event.
+ */
+static const node_dev_evt_t *nth_event(const subscriber_t *sub,
+                                       node_ao_sig_t sig, int dev_index,
+                                       size_t n);
+
+/**
+ * @brief Advance time by one sample interval, @p count times, running every
+ *        AO after each step.
+ *
+ * @param count Number of sample intervals.
+ */
+static void run_sample_intervals(int count);
+
 /* ==========================================================================
  * PUBLIC FUNCTIONS
  * ========================================================================== */
@@ -543,6 +564,180 @@ void test_led_initial_state_is_published_once_after_start(void) {
   TEST_ASSERT_EQUAL_INT(1, g_fakes[led].sample_calls);
 }
 
+/* ---- Faults and recovery ---- */
+
+/* AC: specs/06-driver-framework.md #3 */
+void test_two_failed_samples_in_a_row_do_not_mark_a_sensor_as_faulty(void) {
+  const int env = add_device(NODE_CONFIG_DEV_SHTC3, "env1");
+  register_fake_drivers();
+  start_devices();
+
+  /* Two failures, one good sample, two more failures: four failures in
+   * all, but never three in a row. */
+  g_fakes[env].sample_result = NODE_DEV_ERR_IO;
+  run_sample_intervals(2);
+  g_fakes[env].sample_result = NODE_DEV_OK;
+  run_sample_intervals(1);
+  g_fakes[env].sample_result = NODE_DEV_ERR_IO;
+  run_sample_intervals(2);
+
+  TEST_ASSERT_EQUAL_size_t(
+      0, count_events(&g_subscribers[0], NODE_DEV_SIG_FAULT, env));
+  TEST_ASSERT_EQUAL_size_t(0, node_dev_log_mock_state_change_count());
+}
+
+/* AC: specs/06-driver-framework.md #3 */
+void test_sensor_is_marked_as_faulty_after_three_failed_samples_in_a_row(void) {
+  const int env = add_device(NODE_CONFIG_DEV_SHTC3, "env1");
+  register_fake_drivers();
+  start_devices();
+
+  g_fakes[env].sample_result = NODE_DEV_ERR_IO;
+  run_sample_intervals(NODE_DEV_MAX_SAMPLE_FAILS);
+
+  TEST_ASSERT_EQUAL_size_t(
+      1, count_events(&g_subscribers[0], NODE_DEV_SIG_FAULT, env));
+  TEST_ASSERT_TRUE(
+      nth_event(&g_subscribers[0], NODE_DEV_SIG_FAULT, env, 0)->fault);
+  /* A faulty sensor keeps being sampled on its schedule. */
+  run_sample_intervals(1);
+  TEST_ASSERT_EQUAL_INT(1 + NODE_DEV_MAX_SAMPLE_FAILS + 1,
+                        g_fakes[env].sample_calls);
+}
+
+/* AC: specs/06-driver-framework.md #3 */
+void test_faulty_sensor_recovers_on_its_next_successful_sample(void) {
+  const int env = add_device(NODE_CONFIG_DEV_SHTC3, "env1");
+  register_fake_drivers();
+  start_devices();
+  g_fakes[env].sample_result = NODE_DEV_ERR_IO;
+  run_sample_intervals(NODE_DEV_MAX_SAMPLE_FAILS);
+
+  g_fakes[env].sample_result = NODE_DEV_OK;
+  run_sample_intervals(1);
+
+  TEST_ASSERT_EQUAL_size_t(
+      2, count_events(&g_subscribers[0], NODE_DEV_SIG_FAULT, env));
+  TEST_ASSERT_FALSE(
+      nth_event(&g_subscribers[0], NODE_DEV_SIG_FAULT, env, 1)->fault);
+}
+
+/* AC: specs/06-driver-framework.md #3 */
+void test_fault_and_recovery_are_both_published_to_subscribers(void) {
+  const int env = add_device(NODE_CONFIG_DEV_SHTC3, "env1");
+  register_fake_drivers();
+  start_devices();
+
+  g_fakes[env].sample_result = NODE_DEV_ERR_IO;
+  run_sample_intervals(NODE_DEV_MAX_SAMPLE_FAILS);
+  g_fakes[env].sample_result = NODE_DEV_OK;
+  run_sample_intervals(1);
+
+  for (size_t i = 0; i < 2; i++) {
+    TEST_ASSERT_EQUAL_size_t_MESSAGE(
+        2, count_events(&g_subscribers[i], NODE_DEV_SIG_FAULT, env),
+        "fault events received by a subscriber");
+    TEST_ASSERT_TRUE(
+        nth_event(&g_subscribers[i], NODE_DEV_SIG_FAULT, env, 0)->fault);
+    TEST_ASSERT_FALSE(
+        nth_event(&g_subscribers[i], NODE_DEV_SIG_FAULT, env, 1)->fault);
+  }
+}
+
+/* AC: specs/06-driver-framework.md #6 */
+void test_every_state_change_is_logged(void) {
+  const int env = add_device(NODE_CONFIG_DEV_SHTC3, "env1");
+  register_fake_drivers();
+  start_devices();
+
+  g_fakes[env].sample_result = NODE_DEV_ERR_IO;
+  run_sample_intervals(NODE_DEV_MAX_SAMPLE_FAILS);
+  g_fakes[env].sample_result = NODE_DEV_OK;
+  run_sample_intervals(1);
+
+  TEST_ASSERT_EQUAL_size_t(2, node_dev_log_mock_state_change_count());
+  TEST_ASSERT_EQUAL_INT(env, node_dev_log_mock_state_change(0)->dev_index);
+  TEST_ASSERT_TRUE(node_dev_log_mock_state_change(0)->fault);
+  TEST_ASSERT_EQUAL_INT(env, node_dev_log_mock_state_change(1)->dev_index);
+  TEST_ASSERT_FALSE(node_dev_log_mock_state_change(1)->fault);
+}
+
+/* AC: specs/06-driver-framework.md #3 */
+void test_device_that_fails_to_initialise_is_retried_every_30_seconds(void) {
+  const int env = add_device(NODE_CONFIG_DEV_SHTC3, "env1");
+  g_fakes[env].init_result = NODE_DEV_ERR_IO;
+  register_fake_drivers();
+  start_devices();
+
+  advance_and_run(NODE_DEV_INIT_RETRY_MS - 1u);
+  const int calls_before_retry = g_fakes[env].init_calls;
+  advance_and_run(1u);
+  const int calls_at_first_retry = g_fakes[env].init_calls;
+  advance_and_run(NODE_DEV_INIT_RETRY_MS);
+
+  TEST_ASSERT_EQUAL_INT(1, calls_before_retry);
+  TEST_ASSERT_EQUAL_INT(2, calls_at_first_retry);
+  TEST_ASSERT_EQUAL_INT(3, g_fakes[env].init_calls);
+  TEST_ASSERT_EQUAL_INT(0, g_fakes[env].sample_calls);
+}
+
+/* AC: specs/06-driver-framework.md #3 */
+void test_device_recovers_when_an_init_retry_succeeds(void) {
+  const int env = add_device(NODE_CONFIG_DEV_SHTC3, "env1");
+  g_fakes[env].init_result = NODE_DEV_ERR_IO;
+  register_fake_drivers();
+  start_devices();
+
+  g_fakes[env].init_result = NODE_DEV_OK;
+  advance_and_run(NODE_DEV_INIT_RETRY_MS);
+
+  TEST_ASSERT_EQUAL_size_t(
+      2, count_events(&g_subscribers[0], NODE_DEV_SIG_FAULT, env));
+  TEST_ASSERT_FALSE(
+      nth_event(&g_subscribers[0], NODE_DEV_SIG_FAULT, env, 1)->fault);
+  TEST_ASSERT_EQUAL_INT(1, g_fakes[env].sample_calls);
+  TEST_ASSERT_EQUAL_size_t(
+      1, count_events(&g_subscribers[0], NODE_DEV_SIG_READING, env));
+}
+
+/* AC: specs/06-driver-framework.md #3 */
+void test_faulty_device_does_not_stop_other_devices_from_being_sampled(void) {
+  const int broken = add_device(NODE_CONFIG_DEV_SHTC3, "env1");
+  const int working = add_device(NODE_CONFIG_DEV_SHTC3, "env2");
+  g_fakes[broken].init_result = NODE_DEV_ERR_IO;
+  register_fake_drivers();
+
+  start_devices();
+  run_sample_intervals(3);
+
+  TEST_ASSERT_EQUAL_INT(0, g_fakes[broken].sample_calls);
+  TEST_ASSERT_EQUAL_INT(4, g_fakes[working].sample_calls);
+  TEST_ASSERT_EQUAL_size_t(
+      0, count_events(&g_subscribers[0], NODE_DEV_SIG_FAULT, working));
+  TEST_ASSERT_EQUAL_size_t(
+      1, count_events(&g_subscribers[0], NODE_DEV_SIG_READING, working));
+}
+
+/* AC: specs/06-driver-framework.md #3 */
+void test_device_on_a_failed_i2c_bus_is_retried_once_the_bus_can_be_set_up_again(
+    void) {
+  const int env = add_device(NODE_CONFIG_DEV_SHTC3, "env1");
+  register_fake_drivers();
+  node_hal_i2c_mock_fail_next_bus_init(NODE_HAL_ERR_IO);
+
+  start_devices();
+  const int calls_while_bus_down = g_fakes[env].init_calls;
+  advance_and_run(NODE_DEV_INIT_RETRY_MS);
+
+  TEST_ASSERT_EQUAL_INT(0, calls_while_bus_down);
+  TEST_ASSERT_EQUAL_INT(1, g_fakes[env].init_calls);
+  TEST_ASSERT_NOT_NULL(g_fakes[env].init_bus);
+  TEST_ASSERT_EQUAL_size_t(
+      2, count_events(&g_subscribers[0], NODE_DEV_SIG_FAULT, env));
+  TEST_ASSERT_FALSE(
+      nth_event(&g_subscribers[0], NODE_DEV_SIG_FAULT, env, 1)->fault);
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_driver_without_an_init_method_is_rejected);
@@ -570,6 +765,16 @@ int main(void) {
       test_sample_still_in_progress_is_finished_after_the_time_the_driver_asked_for);
   RUN_TEST(test_sample_in_progress_does_not_delay_the_next_periodic_sample);
   RUN_TEST(test_led_initial_state_is_published_once_after_start);
+  RUN_TEST(test_two_failed_samples_in_a_row_do_not_mark_a_sensor_as_faulty);
+  RUN_TEST(test_sensor_is_marked_as_faulty_after_three_failed_samples_in_a_row);
+  RUN_TEST(test_faulty_sensor_recovers_on_its_next_successful_sample);
+  RUN_TEST(test_fault_and_recovery_are_both_published_to_subscribers);
+  RUN_TEST(test_every_state_change_is_logged);
+  RUN_TEST(test_device_that_fails_to_initialise_is_retried_every_30_seconds);
+  RUN_TEST(test_device_recovers_when_an_init_retry_succeeds);
+  RUN_TEST(test_faulty_device_does_not_stop_other_devices_from_being_sampled);
+  RUN_TEST(
+      test_device_on_a_failed_i2c_bus_is_retried_once_the_bus_can_be_set_up_again);
   return UNITY_END();
 }
 
@@ -740,4 +945,28 @@ static size_t count_events(const subscriber_t *sub, node_ao_sig_t sig,
     }
   }
   return count;
+}
+
+static const node_dev_evt_t *nth_event(const subscriber_t *sub,
+                                       node_ao_sig_t sig, int dev_index,
+                                       size_t n) {
+  size_t seen = 0;
+  const size_t stored = (sub->count < MAX_RECORDED) ? sub->count : MAX_RECORDED;
+  for (size_t i = 0; i < stored; i++) {
+    if ((sub->events[i].super.sig == sig) &&
+        (sub->events[i].dev_index == dev_index)) {
+      if (seen == n) {
+        return &sub->events[i];
+      }
+      seen++;
+    }
+  }
+  TEST_FAIL_MESSAGE("the subscriber did not receive the expected event");
+  return NULL;
+}
+
+static void run_sample_intervals(int count) {
+  for (int i = 0; i < count; i++) {
+    advance_and_run(SAMPLE_INTERVAL_MS);
+  }
 }
