@@ -14,13 +14,13 @@ The project is a config-driven BLE mesh node (see `specs/README.md`). Three buil
 - **Host test build:** plain CMake + Unity, compiled with the PC's gcc. Tests pure-logic components against a mock HAL.
 
 ## Hardware details
-ESP32-DevKitC with on-board USB-UART bridge. Flashing and logging go through `idf.py -p <port> flash monitor`. There is no JTAG. The modules have 16 MB flash (confirmed by the developer).
+ESP32-DevKitC with on-board USB-UART bridge. Flashing and logging go through `idf.py -p <port> flash monitor`. There is no JTAG. The modules are WROVER with 16 MB flash and 8 MB PSRAM (confirmed by the developer). The classic ESP32 maps 4 MB of PSRAM into the address space; the upper 4 MB is reachable only through the himem API.
 
 ## Scope
 - In scope:
   - The `firmware/` ESP-IDF project with `main/`. Each component under `firmware/components/` is created by the spec that implements it, not stubbed in advance.
   - A custom partition table with a factory app partition large enough for Bluedroid + BLE Mesh (2 MB to start; the rest of the 16 MB flash stays unallocated), plus `nvs` and `phy_init`.
-  - `sdkconfig.defaults`: Bluetooth enabled (BLE only, Bluedroid), `CONFIG_BLE_MESH=y`, and a project Kconfig option `NODE_MESH_ENABLE` (default `y`).
+  - `sdkconfig.defaults`: PSRAM enabled (`CONFIG_SPIRAM=y`), Bluetooth enabled (BLE only, Bluedroid), `CONFIG_BLE_MESH=y`, and a project Kconfig option `NODE_MESH_ENABLE` (default `y`).
   - `sdkconfig.qemu`: `NODE_MESH_ENABLE=n`, Bluetooth disabled.
   - Helper scripts: `scripts/build.sh`, `scripts/qemu.sh` (wraps `idf.py qemu monitor` using the QEMU sdkconfig), `scripts/host_test.sh`.
   - `firmware/test/host/` CMake project fetching or vendoring Unity, with one passing sample test.
@@ -52,7 +52,7 @@ ESP32-DevKitC with on-board USB-UART bridge. Flashing and logging go through `id
 Still to verify:
 - CI (AC 4): the steps pass in `espressif/idf:v5.4.4` locally, but no GitHub remote exists yet, so the workflow has not run on GitHub.
 - Headroom (AC 5): 91% free now, but nothing links the mesh code until spec 10. Re-check then.
-- Hardware: banner with flavour `hw` on a DevKitC, and the 16 MB flash size (`esptool.py flash_id`).
+- Hardware: banner with flavour `hw` on a DevKitC, the 16 MB flash size (`esptool.py flash_id`), and PSRAM detected at boot.
 
 ## Open questions
-- None. Resolved: flash is 16 MB; CI runs on GitHub Actions.
+- None. Resolved: flash is 16 MB; modules are WROVER with 8 MB PSRAM; CI runs on GitHub Actions.

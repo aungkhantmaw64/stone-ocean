@@ -19,10 +19,11 @@ Work through the phases below in order.
 1. Read the spec in full, plus `specs/README.md` for project-wide context (target hardware, toolchain, repository layout, simulation strategy).
 2. Read every spec listed under `Depends on`. Check that their code exists in the repo. If a dependency is missing or still `todo`, tell the developer and ask whether to continue anyway, stub it, or stop.
 3. Skim the existing code the feature touches: build files, the HAL, neighbouring components, existing tests. Match its naming, layout and error-handling style. Follow the documentation rules under **Rules**.
-4. Read `docs/unit-testing-standards.md`. You will need it in Phase 3.
-5. If the spec has **Open questions** that block implementation, or something in it is ambiguous, ask the developer now (AskUserQuestion when the answers fit a few clear options). Do not guess hardware facts such as pins, addresses, timings or register values.
-6. Check the git branch. If you are on `main` or `master`, propose a feature branch name (for example `feature/03-config-parser`) and create it once the developer agrees.
-7. Set the spec's `**Status:**` line and its row in `specs/README.md` to `in-progress`.
+4. Check the spec's `Interface` against the naming rule under **Rules**. If its names do not follow it (for example a spec written before the rule), propose the renamed interface as a spec change before Phase 1, and update the spec once the developer agrees.
+5. Read `docs/unit-testing-standards.md`. You will need it in Phase 3.
+6. If the spec has **Open questions** that block implementation, or something in it is ambiguous, ask the developer now (AskUserQuestion when the answers fit a few clear options). Do not guess hardware facts such as pins, addresses, timings or register values.
+7. Check the git branch. If you are on `main` or `master`, propose a feature branch name (for example `feature/03-config-parser`) and create it once the developer agrees.
+8. Set the spec's `**Status:**` line and its row in `specs/README.md` to `in-progress`.
 
 ## Phase 1 — Break the feature into chunks
 
@@ -88,6 +89,11 @@ Start only after the developer has agreed to proceed. Follow `docs/unit-testing-
 - Do not commit a chunk the developer has not approved. Do not push unless asked.
 - Never invent hardware facts (pins, I2C addresses, register maps, timings, emulator support). Ask, or leave a clearly marked `TODO(confirm):` and tell the developer.
 - Keep hardware access behind the project's HAL so logic stays host-testable.
+- Name things after the component and file that own them:
+  - Source files take the component name as a prefix: `<component>_<area>.c` (for example `node_hal_gpio.c` in component `node_hal`). A host mock or fake that replaces a source file uses the same file name in its own directory.
+  - Every function, static helpers included, takes its source file's name as a prefix: functions in `node_hal_gpio.c` are `node_hal_gpio_*`. Test-only helpers in a mock follow their file too (`node_hal_gpio_mock_set_input`).
+  - Public types, enum values and macros take the component prefix (`node_hal_err_t`, `NODE_HAL_OK`).
+  - Exceptions: `main/` keeps ESP-IDF's fixed names, such as `app_main`. Unit test files and test functions follow `docs/unit-testing-standards.md` (`test_<module>.c`, `test_<sentence>`).
 - Document every public function, type and macro in its header with a Doxygen block (`/** @brief … */` plus `@param`, and `@return` where there is a return value). Document behaviour, preconditions, units and calling context (for example "ISR context"), not the implementation.
 - Avoid inline comments that explain what the code does. If code needs explaining, make it self-explanatory instead: use clearer names, extract a well-named function, or use a named constant. Keep a comment only for what the code cannot say, such as a datasheet reference, a hardware quirk or the reason for a non-obvious choice.
 - Respect embedded constraints stated in the spec or README: memory budget, no dynamic allocation where forbidden, ISR versus task context, timing limits, `-Werror`.
