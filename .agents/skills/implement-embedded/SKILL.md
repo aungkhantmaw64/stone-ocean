@@ -124,5 +124,6 @@ Start only after the developer has agreed to proceed. Follow `docs/unit-testing-
   - Make pointers and data `const` wherever they are not written, and make file-local functions and variables `static`.
   - Give every `switch` a `default`, every `if`/`else` and loop body braces, and every loop a fixed bound, except the endless main loop of a task.
   - No recursion and no variable-length arrays. Keep stack use bounded, especially in ISRs and small tasks.
+- Never create a plain FreeRTOS task or timer (`xTaskCreate`, `xTimerCreate`, or their static variants). Every thread is an active object on `node_ao` (spec 14): it owns its state, receives events on its queue, and runs each one to completion without blocking. Use time events for anything periodic or delayed. Other threads, ISRs and ESP-IDF callbacks only post events to it.
 - Respect embedded constraints stated in the spec or README: memory budget, no dynamic allocation where forbidden, ISR versus task context, timing limits, `-Werror`.
 - Report results honestly. If a build or test fails, show the output. If a step was skipped, say so.

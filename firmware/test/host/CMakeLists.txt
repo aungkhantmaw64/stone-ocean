@@ -48,6 +48,14 @@ add_library(node_hal_header_check OBJECT node_hal_header_check.c)
 target_compile_options(node_hal_header_check PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(node_hal_header_check PRIVATE node_hal_api)
 
+add_library(node_ao_api INTERFACE)
+target_include_directories(node_ao_api INTERFACE
+  ${FIRMWARE_DIR}/components/node_ao/include)
+
+add_library(node_ao_header_check OBJECT node_ao_header_check.c)
+target_compile_options(node_ao_header_check PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_ao_header_check PRIVATE node_ao_api)
+
 add_library(node_config_api INTERFACE)
 target_include_directories(node_config_api INTERFACE
   ${FIRMWARE_DIR}/components/node_config/include)
