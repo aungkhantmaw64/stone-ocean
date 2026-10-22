@@ -28,7 +28,7 @@ Read it aloud without the `test_` prefix and the underscores. It should sound li
 | `test_motion_is_reported_immediately_when_the_sensor_detects_movement` | `test_pir_isr_cb` | Names a function, not behaviour. |
 
 Rules:
-- **Describe the outcome, not the implementation.** Prefer "is rejected", "is saved", "turns on", "is reported" over function names, return codes or variable names. Put code-level detail (`returns NODE_CFG_ERR_TYPE`) in the assertions, not in the name.
+- **Describe the outcome, not the implementation.** Prefer "is rejected", "is saved", "turns on", "is reported" over function names, return codes or variable names. Put code-level detail (`returns NODE_CONFIG_ERR_TYPE`) in the assertions, not in the name.
 - **Use product words.** Use "sensor", "config", "LED", "gateway", "reboot", "flash memory", not `hal_i2c_xfer` or `nvs_blob`. Domain terms from `specs/README.md` (mesh, provisioning, safe mode, factory reset) are fine.
 - **No abbreviations** except widely understood units (`ms`, `kb`, `c`). Write `temperature`, not `temp`. Write `config`, not `cfg`.
 - **One behaviour per name.** If the name needs "and" to join two unrelated outcomes, split the test. "Is rejected and names the bad entry" is fine, because it is one outcome described fully.

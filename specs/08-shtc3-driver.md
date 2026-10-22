@@ -35,7 +35,7 @@ Implement the Sensirion SHTC3 temperature/humidity driver as a `dev_driver_t` pl
 
 ## Interface
 ```c
-extern const dev_driver_t shtc3_driver;   /* type DEV_SHTC3 */
+extern const dev_driver_t shtc3_driver;   /* type NODE_CONFIG_DEV_SHTC3 */
 void shtc3_driver_register(void);
 
 /* pure helpers, exposed for host tests */

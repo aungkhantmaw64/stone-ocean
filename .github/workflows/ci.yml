@@ -19,6 +19,15 @@ jobs:
           . "$IDF_PATH/export.sh" > /dev/null
           scripts/host_test.sh
 
+  config-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check the config schema and example configs
+        run: |
+          pipx run check-jsonschema==0.38.2 --check-metaschema configs/node-config.schema.json
+          pipx run check-jsonschema==0.38.2 --schemafile configs/node-config.schema.json configs/example-*.json
+
   hardware-build:
     runs-on: ubuntu-latest
     container: espressif/idf:v5.4.4

@@ -1,6 +1,6 @@
 # 03 — Config schema & parser
 
-**Status:** todo
+**Status:** done
 **Depends on:** 01
 **Target:** ESP32 · ESP-IDF v5.x (cJSON component) · `firmware/components/node_config`, `configs/`
 
@@ -17,9 +17,12 @@ Pin validation rules for the classic ESP32. Confirm against the datasheet:
 - Reject GPIO 6–11 (flash).
 - Reject GPIO 16–17 (PSRAM on the WROVER module).
 - Reject GPIO 24 and 28–31 (not present on the ESP32).
+- Reject GPIO 1 and 3 (UART0 TX/RX, used by the serial console and CLI, spec 05).
 - Reject GPIO 34–39 for outputs and for internal pull resistors.
 - Reject pins above 39.
 - Warn (don't reject) on strapping pins 0, 2, 5, 12, 15.
+- I2C `port` must be 0 or 1 (the ESP32 has two I2C controllers).
+- I2C `sda` and `scl` are outputs (open drain), so the output rules apply to them.
 
 ## Scope
 - In scope:
@@ -50,59 +53,91 @@ Config format, version 1. The pins are placeholders:
 ```
 
 ```c
-#define NODE_CFG_MAX_DEVICES   8
-#define NODE_CFG_MAX_I2C_BUSES 2
-#define NODE_CFG_ID_LEN        16
-#define NODE_CFG_MAX_RAW_LEN   4096
+#define NODE_CONFIG_MAX_DEVICES   8
+#define NODE_CONFIG_MAX_I2C_BUSES 2
+#define NODE_CONFIG_ID_LEN        16
+#define NODE_CONFIG_NAME_LEN      32
+#define NODE_CONFIG_MAX_RAW_LEN   4096
+#define NODE_CONFIG_ERR_PATH_LEN  48
+#define NODE_CONFIG_ERR_MSG_LEN   80
 
-typedef enum { DEV_SHTC3, DEV_PIR, DEV_LED } node_dev_type_t;
+typedef enum { NODE_CONFIG_DEV_SHTC3, NODE_CONFIG_DEV_PIR, NODE_CONFIG_DEV_LED } node_config_dev_type_t;
 
-typedef struct { char id[NODE_CFG_ID_LEN]; int port, sda, scl; uint32_t freq_hz; } node_i2c_bus_cfg_t;
+typedef struct {
+    char id[NODE_CONFIG_ID_LEN];
+    int port;
+    int sda;
+    int scl;
+    uint32_t freq_hz;
+} node_config_i2c_bus_t;
 
 typedef struct {
     uint32_t min_interval_ms, max_interval_ms;
     float delta_temp_c, delta_rh_pct;
-} node_report_cfg_t;
+} node_config_report_t;
+
+typedef struct { int bus_index; uint32_t sample_interval_ms; node_config_report_t report; } node_config_shtc3_t;
+typedef struct { int gpio; bool active_high; uint32_t debounce_ms; node_hal_gpio_pull_t pull; } node_config_pir_t;
+typedef struct { int gpio; bool active_high; bool default_on; } node_config_led_t;
 
 typedef struct {
-    char id[NODE_CFG_ID_LEN];
-    node_dev_type_t type;
+    char id[NODE_CONFIG_ID_LEN];
+    node_config_dev_type_t type;
     union {
-        struct { int bus_index; uint32_t sample_interval_ms; node_report_cfg_t report; } shtc3;
-        struct { int gpio; bool active_high; uint32_t debounce_ms; node_hal_gpio_pull_t pull; } pir;
-        struct { int gpio; bool active_high; bool default_on; } led;
+        node_config_shtc3_t shtc3;
+        node_config_pir_t pir;
+        node_config_led_t led;
     };
-} node_dev_cfg_t;
+} node_config_dev_t;
 
 typedef struct {
     int version;
-    char node_name[32];
-    int n_i2c; node_i2c_bus_cfg_t i2c[NODE_CFG_MAX_I2C_BUSES];
-    int n_dev; node_dev_cfg_t dev[NODE_CFG_MAX_DEVICES];
+    char node_name[NODE_CONFIG_NAME_LEN];
+    int n_i2c; node_config_i2c_bus_t i2c[NODE_CONFIG_MAX_I2C_BUSES];
+    int n_dev; node_config_dev_t dev[NODE_CONFIG_MAX_DEVICES];
 } node_config_t;
 
-typedef struct { int code; char path[48]; char msg[80]; } node_cfg_err_t;  /* path e.g. "devices[1].gpio" */
+typedef enum {
+    NODE_CONFIG_OK = 0,
+    NODE_CONFIG_ERR_ARG,          /* NULL pointer or bad argument from the caller */
+    NODE_CONFIG_ERR_TOO_LARGE,    /* input longer than NODE_CONFIG_MAX_RAW_LEN */
+    NODE_CONFIG_ERR_SYNTAX,       /* malformed JSON */
+    NODE_CONFIG_ERR_MISSING,      /* required key absent */
+    NODE_CONFIG_ERR_TYPE,         /* value has the wrong JSON type */
+    NODE_CONFIG_ERR_RANGE,        /* value out of range, or too long */
+    NODE_CONFIG_ERR_VERSION,      /* unsupported "version" */
+    NODE_CONFIG_ERR_DUPLICATE,    /* id or GPIO used twice, or I2C port used twice */
+    NODE_CONFIG_ERR_PIN,          /* pin rule violated */
+    NODE_CONFIG_ERR_DEVICE_TYPE,  /* unknown device "type" */
+    NODE_CONFIG_ERR_BUS_REF,      /* device "bus" names no bus */
+    NODE_CONFIG_ERR_TOO_MANY,     /* more buses or devices than the maximum */
+    NODE_CONFIG_ERR_NO_MEMORY,    /* cJSON could not allocate */
+} node_config_err_code_t;
 
-int  node_config_parse(const char *json, size_t len, node_config_t *out, node_cfg_err_t *err); /* 0 = ok */
+typedef struct { node_config_err_code_t code; char path[NODE_CONFIG_ERR_PATH_LEN]; char msg[NODE_CONFIG_ERR_MSG_LEN]; } node_config_err_t;  /* path e.g. "devices[1].gpio" */
+
+node_config_err_code_t node_config_parse(const char *json, size_t len, node_config_t *out, node_config_err_t *err);
 uint32_t node_config_composition_hash(const node_config_t *cfg); /* hash of device types+order, used by spec 10 */
 ```
 
 ## Behavior & constraints
 - Validation rules:
   - `version` must be 1.
-  - IDs are unique, non-empty and shorter than `NODE_CFG_ID_LEN`.
+  - IDs are unique, non-empty and shorter than `NODE_CONFIG_ID_LEN`.
   - Device `bus` references an existing bus.
   - No two devices or buses claim the same GPIO.
   - Pin rules as above.
+  - No two buses use the same I2C `port`.
   - `freq_hz` must be between 10 kHz and 400 kHz.
   - Intervals: `sample_interval_ms` ≥ 1000, and `min_interval_ms` ≤ `max_interval_ms`.
 - Unknown keys produce a warning (logged) but do not fail. Unknown `type` is an error.
+- Warnings go through an internal log function: `ESP_LOGW` on the target, and a host mock with the same file name that records them, so tests can check them.
 - Defaults for omitted optional fields:
   - `debounce_ms`: 50
   - `pull`: none
   - `default_on`: false
   - `report.*`: min 5000, max 60000, delta_temp_c 0.5, delta_rh_pct 2.0
-- Input over `NODE_CFG_MAX_RAW_LEN` is rejected before parsing.
+- Input over `NODE_CONFIG_MAX_RAW_LEN` is rejected before parsing.
 - cJSON allocations are freed before return. No allocation is kept in `out`.
 - Error messages are human-readable and include the JSON path.
 
@@ -119,12 +154,14 @@ uint32_t node_config_composition_hash(const node_config_t *cfg); /* hash of devi
 - **On hardware:** none needed. Covered via spec 05.
 
 ## Acceptance criteria
-- [ ] JSON Schema and example config exist, and the example validates against the schema.
-- [ ] `node_config_parse` accepts the example and fills every field, including defaults.
-- [ ] Every validation rule above has a host test producing the correct error path.
-- [ ] Parser builds and runs in the host test build (cJSON vendored or fetched for host).
-- [ ] No memory leaks in host tests (run under AddressSanitizer/LeakSanitizer).
-- [ ] `node_config_composition_hash` behaves as specified.
+- [x] JSON Schema and example config exist, and the example validates against the schema.
+- [x] `node_config_parse` accepts the example and fills every field, including defaults.
+- [x] Every validation rule above has a host test producing the correct error path.
+- [x] Parser builds and runs in the host test build (cJSON vendored or fetched for host).
+- [x] No memory leaks in host tests (run under AddressSanitizer/LeakSanitizer).
+- [x] `node_config_composition_hash` behaves as specified.
+
+Verified on the host: `scripts/host_test.sh` runs 80 node_config tests (`test_node_config_parse`, `test_node_config_validate`, `test_node_config_composition`) under ASan, LSan and UBSan, all passing. The example config is embedded in the tests at build time and validated by the `config-schema` CI job, which has not yet run on GitHub (see spec 01).
 
 ## Open questions
 - Should the SHTC3 entry allow overriding the I2C address? The SHTC3 has a fixed address, so the address is omitted from v1.

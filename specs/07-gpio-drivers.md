@@ -24,8 +24,8 @@ Implement the PIR motion-input and LED output drivers as `dev_driver_t` plugins,
 
 ## Interface
 ```c
-extern const dev_driver_t pir_driver;   /* type DEV_PIR */
-extern const dev_driver_t led_driver;   /* type DEV_LED */
+extern const dev_driver_t pir_driver;   /* type NODE_CONFIG_DEV_PIR */
+extern const dev_driver_t led_driver;   /* type NODE_CONFIG_DEV_LED */
 void gpio_drivers_register(void);        /* registers both with the framework */
 ```
 

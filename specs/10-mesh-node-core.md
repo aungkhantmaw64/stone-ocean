@@ -28,7 +28,7 @@ Classic ESP32 radio, BLE 4.2. Bluetooth controller in BLE-only mode. Bluetooth C
   - Composition layout:
     - **Element 0 (primary):** Config Server and Health Server. No device models.
     - **Elements 1..N:** one element per configured device, in config order. Models are added in spec 11.
-  - Static allocation for up to `1 + NODE_CFG_MAX_DEVICES` elements. Composition is built at boot before `esp_ble_mesh_init`.
+  - Static allocation for up to `1 + NODE_CONFIG_MAX_DEVICES` elements. Composition is built at boot before `esp_ble_mesh_init`.
   - Composition-change detection:
     - Store `node_config_composition_hash()` (spec 03) in NVS (namespace `meshmeta`) at provisioning-complete.
     - On boot, if the node is provisioned and the hash differs from the active config's, log a WARN: `config composition changed since provisioning; factory-reset and reprovision required`. Run with the **stored-hash-compatible primary element only** (device elements disabled) until reprovisioned.
@@ -45,7 +45,7 @@ uint16_t mesh_node_primary_addr(void);
 /* For spec 11: element/model handles for device index i (element 1+i) */
 esp_ble_mesh_elem_t *mesh_node_device_element(int dev_index);
 /* Spec 11 fills model arrays for each device element before start: */
-typedef int (*mesh_models_builder_t)(int dev_index, const node_dev_cfg_t *cfg,
+typedef int (*mesh_models_builder_t)(int dev_index, const node_config_dev_t *cfg,
                                      esp_ble_mesh_model_t **sig_models, uint8_t *sig_count);
 void mesh_node_set_models_builder(mesh_models_builder_t builder);
 ```
