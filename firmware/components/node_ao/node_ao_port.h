@@ -16,6 +16,7 @@
  * ========================================================================== */
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "node_ao.h"
@@ -102,6 +103,6 @@ bool node_ao_port_receive(node_ao_t *me, void *slot, uint32_t timeout_ms);
  * the AO's own thread.
  *
  * @param me Started AO; must not be NULL.
- * @return True if at least one event was dispatched.
+ * @return The number of events dispatched, time events included.
  */
-bool node_ao_run_once(node_ao_t *me);
+size_t node_ao_run_once(node_ao_t *me);

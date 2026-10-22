@@ -106,17 +106,17 @@ node_ao_err_t node_ao_post_from_isr(node_ao_t *me, const void *evt,
   return node_ao_port_send_from_isr(me, &slot);
 }
 
-bool node_ao_run_once(node_ao_t *me) {
+size_t node_ao_run_once(node_ao_t *me) {
   if (me == NULL || !me->started) {
-    return false;
+    return 0;
   }
+  size_t dispatched = 0;
   node_ao_slot_t slot = {0};
-  bool dispatched =
-      node_ao_port_receive(me, &slot, node_ao_time_next_wait_ms(me));
-  if (dispatched) {
+  if (node_ao_port_receive(me, &slot, node_ao_time_next_wait_ms(me))) {
     me->dispatch(me, &slot.evt);
+    dispatched++;
   }
-  return node_ao_time_dispatch_due(me) || dispatched;
+  return dispatched + node_ao_time_dispatch_due(me);
 }
 
 /* ==========================================================================

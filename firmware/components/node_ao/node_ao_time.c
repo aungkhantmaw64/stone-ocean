@@ -102,9 +102,9 @@ uint32_t node_ao_time_next_wait_ms(const node_ao_t *me) {
   return wait_ms;
 }
 
-bool node_ao_time_dispatch_due(node_ao_t *me) {
+size_t node_ao_time_dispatch_due(node_ao_t *me) {
   uint32_t now_ms = node_hal_time_ms();
-  bool dispatched = false;
+  size_t dispatched = 0;
   for (size_t i = 0; i < me->n_time_evts && i < NODE_AO_MAX_TIME_EVTS; i++) {
     node_ao_time_evt_t *te = me->time_evts[i];
     if (!te->armed || node_ao_time_until(te->deadline_ms, now_ms) > 0) {
@@ -113,7 +113,7 @@ bool node_ao_time_dispatch_due(node_ao_t *me) {
     node_ao_time_reschedule(te, now_ms);
     const node_ao_evt_t evt = {.sig = te->sig};
     me->dispatch(me, &evt);
-    dispatched = true;
+    dispatched++;
   }
   return dispatched;
 }

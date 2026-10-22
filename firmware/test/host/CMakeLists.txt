@@ -56,6 +56,17 @@ add_library(node_ao_header_check OBJECT node_ao_header_check.c)
 target_compile_options(node_ao_header_check PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(node_ao_header_check PRIVATE node_ao_api)
 
+# The real node_ao core, with the synchronous host port in place of the
+# FreeRTOS node_ao_port.c. Time events run on the mock HAL clock.
+set(NODE_AO_DIR ${FIRMWARE_DIR}/components/node_ao)
+add_library(node_ao STATIC
+  ${NODE_AO_DIR}/node_ao.c
+  ${NODE_AO_DIR}/node_ao_time.c
+  mocks/node_ao_port.c)
+target_include_directories(node_ao PUBLIC mocks PRIVATE ${NODE_AO_DIR})
+target_compile_options(node_ao PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_ao PUBLIC node_ao_api node_hal_mock)
+
 add_library(node_config_api INTERFACE)
 target_include_directories(node_config_api INTERFACE
   ${FIRMWARE_DIR}/components/node_config/include)

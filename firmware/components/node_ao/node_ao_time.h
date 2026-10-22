@@ -13,7 +13,7 @@
  * INCLUDES
  * ========================================================================== */
 
-#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "node_ao.h"
@@ -37,6 +37,6 @@ uint32_t node_ao_time_next_wait_ms(const node_ao_t *me);
  *        were initialised, and reschedule or disarm each one.
  *
  * @param me Started AO; must not be NULL.
- * @return True if at least one time event was dispatched.
+ * @return The number of time events dispatched.
  */
-bool node_ao_time_dispatch_due(node_ao_t *me);
+size_t node_ao_time_dispatch_due(node_ao_t *me);
