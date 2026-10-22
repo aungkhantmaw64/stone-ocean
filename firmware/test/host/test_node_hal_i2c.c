@@ -17,20 +17,20 @@
 static const uint8_t measure_command[] = {0x78, 0x66};
 static const uint8_t sensor_answer[] = {0x66, 0x66, 0x93};
 
-static node_hal_i2c_bus_t bus;
+static node_hal_i2c_bus_t g_bus;
 
 static node_hal_i2c_dev_t add_device(uint8_t addr7) {
   node_hal_i2c_dev_t dev = NULL;
-  TEST_ASSERT_EQUAL_INT(NODE_HAL_OK, node_hal_i2c_dev_add(bus, addr7, &dev));
+  TEST_ASSERT_EQUAL_INT(NODE_HAL_OK, node_hal_i2c_dev_add(g_bus, addr7, &dev));
   return dev;
 }
 
 void setUp(void) {
   node_hal_mock_reset();
-  bus = NULL;
+  g_bus = NULL;
   TEST_ASSERT_EQUAL_INT(
       NODE_HAL_OK,
-      node_hal_i2c_bus_init(I2C_PORT, SDA_PIN, SCL_PIN, BUS_FREQ_HZ, &bus));
+      node_hal_i2c_bus_init(I2C_PORT, SDA_PIN, SCL_PIN, BUS_FREQ_HZ, &g_bus));
 }
 
 void tearDown(void) {}
@@ -132,9 +132,9 @@ void test_probe_finds_only_devices_marked_present(void) {
   node_hal_i2c_mock_set_present(SENSOR_ADDR, true);
 
   TEST_ASSERT_EQUAL_INT(NODE_HAL_OK,
-                        node_hal_i2c_probe(bus, SENSOR_ADDR, TIMEOUT_MS));
+                        node_hal_i2c_probe(g_bus, SENSOR_ADDR, TIMEOUT_MS));
   TEST_ASSERT_EQUAL_INT(NODE_HAL_ERR_NACK,
-                        node_hal_i2c_probe(bus, OTHER_ADDR, TIMEOUT_MS));
+                        node_hal_i2c_probe(g_bus, OTHER_ADDR, TIMEOUT_MS));
 }
 
 /* AC: specs/02-hal.md #3 */
@@ -201,10 +201,10 @@ void test_device_address_above_7_bits_is_rejected(void) {
   node_hal_i2c_dev_t dev = NULL;
 
   TEST_ASSERT_EQUAL_INT(NODE_HAL_ERR_ARG,
-                        node_hal_i2c_dev_add(bus, FIRST_INVALID_ADDR, &dev));
+                        node_hal_i2c_dev_add(g_bus, FIRST_INVALID_ADDR, &dev));
   TEST_ASSERT_EQUAL_INT(
       NODE_HAL_ERR_ARG,
-      node_hal_i2c_probe(bus, FIRST_INVALID_ADDR, TIMEOUT_MS));
+      node_hal_i2c_probe(g_bus, FIRST_INVALID_ADDR, TIMEOUT_MS));
 }
 
 /* AC: specs/02-hal.md #4 */
@@ -214,7 +214,7 @@ void test_ninth_device_is_rejected_when_the_device_pool_is_full(void) {
   }
   node_hal_i2c_dev_t ninth = NULL;
 
-  node_hal_err_t err = node_hal_i2c_dev_add(bus, SENSOR_ADDR, &ninth);
+  node_hal_err_t err = node_hal_i2c_dev_add(g_bus, SENSOR_ADDR, &ninth);
 
   TEST_ASSERT_EQUAL_INT(NODE_HAL_ERR_ARG, err);
 }

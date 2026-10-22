@@ -24,12 +24,12 @@ struct node_hal_i2c_dev {
   i2c_master_dev_handle_t handle;
 };
 
-static struct node_hal_i2c_bus buses[SOC_I2C_NUM];
-static struct node_hal_i2c_dev devices[I2C_MAX_DEVICES];
+static struct node_hal_i2c_bus g_buses[SOC_I2C_NUM];
+static struct node_hal_i2c_dev g_devices[I2C_MAX_DEVICES];
 
 static bool node_hal_i2c_bus_is_valid(node_hal_i2c_bus_t bus) {
   for (size_t i = 0; i < SOC_I2C_NUM; i++) {
-    if (bus == &buses[i]) {
+    if (bus == &g_buses[i]) {
       return bus->in_use;
     }
   }
@@ -38,7 +38,7 @@ static bool node_hal_i2c_bus_is_valid(node_hal_i2c_bus_t bus) {
 
 static bool node_hal_i2c_dev_is_valid(node_hal_i2c_dev_t dev) {
   for (size_t i = 0; i < I2C_MAX_DEVICES; i++) {
-    if (dev == &devices[i]) {
+    if (dev == &g_devices[i]) {
       return dev->in_use;
     }
   }
@@ -52,7 +52,7 @@ static int node_hal_i2c_timeout_for_idf(uint32_t timeout_ms) {
 node_hal_err_t node_hal_i2c_bus_init(int port, int sda, int scl,
                                      uint32_t freq_hz,
                                      node_hal_i2c_bus_t *out) {
-  if (port < 0 || port >= SOC_I2C_NUM || buses[port].in_use ||
+  if (port < 0 || port >= SOC_I2C_NUM || g_buses[port].in_use ||
       !node_hal_gpio_pin_is_usable(sda) || !node_hal_gpio_pin_is_usable(scl) ||
       sda == scl || freq_hz == 0 || out == NULL) {
     return NODE_HAL_ERR_ARG;
@@ -66,7 +66,7 @@ node_hal_err_t node_hal_i2c_bus_init(int port, int sda, int scl,
       .glitch_ignore_cnt = I2C_GLITCH_IGNORE_CYCLES,
       .flags.enable_internal_pullup = true,
   };
-  struct node_hal_i2c_bus *bus = &buses[port];
+  struct node_hal_i2c_bus *bus = &g_buses[port];
   node_hal_err_t err =
       node_hal_err_from_esp(i2c_new_master_bus(&cfg, &bus->handle));
   if (err != NODE_HAL_OK) {
@@ -80,8 +80,8 @@ node_hal_err_t node_hal_i2c_bus_init(int port, int sda, int scl,
 
 static struct node_hal_i2c_dev *node_hal_i2c_free_device_slot(void) {
   for (size_t i = 0; i < I2C_MAX_DEVICES; i++) {
-    if (!devices[i].in_use) {
-      return &devices[i];
+    if (!g_devices[i].in_use) {
+      return &g_devices[i];
     }
   }
   return NULL;

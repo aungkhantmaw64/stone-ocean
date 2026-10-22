@@ -13,8 +13,8 @@ typedef struct {
   void *ctx;
 } isr_slot_t;
 
-static isr_slot_t isr_slots[GPIO_NUM_MAX];
-static bool isr_service_installed;
+static isr_slot_t g_isr_slots[GPIO_NUM_MAX];
+static bool g_isr_service_installed;
 
 /* Flash and PSRAM claim their pins at startup, and drivers such as I2C claim
  * theirs when created, so the reservation set describes this board without a
@@ -94,14 +94,14 @@ static gpio_int_type_t node_hal_gpio_intr_type_for(node_hal_gpio_edge_t edge) {
 }
 
 static node_hal_err_t node_hal_gpio_install_isr_service_once(void) {
-  if (isr_service_installed) {
+  if (g_isr_service_installed) {
     return NODE_HAL_OK;
   }
   esp_err_t err = gpio_install_isr_service(0);
   if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
     return node_hal_err_from_esp(err);
   }
-  isr_service_installed = true;
+  g_isr_service_installed = true;
   return NODE_HAL_OK;
 }
 
@@ -121,13 +121,13 @@ node_hal_err_t node_hal_gpio_set_isr(int pin, node_hal_gpio_edge_t edge,
   /* Keep the interrupt off while the slot is rewritten, so a pending edge
    * never sees a callback paired with the wrong context. */
   gpio_intr_disable(pin);
-  isr_slots[pin] = (isr_slot_t){.pin = pin, .cb = cb, .ctx = ctx};
+  g_isr_slots[pin] = (isr_slot_t){.pin = pin, .cb = cb, .ctx = ctx};
 
   err = node_hal_err_from_esp(
       gpio_set_intr_type(pin, node_hal_gpio_intr_type_for(edge)));
   if (err != NODE_HAL_OK) {
     return err;
   }
-  return node_hal_err_from_esp(
-      gpio_isr_handler_add(pin, node_hal_gpio_isr_trampoline, &isr_slots[pin]));
+  return node_hal_err_from_esp(gpio_isr_handler_add(
+      pin, node_hal_gpio_isr_trampoline, &g_isr_slots[pin]));
 }

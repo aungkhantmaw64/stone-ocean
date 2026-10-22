@@ -7,14 +7,14 @@
 #define LOW 0
 #define HIGH 1
 
-static int callback_count;
-static int callback_pin;
-static void *callback_ctx;
+static int g_callback_count;
+static int g_callback_pin;
+static void *g_callback_ctx;
 
 static void record_callback(int pin, void *ctx) {
-  callback_count++;
-  callback_pin = pin;
-  callback_ctx = ctx;
+  g_callback_count++;
+  g_callback_pin = pin;
+  g_callback_ctx = ctx;
 }
 
 static void watch_button(node_hal_gpio_edge_t edge) {
@@ -28,9 +28,9 @@ static void watch_button(node_hal_gpio_edge_t edge) {
 
 void setUp(void) {
   node_hal_mock_reset();
-  callback_count = 0;
-  callback_pin = -1;
-  callback_ctx = NULL;
+  g_callback_count = 0;
+  g_callback_pin = -1;
+  g_callback_ctx = NULL;
 }
 
 void tearDown(void) {}
@@ -44,7 +44,7 @@ void test_callback_runs_once_when_an_input_rises_and_rising_edges_are_watched(
 
   node_hal_gpio_mock_set_input(BUTTON_PIN, HIGH);
 
-  TEST_ASSERT_EQUAL_INT(1, callback_count);
+  TEST_ASSERT_EQUAL_INT(1, g_callback_count);
 }
 
 /* AC: specs/02-hal.md #3 */
@@ -55,7 +55,7 @@ void test_callback_does_not_run_when_the_input_falls_and_only_rising_edges_are_w
 
   node_hal_gpio_mock_set_input(BUTTON_PIN, LOW);
 
-  TEST_ASSERT_EQUAL_INT(0, callback_count);
+  TEST_ASSERT_EQUAL_INT(0, g_callback_count);
 }
 
 /* AC: specs/02-hal.md #3 */
@@ -65,7 +65,7 @@ void test_callback_runs_on_both_rise_and_fall_when_any_edge_is_watched(void) {
   node_hal_gpio_mock_set_input(BUTTON_PIN, HIGH);
   node_hal_gpio_mock_set_input(BUTTON_PIN, LOW);
 
-  TEST_ASSERT_EQUAL_INT(2, callback_count);
+  TEST_ASSERT_EQUAL_INT(2, g_callback_count);
 }
 
 /* AC: specs/02-hal.md #3 */
@@ -75,7 +75,7 @@ void test_callback_does_not_run_when_an_input_is_set_to_the_level_it_already_has
 
   node_hal_gpio_mock_set_input(BUTTON_PIN, LOW);
 
-  TEST_ASSERT_EQUAL_INT(0, callback_count);
+  TEST_ASSERT_EQUAL_INT(0, g_callback_count);
 }
 
 /* AC: specs/02-hal.md #3 */
@@ -88,8 +88,8 @@ void test_callback_receives_the_pin_number_and_the_context_it_was_registered_wit
 
   node_hal_gpio_mock_set_input(BUTTON_PIN, HIGH);
 
-  TEST_ASSERT_EQUAL_INT(BUTTON_PIN, callback_pin);
-  TEST_ASSERT_EQUAL_PTR(&context, callback_ctx);
+  TEST_ASSERT_EQUAL_INT(BUTTON_PIN, g_callback_pin);
+  TEST_ASSERT_EQUAL_PTR(&context, g_callback_ctx);
 }
 
 /* ---- Pin levels ---- */

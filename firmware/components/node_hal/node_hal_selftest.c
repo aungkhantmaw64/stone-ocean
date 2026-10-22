@@ -25,7 +25,7 @@
 #define TASK_PRIORITY 5
 
 static const char *TAG = "node_hal_selftest";
-static QueueHandle_t edge_queue;
+static QueueHandle_t g_edge_queue;
 
 static void node_hal_selftest_scan_i2c(void) {
   node_hal_i2c_bus_t bus = NULL;
@@ -61,7 +61,7 @@ static void node_hal_selftest_scan_i2c(void) {
 static void node_hal_selftest_on_button_edge(int pin, void *ctx) {
   (void)ctx;
   BaseType_t woken = pdFALSE;
-  xQueueSendFromISR(edge_queue, &pin, &woken);
+  xQueueSendFromISR(g_edge_queue, &pin, &woken);
   portYIELD_FROM_ISR(woken);
 }
 
@@ -108,7 +108,7 @@ static void node_hal_selftest_task(void *arg) {
   uint32_t next_toggle_ms = node_hal_time_ms() + TOGGLE_PERIOD_MS;
   for (;;) {
     int pin;
-    if (xQueueReceive(edge_queue, &pin, pdMS_TO_TICKS(TOGGLE_PERIOD_MS))) {
+    if (xQueueReceive(g_edge_queue, &pin, pdMS_TO_TICKS(TOGGLE_PERIOD_MS))) {
       ESP_LOGI(TAG, "edge on GPIO %d at %lu ms, level now %d", pin,
                (unsigned long)node_hal_time_ms(), node_hal_gpio_read(pin));
     }
@@ -121,8 +121,8 @@ static void node_hal_selftest_task(void *arg) {
 }
 
 void node_hal_selftest_start(void) {
-  edge_queue = xQueueCreate(EDGE_QUEUE_LENGTH, sizeof(int));
-  if (edge_queue == NULL ||
+  g_edge_queue = xQueueCreate(EDGE_QUEUE_LENGTH, sizeof(int));
+  if (g_edge_queue == NULL ||
       xTaskCreate(node_hal_selftest_task, TAG, TASK_STACK_BYTES, NULL,
                   TASK_PRIORITY, NULL) != pdPASS) {
     ESP_LOGE(TAG, "could not start the self-test task");

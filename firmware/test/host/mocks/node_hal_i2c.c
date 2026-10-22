@@ -32,46 +32,47 @@ struct node_hal_i2c_dev {
   uint8_t addr7;
 };
 
-static struct node_hal_i2c_bus buses[I2C_PORT_COUNT];
-static struct node_hal_i2c_dev devices[I2C_MAX_DEVICES];
-static bool present[I2C_ADDR7_MAX + 1];
+static struct node_hal_i2c_bus g_buses[I2C_PORT_COUNT];
+static struct node_hal_i2c_dev g_devices[I2C_MAX_DEVICES];
+static bool g_present[I2C_ADDR7_MAX + 1];
 
-static node_hal_i2c_mock_step_t steps[NODE_HAL_MOCK_I2C_MAX_STEPS];
-static size_t steps_queued;
-static size_t steps_consumed;
+static node_hal_i2c_mock_step_t g_steps[NODE_HAL_MOCK_I2C_MAX_STEPS];
+static size_t g_steps_queued;
+static size_t g_steps_consumed;
 
-static char failure[FAILURE_MESSAGE_SIZE];
-static bool failed;
+static char g_failure[FAILURE_MESSAGE_SIZE];
+static bool g_failed;
 
 void node_hal_i2c_mock_reset(void) {
-  memset(buses, 0, sizeof buses);
-  memset(devices, 0, sizeof devices);
-  memset(present, 0, sizeof present);
-  memset(steps, 0, sizeof steps);
-  steps_queued = 0;
-  steps_consumed = 0;
-  failure[0] = '\0';
-  failed = false;
+  memset(g_buses, 0, sizeof g_buses);
+  memset(g_devices, 0, sizeof g_devices);
+  memset(g_present, 0, sizeof g_present);
+  memset(g_steps, 0, sizeof g_steps);
+  g_steps_queued = 0;
+  g_steps_consumed = 0;
+  g_failure[0] = '\0';
+  g_failed = false;
 }
 
 static void node_hal_i2c_record_failure(const char *message, uint8_t addr7) {
-  if (!failed) {
-    snprintf(failure, sizeof failure, "transfer to 0x%02X: %s", addr7, message);
-    failed = true;
+  if (!g_failed) {
+    snprintf(g_failure, sizeof g_failure, "transfer to 0x%02X: %s", addr7,
+             message);
+    g_failed = true;
   }
 }
 
 static void node_hal_i2c_queue_step(node_hal_i2c_mock_step_kind_t kind,
                                     uint8_t addr7, const uint8_t *data,
                                     size_t len, node_hal_err_t err) {
-  if (steps_queued == NODE_HAL_MOCK_I2C_MAX_STEPS ||
+  if (g_steps_queued == NODE_HAL_MOCK_I2C_MAX_STEPS ||
       len > NODE_HAL_MOCK_I2C_MAX_DATA || (len > 0 && data == NULL)) {
     node_hal_i2c_record_failure("test script step rejected (too many steps, "
                                 "too long or no data)",
                                 addr7);
     return;
   }
-  node_hal_i2c_mock_step_t *step = &steps[steps_queued++];
+  node_hal_i2c_mock_step_t *step = &g_steps[g_steps_queued++];
   *step = (node_hal_i2c_mock_step_t){
       .kind = kind, .addr7 = addr7, .len = len, .err = err};
   if (len > 0) {
@@ -95,19 +96,21 @@ void node_hal_i2c_mock_queue_error(uint8_t addr7, node_hal_err_t err) {
 
 void node_hal_i2c_mock_set_present(uint8_t addr7, bool is_present) {
   if (addr7 <= I2C_ADDR7_MAX) {
-    present[addr7] = is_present;
+    g_present[addr7] = is_present;
   }
 }
 
-const char *node_hal_i2c_mock_failure(void) { return failed ? failure : NULL; }
+const char *node_hal_i2c_mock_failure(void) {
+  return g_failed ? g_failure : NULL;
+}
 
 size_t node_hal_i2c_mock_pending_steps(void) {
-  return steps_queued - steps_consumed;
+  return g_steps_queued - g_steps_consumed;
 }
 
 static bool node_hal_i2c_bus_is_valid(node_hal_i2c_bus_t bus) {
   for (size_t i = 0; i < I2C_PORT_COUNT; i++) {
-    if (bus == &buses[i]) {
+    if (bus == &g_buses[i]) {
       return bus->in_use;
     }
   }
@@ -116,7 +119,7 @@ static bool node_hal_i2c_bus_is_valid(node_hal_i2c_bus_t bus) {
 
 static bool node_hal_i2c_dev_is_valid(node_hal_i2c_dev_t dev) {
   for (size_t i = 0; i < I2C_MAX_DEVICES; i++) {
-    if (dev == &devices[i]) {
+    if (dev == &g_devices[i]) {
       return dev->in_use;
     }
   }
@@ -126,14 +129,14 @@ static bool node_hal_i2c_dev_is_valid(node_hal_i2c_dev_t dev) {
 node_hal_err_t node_hal_i2c_bus_init(int port, int sda, int scl,
                                      uint32_t freq_hz,
                                      node_hal_i2c_bus_t *out) {
-  if (port < 0 || port >= I2C_PORT_COUNT || buses[port].in_use || sda < 0 ||
+  if (port < 0 || port >= I2C_PORT_COUNT || g_buses[port].in_use || sda < 0 ||
       sda >= NODE_HAL_MOCK_GPIO_COUNT || scl < 0 ||
       scl >= NODE_HAL_MOCK_GPIO_COUNT || sda == scl || freq_hz == 0 ||
       out == NULL) {
     return NODE_HAL_ERR_ARG;
   }
-  buses[port].in_use = true;
-  *out = &buses[port];
+  g_buses[port].in_use = true;
+  *out = &g_buses[port];
   return NODE_HAL_OK;
 }
 
@@ -143,9 +146,9 @@ node_hal_err_t node_hal_i2c_dev_add(node_hal_i2c_bus_t bus, uint8_t addr7,
     return NODE_HAL_ERR_ARG;
   }
   for (size_t i = 0; i < I2C_MAX_DEVICES; i++) {
-    if (!devices[i].in_use) {
-      devices[i] = (struct node_hal_i2c_dev){.in_use = true, .addr7 = addr7};
-      *out = &devices[i];
+    if (!g_devices[i].in_use) {
+      g_devices[i] = (struct node_hal_i2c_dev){.in_use = true, .addr7 = addr7};
+      *out = &g_devices[i];
       return NODE_HAL_OK;
     }
   }
@@ -158,15 +161,15 @@ node_hal_err_t node_hal_i2c_probe(node_hal_i2c_bus_t bus, uint8_t addr7,
   if (!node_hal_i2c_bus_is_valid(bus) || addr7 > I2C_ADDR7_MAX) {
     return NODE_HAL_ERR_ARG;
   }
-  return present[addr7] ? NODE_HAL_OK : NODE_HAL_ERR_NACK;
+  return g_present[addr7] ? NODE_HAL_OK : NODE_HAL_ERR_NACK;
 }
 
 static const node_hal_i2c_mock_step_t *node_hal_i2c_next_step(uint8_t addr7) {
-  if (steps_consumed == steps_queued) {
+  if (g_steps_consumed == g_steps_queued) {
     node_hal_i2c_record_failure("no scripted step left", addr7);
     return NULL;
   }
-  const node_hal_i2c_mock_step_t *step = &steps[steps_consumed++];
+  const node_hal_i2c_mock_step_t *step = &g_steps[g_steps_consumed++];
   if (step->addr7 != addr7) {
     node_hal_i2c_record_failure("next scripted step is for another address",
                                 addr7);
