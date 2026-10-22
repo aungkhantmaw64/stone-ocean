@@ -107,9 +107,9 @@ Start only after the developer has agreed to proceed. Follow `docs/unit-testing-
   ```
 
   - `.c` files: `INCLUDES`, `MACROS`, `TYPES`, `GLOBAL VARIABLES`, `PRIVATE FUNCTION PROTOTYPES`, `PRIVATE FUNCTIONS`, `PUBLIC FUNCTIONS`.
-  - Headers: `INCLUDES`, `MACROS`, `TYPES`, `PUBLIC FUNCTIONS`. The include guard and any `extern "C"` block wrap all the sections.
+  - Headers: `INCLUDES`, `MACROS`, `TYPES`, `PUBLIC FUNCTIONS`. The include guard and any `@file` block come before the first section. An `extern "C"` block opens after `INCLUDES` and closes at the end of the file.
 
-  `PRIVATE FUNCTIONS` holds the `static` functions and `PUBLIC FUNCTIONS` the ones declared in a header. Unit test files follow `docs/unit-testing-standards.md` where it says otherwise.
+  `PRIVATE FUNCTIONS` holds the `static` functions and `PUBLIC FUNCTIONS` the ones declared in a header. A file that keeps its private functions above their first use needs no `PRIVATE FUNCTION PROTOTYPES`. In a unit test file, `setUp()`, `tearDown()`, the tests and `main()` go under `PUBLIC FUNCTIONS`, and the test groups keep their own headings inside it. Unit test files follow `docs/unit-testing-standards.md` where it says otherwise.
 - Avoid inline comments that explain what the code does. If code needs explaining, make it self-explanatory instead: use clearer names, extract a well-named function, or use a named constant. Keep a comment only for what the code cannot say, such as a datasheet reference, a hardware quirk or the reason for a non-obvious choice.
 - Respect embedded constraints stated in the spec or README: memory budget, no dynamic allocation where forbidden, ISR versus task context, timing limits, `-Werror`.
 - Report results honestly. If a build or test fails, show the output. If a step was skipped, say so.
