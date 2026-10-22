@@ -88,6 +88,16 @@ target_include_directories(config_store_fs_mock PUBLIC mocks
 target_compile_options(config_store_fs_mock PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(config_store_fs_mock PUBLIC config_store_api)
 
+# The real config_store sources, with the in-memory file fake in place of
+# config_store_fs.c.
+set(CONFIG_STORE_DIR ${FIRMWARE_DIR}/components/config_store)
+add_library(config_store STATIC
+  ${CONFIG_STORE_DIR}/config_store.c
+  ${CONFIG_STORE_DIR}/config_store_crc.c)
+target_include_directories(config_store PRIVATE ${CONFIG_STORE_DIR})
+target_compile_options(config_store PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(config_store PUBLIC config_store_api config_store_fs_mock)
+
 # Embed configs/example-shtc3-pir-led.json in the tests as a byte array, so
 # they check the same file the JSON Schema validates without reading files at
 # run time. Editing the JSON re-runs this step.
