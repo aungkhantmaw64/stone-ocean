@@ -1,0 +1,37 @@
+menu "Node HAL"
+
+    config NODE_HAL_SELFTEST
+        bool "Run the HAL hardware self-test at boot"
+        default n
+        help
+            Scans the I2C bus and logs the addresses that answer, logs every
+            edge on the button pin, and toggles an output pin. For checking
+            wiring on a real board; leave disabled otherwise.
+
+    config NODE_HAL_SELFTEST_I2C_SDA
+        int "I2C SDA GPIO"
+        depends on NODE_HAL_SELFTEST
+        range 0 39
+        default 32
+
+    config NODE_HAL_SELFTEST_I2C_SCL
+        int "I2C SCL GPIO"
+        depends on NODE_HAL_SELFTEST
+        range 0 39
+        default 33
+
+    config NODE_HAL_SELFTEST_BUTTON_GPIO
+        int "Button GPIO whose edges are logged"
+        depends on NODE_HAL_SELFTEST
+        range 0 39
+        default 0
+        help
+            GPIO 0 is the DevKitC BOOT button.
+
+    config NODE_HAL_SELFTEST_OUTPUT_GPIO
+        int "Output GPIO to toggle (-1 for none)"
+        depends on NODE_HAL_SELFTEST
+        range -1 39
+        default -1
+
+endmenu

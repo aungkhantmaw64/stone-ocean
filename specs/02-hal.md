@@ -80,7 +80,7 @@ Mock-only helpers (host), declared in `node_hal_mock.h`:
 
 ## Verification
 - **Simulation/host:** Unity tests for the mock itself (scripted I2C sequence round-trip, edge-triggered callbacks, time advance).
-- **On hardware:** a temporary test command or example: toggle an output pin, read the BOOT button (GPIO0) and log edges. Run an I2C scan across addresses 0x08–0x77 and log the addresses that ACK. The SHTC3 should appear when wired.
+- **On hardware:** a temporary test command or example: toggle an output pin, read the BOOT button (GPIO0) and log edges. Run an I2C scan across addresses 0x08–0x77 and log the addresses that ACK. The SHTC3 should appear when wired. Enable it with `CONFIG_NODE_HAL_SELFTEST=y` (`idf.py menuconfig` → Node HAL); the SHTC3 is wired to SDA GPIO 32 / SCL GPIO 33 at address 0x70, and the output pin is set with `CONFIG_NODE_HAL_SELFTEST_OUTPUT_GPIO`.
 
 ## Acceptance criteria
 - [ ] Public header compiles in both the ESP-IDF and host builds with no ESP-IDF includes.
