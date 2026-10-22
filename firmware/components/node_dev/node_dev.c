@@ -85,7 +85,29 @@ typedef struct {
 enum {
   NODE_DEV_SIG_TIMER = NODE_AO_SIG_USER, /**< The earliest scheduled
                                             deadline is due. */
+  NODE_DEV_SIG_SET_ONOFF,                /**< Command from
+                                            node_dev_set_onoff(). */
+  NODE_DEV_SIG_ISR,                      /**< A device's interrupt fired;
+                                            from node_dev_post_from_isr(). */
 };
+
+/** @brief Command to switch an actuator, posted by node_dev_set_onoff(). */
+typedef struct {
+  node_ao_evt_t super; /**< Signal NODE_DEV_SIG_SET_ONOFF. */
+  uint8_t dev_index;   /**< Device's position in node_config_t::dev, 0 to
+                          NODE_CONFIG_MAX_DEVICES - 1. */
+  bool on;             /**< True to switch on. */
+} node_dev_onoff_evt_t;
+
+/** @brief A device's interrupt, posted by node_dev_post_from_isr(). */
+typedef struct {
+  node_ao_evt_t super; /**< Signal NODE_DEV_SIG_ISR. */
+  uint8_t dev_index;   /**< Device's position in node_config_t::dev, 0 to
+                          NODE_CONFIG_MAX_DEVICES - 1. */
+} node_dev_isr_evt_t;
+
+_Static_assert(sizeof(node_dev_isr_evt_t) <= sizeof(node_dev_onoff_evt_t),
+               "the devices AO's evt_size must hold its largest event");
 
 /** @brief The devices active object. */
 typedef struct {
@@ -317,6 +339,35 @@ static void node_dev_publish(const node_dev_ao_t *me, int dev_index,
                              const node_dev_value_t *value);
 
 /**
+ * @brief Switch an actuator on or off for a node_dev_set_onoff() command;
+ *        publish NODE_DEV_SIG_ONOFF_CHANGED if its state changed.
+ *
+ * @param me  The devices AO.
+ * @param cmd The command.
+ */
+static void node_dev_handle_onoff(node_dev_ao_t *me,
+                                  const node_dev_onoff_evt_t *cmd);
+
+/**
+ * @brief Pass a device's interrupt to its driver and schedule the sample the
+ *        driver asks for, restarting any earlier delay.
+ *
+ * @param me     The devices AO.
+ * @param isr    The interrupt event.
+ * @param now_ms Current HAL time, in ms.
+ */
+static void node_dev_handle_isr(node_dev_ao_t *me,
+                                const node_dev_isr_evt_t *isr, uint32_t now_ms);
+
+/**
+ * @brief Translate a node_ao post result into a node_dev result.
+ *
+ * @param err Result of node_ao_post() or node_ao_post_from_isr().
+ * @return The matching node_dev_err_t.
+ */
+static node_dev_err_t node_dev_from_ao_err(node_ao_err_t err);
+
+/**
  * @brief Whether a device index can name a device of any config.
  *
  * @param dev_index Index to check.
@@ -371,7 +422,7 @@ node_dev_err_t node_dev_start(const node_config_t *cfg) {
       .priority = NODE_DEV_AO_PRIORITY,
       .stack_bytes = NODE_DEV_AO_STACK_BYTES,
       .queue_len = NODE_DEV_AO_QUEUE_LEN,
-      .evt_size = sizeof(node_ao_evt_t),
+      .evt_size = sizeof(node_dev_onoff_evt_t),
   };
   g_devices.cfg = cfg;
   if (node_ao_time_evt_init(&g_devices.timer, &g_devices.super,
@@ -387,20 +438,28 @@ node_dev_err_t node_dev_start(const node_config_t *cfg) {
 }
 
 node_dev_err_t node_dev_set_onoff(int dev_index, bool on) {
-  (void)on;
   if (!node_dev_index_in_range(dev_index)) {
     return NODE_DEV_ERR_ARG;
   }
-  /* TODO(chunk 8): post the command to the devices AO. */
-  return NODE_DEV_ERR_STATE;
+  const node_dev_onoff_evt_t cmd = {
+      .super = {.sig = NODE_DEV_SIG_SET_ONOFF},
+      .dev_index = (uint8_t)dev_index,
+      .on = on,
+  };
+  return node_dev_from_ao_err(
+      node_ao_post(&g_devices.super, &cmd, sizeof(cmd)));
 }
 
 node_dev_err_t node_dev_post_from_isr(int dev_index) {
   if (!node_dev_index_in_range(dev_index)) {
     return NODE_DEV_ERR_ARG;
   }
-  /* TODO(chunk 8): post the ISR event to the devices AO. */
-  return NODE_DEV_ERR_STATE;
+  const node_dev_isr_evt_t isr = {
+      .super = {.sig = NODE_DEV_SIG_ISR},
+      .dev_index = (uint8_t)dev_index,
+  };
+  return node_dev_from_ao_err(
+      node_ao_post_from_isr(&g_devices.super, &isr, sizeof(isr)));
 }
 
 void node_dev_reset(void) {
@@ -422,6 +481,13 @@ static void node_dev_dispatch(node_ao_t *me, const node_ao_evt_t *e) {
       break;
     case NODE_DEV_SIG_TIMER:
       node_dev_run_due(self, node_hal_time_ms());
+      break;
+    case NODE_DEV_SIG_SET_ONOFF:
+      node_dev_handle_onoff(self, (const node_dev_onoff_evt_t *)e);
+      break;
+    case NODE_DEV_SIG_ISR:
+      node_dev_handle_isr(self, (const node_dev_isr_evt_t *)e,
+                          node_hal_time_ms());
       break;
     default:
       break;
@@ -707,6 +773,79 @@ static void node_dev_publish(const node_dev_ao_t *me, int dev_index,
   }
   if (sig != NODE_DEV_SIG_FAULT) {
     node_dev_log_event(me->cfg->dev[dev_index].id, &evt);
+  }
+}
+
+static void node_dev_handle_onoff(node_dev_ao_t *me,
+                                  const node_dev_onoff_evt_t *cmd) {
+  const int dev_index = cmd->dev_index;
+  if (dev_index >=
+      node_dev_clamp_count(me->cfg->n_dev, NODE_CONFIG_MAX_DEVICES)) {
+    node_dev_log_warning("[%d] on/off ignored: no such device", dev_index);
+    return;
+  }
+  node_dev_instance_t *dev = &me->devs[dev_index];
+  const char *const id = me->cfg->dev[dev_index].id;
+  if ((dev->drv == NULL) || (dev->drv->set_onoff == NULL)) {
+    node_dev_log_warning("[%d] '%s': on/off ignored: not an actuator",
+                         dev_index, id);
+    return;
+  }
+  if (!dev->initialised || dev->fault) {
+    node_dev_log_warning("[%d] '%s': on/off ignored: device in FAULT",
+                         dev_index, id);
+    return;
+  }
+
+  const node_dev_err_t err = dev->drv->set_onoff(dev->state, cmd->on);
+  if (err != NODE_DEV_OK) {
+    node_dev_log_warning("[%d] '%s': switching %s failed: %d", dev_index, id,
+                         cmd->on ? "on" : "off", (int)err);
+    return;
+  }
+  const uint32_t now_ms = node_hal_time_ms();
+  node_dev_value_t value = dev->report.value;
+  value.on = cmd->on;
+  if (node_dev_report_is_due(&dev->report, NODE_DEV_SIG_ONOFF_CHANGED, NULL,
+                             &value, now_ms)) {
+    node_dev_publish(me, dev_index, NODE_DEV_SIG_ONOFF_CHANGED, false, &value);
+    node_dev_report_record(&dev->report, &value, now_ms);
+  }
+}
+
+static void node_dev_handle_isr(node_dev_ao_t *me,
+                                const node_dev_isr_evt_t *isr,
+                                uint32_t now_ms) {
+  const int dev_index = isr->dev_index;
+  if (dev_index >=
+      node_dev_clamp_count(me->cfg->n_dev, NODE_CONFIG_MAX_DEVICES)) {
+    node_dev_log_warning("[%d] interrupt ignored: no such device", dev_index);
+    return;
+  }
+  node_dev_instance_t *dev = &me->devs[dev_index];
+  if (!dev->initialised || (dev->drv->on_isr == NULL)) {
+    /* An interrupt that races a failed init, or a driver without on_isr,
+     * has nothing to do. */
+    return;
+  }
+  const uint32_t delay_ms = dev->drv->on_isr(dev->state);
+  if (dev->drv->sample != NULL) {
+    node_dev_schedule_sample(dev, now_ms, delay_ms);
+  }
+}
+
+static node_dev_err_t node_dev_from_ao_err(node_ao_err_t err) {
+  switch (err) {
+    case NODE_AO_OK:
+      return NODE_DEV_OK;
+    case NODE_AO_ERR_FULL:
+      return NODE_DEV_ERR_FULL;
+    case NODE_AO_ERR_STATE:
+      return NODE_DEV_ERR_STATE;
+    case NODE_AO_ERR_ARG:
+    case NODE_AO_ERR_NO_MEMORY:
+    default:
+      return NODE_DEV_ERR_ARG;
   }
 }
 
