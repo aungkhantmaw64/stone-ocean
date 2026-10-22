@@ -54,6 +54,7 @@ add_library(node_config STATIC
   ${NODE_CONFIG_DIR}/node_config_err.c
   ${NODE_CONFIG_DIR}/node_config_parse.c
   ${NODE_CONFIG_DIR}/node_config_validate.c
+  ${NODE_CONFIG_DIR}/node_config_composition.c
   mocks/node_config_log.c)
 target_include_directories(node_config PUBLIC mocks PRIVATE ${NODE_CONFIG_DIR})
 target_compile_options(node_config PRIVATE -Wall -Wextra -Werror)
