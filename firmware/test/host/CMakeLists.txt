@@ -117,3 +117,7 @@ target_link_libraries(test_node_config_parse PRIVATE node_config
 
 add_host_test(test_node_config_validate test_node_config_validate.c)
 target_link_libraries(test_node_config_validate PRIVATE node_config)
+
+add_host_test(test_node_config_composition test_node_config_composition.c)
+target_link_libraries(test_node_config_composition PRIVATE node_config
+                      node_config_example)
