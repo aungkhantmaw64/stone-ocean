@@ -18,7 +18,7 @@ N/A. Drivers access hardware only through the HAL (spec 02).
 
 ## Scope
 - In scope:
-  - Driver vtable, registry by `node_dev_type_t`, and device instances.
+  - Driver vtable, registry by `node_config_dev_type_t`, and device instances.
   - Init order: I2C buses first, then devices in config order.
   - A single "devices" FreeRTOS task with an event queue. Sampling timers and ISR signals post to the queue, and the task calls driver methods.
   - Reporting policy: emit a `DEV_EVT_READING` when the value changed by at least the configured delta and `min_interval_ms` has passed, or when `max_interval_ms` has passed since the last report.
@@ -40,8 +40,8 @@ typedef struct { int dev_index; dev_evt_type_t type; dev_value_t value; uint32_t
 typedef void (*dev_listener_t)(const dev_evt_t *evt, void *ctx);   /* called in devices task */
 
 typedef struct dev_driver {
-    node_dev_type_t type;
-    int  (*init)(int dev_index, const node_dev_cfg_t *cfg, void **state);
+    node_config_dev_type_t type;
+    int  (*init)(int dev_index, const node_config_dev_t *cfg, void **state);
     int  (*sample)(void *state, dev_value_t *out);   /* NULL for actuators/event-only devices */
     int  (*set_onoff)(void *state, bool on);         /* NULL for sensors */
     void (*deinit)(void *state);
@@ -51,7 +51,7 @@ int  devices_register_driver(const dev_driver_t *drv);
 int  devices_start(const node_config_t *cfg);   /* safe to call once */
 int  devices_add_listener(dev_listener_t cb, void *ctx);
 int  device_count(void);
-const node_dev_cfg_t *device_cfg(int dev_index);
+const node_config_dev_t *device_cfg(int dev_index);
 int  device_get_value(int dev_index, dev_value_t *out);
 int  device_set_onoff(int dev_index, bool on);  /* thread-safe; posts to devices task */
 void devices_post_from_isr(int dev_index, dev_evt_type_t type, const dev_value_t *v); /* for event drivers */
@@ -61,7 +61,7 @@ void devices_post_from_isr(int dev_index, dev_evt_type_t type, const dev_value_t
 ## Behavior & constraints
 - If a device fails `init` (for example, the SHTC3 doesn't answer), log it, mark that device `FAULT`, emit `DEV_EVT_FAULT` and continue with the other devices. Retry init every 30 s.
 - If a sample fails 3 times in a row, the device is marked `FAULT` and an event is emitted. A successful sample clears the fault.
-- Devices task stack ≤ 4 KB and priority below the BLE host tasks. All state is statically sized from `NODE_CFG_MAX_DEVICES`.
+- Devices task stack ≤ 4 KB and priority below the BLE host tasks. All state is statically sized from `NODE_CONFIG_MAX_DEVICES`.
 - Listener callbacks must not block. Document this.
 
 ## Verification

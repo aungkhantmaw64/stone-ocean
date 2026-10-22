@@ -26,6 +26,15 @@ add_library(node_hal_header_check OBJECT node_hal_header_check.c)
 target_compile_options(node_hal_header_check PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(node_hal_header_check PRIVATE node_hal_api)
 
+add_library(node_config_api INTERFACE)
+target_include_directories(node_config_api INTERFACE
+  ${FIRMWARE_DIR}/components/node_config/include)
+target_link_libraries(node_config_api INTERFACE node_hal_api)
+
+add_library(node_config_header_check OBJECT node_config_header_check.c)
+target_compile_options(node_config_header_check PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_config_header_check PRIVATE node_config_api)
+
 enable_testing()
 
 function(add_host_test name)

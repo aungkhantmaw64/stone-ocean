@@ -14,7 +14,7 @@ Persist the raw JSON config in flash and load it at boot. If the config is missi
 - Factory reset (09) erases it.
 
 ## Hardware details
-Uses the `nvs` partition from spec 01. NVS blobs can span pages, but keep the stored value ≤ 4 KB (`NODE_CFG_MAX_RAW_LEN`). The ESP-BLE-MESH stack also stores its state in NVS, so use a dedicated namespace.
+Uses the `nvs` partition from spec 01. NVS blobs can span pages, but keep the stored value ≤ 4 KB (`NODE_CONFIG_MAX_RAW_LEN`). The ESP-BLE-MESH stack also stores its state in NVS, so use a dedicated namespace.
 
 ## Scope
 - In scope:
