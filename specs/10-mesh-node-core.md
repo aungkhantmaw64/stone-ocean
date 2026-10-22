@@ -33,7 +33,7 @@ Classic ESP32 radio, BLE 4.2. Bluetooth controller in BLE-only mode. Bluetooth C
     - Store `node_config_composition_hash()` (spec 03) in NVS (namespace `meshmeta`) at provisioning-complete.
     - On boot, if the node is provisioned and the hash differs from the active config's, log a WARN: `config composition changed since provisioning; factory-reset and reprovision required`. Run with the **stored-hash-compatible primary element only** (device elements disabled) until reprovisioned.
   - Provisioning callbacks logged. OOB: none (no input/output) for v1.
-  - CLI: `status` shows `mesh=unprov|prov`, unicast address, element count and relay state. A `mesh-info` command prints the UUID, IV index, net/app key indexes and the composition.
+  - Mesh log lines: at boot and when provisioning completes, log `mesh=unprov|prov`, the unicast address, the element count and the relay state. At boot, also log the UUID, IV index, net/app key indexes and the composition.
   - Factory-reset hook: `esp_ble_mesh_node_local_reset()` and erase `meshmeta`.
 - Out of scope: model message handling (11), vendor config model (future), Low Power / Friend features.
 
@@ -51,7 +51,7 @@ void mesh_node_set_models_builder(mesh_models_builder_t builder);
 ```
 
 ## Behavior & constraints
-- Starting mesh must not block boot for more than 2 s. The CLI must be responsive before mesh init finishes.
+- Starting mesh must not block boot for more than 2 s.
 - Unprovisioned: send unprovisioned beacons until provisioned.
 - After provisioning: persist state, and enable relay (the node is mains powered).
 - A reboot of a provisioned node resumes with the same unicast address and keys, with no reprovisioning.
@@ -63,16 +63,16 @@ void mesh_node_set_models_builder(mesh_models_builder_t builder);
 - **QEMU:** the QEMU build (mesh disabled) still compiles and boots.
 - **On hardware:**
   - Flash, then provision with the gateway script (spec 12). If spec 12 isn't ready, use BlueZ `mesh-cfgclient` from the CLI, or the nRF Mesh app if PB-GATT is enabled.
-  - `mesh-info` shows the address and keys.
+  - The log shows the address and key indexes.
   - The node stays provisioned after a reboot.
   - Factory reset → the node is unprovisioned again and beacons.
   - Change the config to add a device, reboot → the WARN log appears and device elements are disabled.
 
 ## Acceptance criteria
 - [ ] Node beacons unprovisioned with a stable, MAC-derived UUID.
-- [ ] BlueZ `bluetooth-meshd` can provision it over PB-ADV, and it appears in `mesh-info`/`status`.
+- [ ] BlueZ `bluetooth-meshd` can provision it over PB-ADV, and it the log shows it provisioned, with its address.
 - [ ] Provisioning survives reboot. Factory reset (both triggers) clears it.
-- [ ] Composition = primary element + one element per device, in config order (host test + `mesh-info`).
+- [ ] Composition = primary element + one element per device, in config order (host test + boot log).
 - [ ] Composition-hash mismatch is detected and logged as specified.
 - [ ] Relay is enabled, and free heap after start is ≥ 40 KB (logged).
 

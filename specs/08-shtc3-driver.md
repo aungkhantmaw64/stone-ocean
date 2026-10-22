@@ -58,7 +58,7 @@ float   shtc3_raw_to_rh_pct(uint16_t raw);
   - CRC-failure handling
   - an init failure on NACK
 - **On hardware:**
-  - With the example config, readings appear in `devices` every `sample_interval_ms`, and room temperature and humidity look plausible.
+  - With the example config, readings appear in the log every `sample_interval_ms`, and room temperature and humidity look plausible.
   - Breathing on the sensor raises RH, and a report is emitted (delta threshold).
   - Unplugging it leads to a fault after 3 samples. Replugging recovers it within 30 s.
 

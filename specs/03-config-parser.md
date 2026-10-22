@@ -8,7 +8,7 @@
 Define the JSON config format and implement a parser/validator that turns raw JSON into a validated, fixed-size `node_config_t`, or a precise error. Everything the node does at runtime is driven by this struct.
 
 ## Context
-- Raw JSON arrives via the serial CLI (spec 05), is stored by config storage (spec 04), and is parsed at boot. In the future it will also arrive over the mesh, so the parser must be transport-agnostic.
+- Raw JSON is written into flash by the PC flashing tool (spec 05), which also runs this parser on the PC before writing. Config storage (spec 04) reads it and parses it at boot. In the future it will also arrive over the mesh, so the parser must be transport-agnostic.
 - The driver framework (spec 06) and mesh composition (specs 10, 11) consume `node_config_t`.
 - The parser is pure logic and must build and test on the host.
 
@@ -17,7 +17,7 @@ Pin validation rules for the classic ESP32. Confirm against the datasheet:
 - Reject GPIO 6–11 (flash).
 - Reject GPIO 16–17 (PSRAM on the WROVER module).
 - Reject GPIO 24 and 28–31 (not present on the ESP32).
-- Reject GPIO 1 and 3 (UART0 TX/RX, used by the serial console and CLI, spec 05).
+- Reject GPIO 1 and 3 (UART0 TX/RX, used for flashing and the serial log).
 - Reject GPIO 34–39 for outputs and for internal pull resistors.
 - Reject pins above 39.
 - Warn (don't reject) on strapping pins 0, 2, 5, 12, 15.
