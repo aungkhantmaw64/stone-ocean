@@ -1,6 +1,6 @@
 # 05 — PC config flashing tool
 
-**Status:** in-progress
+**Status:** done
 **Depends on:** 04
 **Target:** Linux PC · Python 3 · esptool · littlefs-python · CMake + host gcc · `tools/config_flash.py`, `tools/node_config_check/`
 
@@ -69,14 +69,14 @@ Exit codes: `0` success; `1` the config is invalid (the message names the JSON p
 
 ## Acceptance criteria
 - [x] `check` rejects a config that breaks a JSON Schema rule or a firmware-only rule, and prints the JSON path.
-- [ ] `write` stores the config without anything being written when it is invalid, and the node boots into normal mode with it (QEMU and hardware).
+- [x] `write` stores the config without anything being written when it is invalid, and the node boots into normal mode with it (QEMU and hardware).
 - [x] `read` returns exactly the bytes that were written, and reports a corrupt or missing config.
 - [x] `erase` makes the next boot enter safe mode with `no config stored`.
 - [x] `write` and `erase` touch only the `config` partition, never `nvs`.
 - [x] pytest covers the partition table, packing, the image round trip and the refusal to write invalid configs. CI runs it, and builds and runs `node_config_check`.
 - [x] The firmware contains no code that receives a config or commands over UART.
 
-Verified on the PC and in QEMU: `pytest tools` (48 tests, including the real `node_config_check` when cmake is installed) and the two `node_config_check` ctests in `scripts/host_test.sh` pass. In QEMU, `write` → boot gives normal mode, `read` returns the exact bytes after the firmware has mounted the partition, `erase` → boot gives `SAFE MODE: no config stored`, and the `nvs` partition is unchanged. Still to do on hardware: `write`, `read` and `erase` with `--port` against a DevKitC (criterion 2, and the hardware half of 3 and 4). Mesh provisioning surviving a `write` can only be checked once spec 10 exists. The CI changes have not yet run on GitHub.
+Verified on the PC and in QEMU: `pytest tools` (48 tests, including the real `node_config_check` when cmake is installed) and the two `node_config_check` ctests in `scripts/host_test.sh` pass. In QEMU, `write` → boot gives normal mode, `read` returns the exact bytes after the firmware has mounted the partition, `erase` → boot gives `SAFE MODE: no config stored`, and the `nvs` partition is unchanged. On a DevKitC running the spec 04 firmware, over `--port`: `erase` → `SAFE MODE: no config stored` and `read` exits 4; an invalid `write` is refused and leaves the `config` partition unchanged; `write` of the example config takes about 5 s, and the node boots into normal mode; `read` returns the exact bytes; `nvs` is unchanged by `erase` and `write`. Mesh provisioning surviving a `write` can only be checked once spec 10 exists. The CI changes have not yet run on GitHub.
 
 ## Open questions
 - None.
