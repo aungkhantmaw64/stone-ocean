@@ -120,12 +120,11 @@ static bool node_config_parse_is_blank(const char *text, size_t len,
 static node_config_err_code_t node_config_parse_root(const cJSON *root,
                                                      node_config_t *out,
                                                      node_config_err_t *err);
-static node_config_err_code_t
-node_config_parse_i2c_buses(const cJSON *root, node_config_t *out,
-                            node_config_err_t *err);
-static node_config_err_code_t
-node_config_parse_i2c_bus(const cJSON *item, const char *path,
-                          node_config_i2c_bus_t *bus, node_config_err_t *err);
+static node_config_err_code_t node_config_parse_i2c_buses(
+    const cJSON *root, node_config_t *out, node_config_err_t *err);
+static node_config_err_code_t node_config_parse_i2c_bus(
+    const cJSON *item, const char *path, node_config_i2c_bus_t *bus,
+    node_config_err_t *err);
 static node_config_err_code_t node_config_parse_devices(const cJSON *root,
                                                         node_config_t *out,
                                                         node_config_err_t *err);
@@ -134,17 +133,15 @@ static node_config_err_code_t node_config_parse_device(const cJSON *item,
                                                        const node_config_t *cfg,
                                                        node_config_dev_t *dev,
                                                        node_config_err_t *err);
-static node_config_err_code_t
-node_config_parse_get_dev_kind(const cJSON *item, const char *path,
-                               const node_config_parse_dev_kind_t **kind,
-                               node_config_err_t *err);
-static node_config_err_code_t
-node_config_parse_shtc3(const cJSON *item, const char *path,
-                        const node_config_t *cfg, node_config_shtc3_t *shtc3,
-                        node_config_err_t *err);
-static node_config_err_code_t
-node_config_parse_report(const cJSON *item, const char *path,
-                         node_config_report_t *report, node_config_err_t *err);
+static node_config_err_code_t node_config_parse_get_dev_kind(
+    const cJSON *item, const char *path,
+    const node_config_parse_dev_kind_t **kind, node_config_err_t *err);
+static node_config_err_code_t node_config_parse_shtc3(
+    const cJSON *item, const char *path, const node_config_t *cfg,
+    node_config_shtc3_t *shtc3, node_config_err_t *err);
+static node_config_err_code_t node_config_parse_report(
+    const cJSON *item, const char *path, node_config_report_t *report,
+    node_config_err_t *err);
 static node_config_err_code_t node_config_parse_pir(const cJSON *item,
                                                     const char *path,
                                                     node_config_pir_t *pir,
@@ -153,13 +150,12 @@ static node_config_err_code_t node_config_parse_led(const cJSON *item,
                                                     const char *path,
                                                     node_config_led_t *led,
                                                     node_config_err_t *err);
-static node_config_err_code_t
-node_config_parse_get_bus_index(const cJSON *item, const char *path,
-                                const node_config_t *cfg, int *bus_index,
-                                node_config_err_t *err);
-static node_config_err_code_t
-node_config_parse_get_pull(const cJSON *item, const char *path,
-                           node_hal_gpio_pull_t *pull, node_config_err_t *err);
+static node_config_err_code_t node_config_parse_get_bus_index(
+    const cJSON *item, const char *path, const node_config_t *cfg,
+    int *bus_index, node_config_err_t *err);
+static node_config_err_code_t node_config_parse_get_pull(
+    const cJSON *item, const char *path, node_hal_gpio_pull_t *pull,
+    node_config_err_t *err);
 static void node_config_parse_warn_unknown_keys(const cJSON *object,
                                                 const char *path,
                                                 const char *const *known,
@@ -177,25 +173,21 @@ static node_config_err_code_t node_config_parse_get_array(
 static node_config_err_code_t node_config_parse_get_integer(
     const cJSON *object, const char *parent, const char *key, bool required,
     int64_t min, int64_t max, int64_t *value, node_config_err_t *err);
-static node_config_err_code_t
-node_config_parse_get_int(const cJSON *object, const char *parent,
-                          const char *key, bool required, int min, int max,
-                          int *value, node_config_err_t *err);
+static node_config_err_code_t node_config_parse_get_int(
+    const cJSON *object, const char *parent, const char *key, bool required,
+    int min, int max, int *value, node_config_err_t *err);
 static node_config_err_code_t node_config_parse_get_u32(
     const cJSON *object, const char *parent, const char *key, bool required,
     uint32_t min, uint32_t max, uint32_t *value, node_config_err_t *err);
-static node_config_err_code_t
-node_config_parse_get_float(const cJSON *object, const char *parent,
-                            const char *key, float *value,
-                            node_config_err_t *err);
-static node_config_err_code_t
-node_config_parse_get_bool(const cJSON *object, const char *parent,
-                           const char *key, bool required, bool *value,
-                           node_config_err_t *err);
-static node_config_err_code_t
-node_config_parse_get_string(const cJSON *object, const char *parent,
-                             const char *key, char *dst, size_t size,
-                             node_config_err_t *err);
+static node_config_err_code_t node_config_parse_get_float(
+    const cJSON *object, const char *parent, const char *key, float *value,
+    node_config_err_t *err);
+static node_config_err_code_t node_config_parse_get_bool(
+    const cJSON *object, const char *parent, const char *key, bool required,
+    bool *value, node_config_err_t *err);
+static node_config_err_code_t node_config_parse_get_string(
+    const cJSON *object, const char *parent, const char *key, char *dst,
+    size_t size, node_config_err_t *err);
 
 /* ==========================================================================
  * PUBLIC FUNCTIONS
@@ -300,9 +292,8 @@ static node_config_err_code_t node_config_parse_root(const cJSON *root,
   return node_config_parse_devices(root, out, err);
 }
 
-static node_config_err_code_t
-node_config_parse_i2c_buses(const cJSON *root, node_config_t *out,
-                            node_config_err_t *err) {
+static node_config_err_code_t node_config_parse_i2c_buses(
+    const cJSON *root, node_config_t *out, node_config_err_t *err) {
   const cJSON *buses = NULL;
   int count = 0;
   node_config_err_code_t code = node_config_parse_get_array(
@@ -328,9 +319,9 @@ node_config_parse_i2c_buses(const cJSON *root, node_config_t *out,
 /* Port and frequency limits are checked here, per field. Rules that relate
  * several fields or entries (pins, duplicates) are checked by
  * node_config_validate() once the whole config is parsed. */
-static node_config_err_code_t
-node_config_parse_i2c_bus(const cJSON *item, const char *path,
-                          node_config_i2c_bus_t *bus, node_config_err_t *err) {
+static node_config_err_code_t node_config_parse_i2c_bus(
+    const cJSON *item, const char *path, node_config_i2c_bus_t *bus,
+    node_config_err_t *err) {
   if (!cJSON_IsObject(item)) {
     return node_config_err_set(err, NODE_CONFIG_ERR_TYPE, path,
                                "must be an object");
@@ -359,9 +350,8 @@ node_config_parse_i2c_bus(const cJSON *item, const char *path,
   return code;
 }
 
-static node_config_err_code_t
-node_config_parse_devices(const cJSON *root, node_config_t *out,
-                          node_config_err_t *err) {
+static node_config_err_code_t node_config_parse_devices(
+    const cJSON *root, node_config_t *out, node_config_err_t *err) {
   const cJSON *devices = NULL;
   int count = 0;
   node_config_err_code_t code = node_config_parse_get_array(
@@ -411,22 +401,21 @@ static node_config_err_code_t node_config_parse_device(const cJSON *item,
   }
 
   switch (kind->type) {
-  case NODE_CONFIG_DEV_SHTC3:
-    return node_config_parse_shtc3(item, path, cfg, &dev->shtc3, err);
-  case NODE_CONFIG_DEV_PIR:
-    return node_config_parse_pir(item, path, &dev->pir, err);
-  case NODE_CONFIG_DEV_LED:
-    return node_config_parse_led(item, path, &dev->led, err);
-  default:
-    return node_config_err_set(err, NODE_CONFIG_ERR_DEVICE_TYPE, path,
-                               "unsupported device type");
+    case NODE_CONFIG_DEV_SHTC3:
+      return node_config_parse_shtc3(item, path, cfg, &dev->shtc3, err);
+    case NODE_CONFIG_DEV_PIR:
+      return node_config_parse_pir(item, path, &dev->pir, err);
+    case NODE_CONFIG_DEV_LED:
+      return node_config_parse_led(item, path, &dev->led, err);
+    default:
+      return node_config_err_set(err, NODE_CONFIG_ERR_DEVICE_TYPE, path,
+                                 "unsupported device type");
   }
 }
 
-static node_config_err_code_t
-node_config_parse_get_dev_kind(const cJSON *item, const char *path,
-                               const node_config_parse_dev_kind_t **kind,
-                               node_config_err_t *err) {
+static node_config_err_code_t node_config_parse_get_dev_kind(
+    const cJSON *item, const char *path,
+    const node_config_parse_dev_kind_t **kind, node_config_err_t *err) {
   char type_path[NODE_CONFIG_ERR_PATH_LEN] = {0};
   node_config_parse_join_key(type_path, sizeof(type_path), path, "type");
 
@@ -451,10 +440,9 @@ node_config_parse_get_dev_kind(const cJSON *item, const char *path,
                              name);
 }
 
-static node_config_err_code_t
-node_config_parse_shtc3(const cJSON *item, const char *path,
-                        const node_config_t *cfg, node_config_shtc3_t *shtc3,
-                        node_config_err_t *err) {
+static node_config_err_code_t node_config_parse_shtc3(
+    const cJSON *item, const char *path, const node_config_t *cfg,
+    node_config_shtc3_t *shtc3, node_config_err_t *err) {
   node_config_err_code_t code =
       node_config_parse_get_bus_index(item, path, cfg, &shtc3->bus_index, err);
   if (code == NODE_CONFIG_OK) {
@@ -470,9 +458,9 @@ node_config_parse_shtc3(const cJSON *item, const char *path,
 }
 
 /* The order of min and max is checked by node_config_validate(). */
-static node_config_err_code_t
-node_config_parse_report(const cJSON *item, const char *path,
-                         node_config_report_t *report, node_config_err_t *err) {
+static node_config_err_code_t node_config_parse_report(
+    const cJSON *item, const char *path, node_config_report_t *report,
+    node_config_err_t *err) {
   report->min_interval_ms = NODE_CONFIG_PARSE_DEFAULT_MIN_INTERVAL_MS;
   report->max_interval_ms = NODE_CONFIG_PARSE_DEFAULT_MAX_INTERVAL_MS;
   report->delta_temp_c = NODE_CONFIG_PARSE_DEFAULT_DELTA_TEMP_C;
@@ -554,10 +542,9 @@ static node_config_err_code_t node_config_parse_led(const cJSON *item,
 }
 
 /* Buses are parsed before devices, so the reference can be resolved here. */
-static node_config_err_code_t
-node_config_parse_get_bus_index(const cJSON *item, const char *path,
-                                const node_config_t *cfg, int *bus_index,
-                                node_config_err_t *err) {
+static node_config_err_code_t node_config_parse_get_bus_index(
+    const cJSON *item, const char *path, const node_config_t *cfg,
+    int *bus_index, node_config_err_t *err) {
   char bus_id[NODE_CONFIG_ID_LEN] = {0};
   node_config_err_code_t code = node_config_parse_get_string(
       item, path, "bus", bus_id, sizeof(bus_id), err);
@@ -576,9 +563,9 @@ node_config_parse_get_bus_index(const cJSON *item, const char *path,
                              "no I2C bus has id \"%s\"", bus_id);
 }
 
-static node_config_err_code_t
-node_config_parse_get_pull(const cJSON *item, const char *path,
-                           node_hal_gpio_pull_t *pull, node_config_err_t *err) {
+static node_config_err_code_t node_config_parse_get_pull(
+    const cJSON *item, const char *path, node_hal_gpio_pull_t *pull,
+    node_config_err_t *err) {
   const cJSON *value = cJSON_GetObjectItemCaseSensitive(item, "pull");
   if (value == NULL) {
     return NODE_CONFIG_OK;
@@ -721,10 +708,9 @@ static node_config_err_code_t node_config_parse_get_integer(
   return NODE_CONFIG_OK;
 }
 
-static node_config_err_code_t
-node_config_parse_get_int(const cJSON *object, const char *parent,
-                          const char *key, bool required, int min, int max,
-                          int *value, node_config_err_t *err) {
+static node_config_err_code_t node_config_parse_get_int(
+    const cJSON *object, const char *parent, const char *key, bool required,
+    int min, int max, int *value, node_config_err_t *err) {
   int64_t wide = *value;
   node_config_err_code_t code = node_config_parse_get_integer(
       object, parent, key, required, min, max, &wide, err);
@@ -748,10 +734,9 @@ static node_config_err_code_t node_config_parse_get_u32(
 
 /* Optional: leaves *value unchanged when the key is absent, so the caller can
  * preset the default. */
-static node_config_err_code_t
-node_config_parse_get_float(const cJSON *object, const char *parent,
-                            const char *key, float *value,
-                            node_config_err_t *err) {
+static node_config_err_code_t node_config_parse_get_float(
+    const cJSON *object, const char *parent, const char *key, float *value,
+    node_config_err_t *err) {
   const cJSON *item = cJSON_GetObjectItemCaseSensitive(object, key);
   if (item == NULL) {
     return NODE_CONFIG_OK;
@@ -773,10 +758,9 @@ node_config_parse_get_float(const cJSON *object, const char *parent,
 
 /* Leaves *value unchanged when the key is absent and not required, so the
  * caller can preset the default. */
-static node_config_err_code_t
-node_config_parse_get_bool(const cJSON *object, const char *parent,
-                           const char *key, bool required, bool *value,
-                           node_config_err_t *err) {
+static node_config_err_code_t node_config_parse_get_bool(
+    const cJSON *object, const char *parent, const char *key, bool required,
+    bool *value, node_config_err_t *err) {
   char path[NODE_CONFIG_ERR_PATH_LEN] = {0};
   node_config_parse_join_key(path, sizeof(path), parent, key);
 
@@ -795,10 +779,9 @@ node_config_parse_get_bool(const cJSON *object, const char *parent,
 }
 
 /* Strings are always required and must be non-empty. */
-static node_config_err_code_t
-node_config_parse_get_string(const cJSON *object, const char *parent,
-                             const char *key, char *dst, size_t size,
-                             node_config_err_t *err) {
+static node_config_err_code_t node_config_parse_get_string(
+    const cJSON *object, const char *parent, const char *key, char *dst,
+    size_t size, node_config_err_t *err) {
   char path[NODE_CONFIG_ERR_PATH_LEN] = {0};
   node_config_parse_join_key(path, sizeof(path), parent, key);
 

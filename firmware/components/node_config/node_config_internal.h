@@ -36,9 +36,10 @@ void node_config_err_clear(node_config_err_t *err);
  * @param fmt  printf-style format of the reason; must not be NULL.
  * @return @p code, so a caller can write `return node_config_err_set(...)`.
  */
-node_config_err_code_t
-node_config_err_set(node_config_err_t *err, node_config_err_code_t code,
-                    const char *path, const char *fmt, ...)
+node_config_err_code_t node_config_err_set(node_config_err_t *err,
+                                           node_config_err_code_t code,
+                                           const char *path, const char *fmt,
+                                           ...)
     __attribute__((format(printf, 4, 5)));
 
 /**

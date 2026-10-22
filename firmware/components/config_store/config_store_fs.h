@@ -78,10 +78,9 @@ config_store_err_t config_store_fs_read(const char *name, size_t offset,
  * @return CONFIG_STORE_OK, CONFIG_STORE_ERR_ARG for a NULL pointer, or
  *         CONFIG_STORE_ERR_IO.
  */
-config_store_err_t
-config_store_fs_write_atomic(const char *name, const char *tmp_name,
-                             const void *head, size_t head_len,
-                             const void *body, size_t body_len);
+config_store_err_t config_store_fs_write_atomic(
+    const char *name, const char *tmp_name, const void *head, size_t head_len,
+    const void *body, size_t body_len);
 
 /**
  * @brief Delete a file.

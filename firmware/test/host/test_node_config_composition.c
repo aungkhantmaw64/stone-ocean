@@ -21,8 +21,8 @@
 #define EXAMPLE_COMPOSITION_HASH 0xc3c4b1b5u
 
 /** @brief A sensor, a motion sensor and an LED, in that order. */
-#define SENSOR_MOTION_LED                                                      \
-  TEST_CONFIG(TEST_BUS_I2C0, TEST_SHTC3("env1", "i2c0") "," TEST_PIR(          \
+#define SENSOR_MOTION_LED                                             \
+  TEST_CONFIG(TEST_BUS_I2C0, TEST_SHTC3("env1", "i2c0") "," TEST_PIR( \
                                  "pir1", 27) "," TEST_LED("led1", 25))
 
 /* ==========================================================================

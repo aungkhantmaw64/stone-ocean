@@ -163,11 +163,11 @@ void test_pin_number_outside_0_to_39_is_rejected_by_every_pin_function(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(NODE_HAL_ERR_ARG,
                                   node_hal_gpio_write(pin, HIGH), "write");
     TEST_ASSERT_EQUAL_INT_MESSAGE(-1, node_hal_gpio_read(pin), "read");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(NODE_HAL_ERR_ARG,
-                                  node_hal_gpio_set_isr(pin,
-                                                        NODE_HAL_GPIO_EDGE_ANY,
-                                                        record_callback, NULL),
-                                  "set_isr");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(
+        NODE_HAL_ERR_ARG,
+        node_hal_gpio_set_isr(pin, NODE_HAL_GPIO_EDGE_ANY, record_callback,
+                              NULL),
+        "set_isr");
   }
 }
 
