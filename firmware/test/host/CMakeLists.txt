@@ -7,6 +7,16 @@ FetchContent_Declare(unity
   URL_HASH SHA256=e84eb301ca7967831e68b1728f911e87fa2d345d8ddb64f897bc2f2ee24a321c)
 FetchContent_MakeAvailable(unity)
 
+set(FIRMWARE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+
+add_library(node_hal_api INTERFACE)
+target_include_directories(node_hal_api INTERFACE
+  ${FIRMWARE_DIR}/components/node_hal/include)
+
+add_library(node_hal_header_check OBJECT node_hal_header_check.c)
+target_compile_options(node_hal_header_check PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_hal_header_check PRIVATE node_hal_api)
+
 enable_testing()
 
 function(add_host_test name)
