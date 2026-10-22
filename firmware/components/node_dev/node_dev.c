@@ -73,6 +73,12 @@ typedef struct {
   uint32_t cycle_start_ms;        /**< HAL time the current or last sample
                                      started, in ms; the next periodic
                                      sample is due one interval later. */
+  uint8_t sample_fails;           /**< Failed samples in a row, 0 to
+                                     NODE_DEV_MAX_SAMPLE_FAILS. */
+  bool retry_scheduled;           /**< True while an init retry is due at
+                                     @c retry_at_ms. */
+  uint32_t retry_at_ms;           /**< HAL time of the next init retry, in
+                                     ms; valid while @c retry_scheduled. */
 } node_dev_instance_t;
 
 /** @brief Private signals of the devices AO. */
@@ -144,13 +150,31 @@ static void node_dev_init_all(node_dev_ao_t *me);
 static void node_dev_init_bus(node_dev_ao_t *me, int bus_index);
 
 /**
- * @brief Initialise one device with its driver; on failure, log it and put
- *        the device in FAULT.
+ * @brief Initialise one device with its driver, or retry a failed init.
+ *
+ * On success, a device in FAULT leaves it and its first sample is
+ * scheduled. On failure, the device goes to FAULT and, unless the failure is
+ * permanent (no driver, no report policy), a retry is scheduled
+ * NODE_DEV_INIT_RETRY_MS later.
  *
  * @param me        The devices AO.
  * @param dev_index Device's position in node_config_t::dev.
+ * @param now_ms    Current HAL time, in ms.
+ * @param retry     True for a retry, which re-initialises a failed I2C bus
+ *                  first.
  */
-static void node_dev_init_device(node_dev_ao_t *me, int dev_index);
+static void node_dev_init_device(node_dev_ao_t *me, int dev_index,
+                                 uint32_t now_ms, bool retry);
+
+/**
+ * @brief Put a device whose init failed in FAULT and schedule its retry.
+ *
+ * @param me        The devices AO.
+ * @param dev_index Device's position in node_config_t::dev.
+ * @param now_ms    Current HAL time, in ms.
+ */
+static void node_dev_init_failed(node_dev_ao_t *me, int dev_index,
+                                 uint32_t now_ms);
 
 /**
  * @brief Call a device's sample method; publish the value if it is due and
@@ -162,6 +186,17 @@ static void node_dev_init_device(node_dev_ao_t *me, int dev_index);
  */
 static void node_dev_sample_device(node_dev_ao_t *me, int dev_index,
                                    uint32_t now_ms);
+
+/**
+ * @brief Count a failed sample; the NODE_DEV_MAX_SAMPLE_FAILS-th in a row
+ *        puts the device in FAULT.
+ *
+ * @param me        The devices AO.
+ * @param dev_index Device's position in node_config_t::dev.
+ * @param err       The driver's error.
+ */
+static void node_dev_sample_failed(node_dev_ao_t *me, int dev_index,
+                                   node_dev_err_t err);
 
 /**
  * @brief Publish a successful sample if the device's report rules say so.
@@ -197,7 +232,7 @@ static void node_dev_schedule_sample(node_dev_instance_t *dev, uint32_t now_ms,
                                      uint32_t delay_ms);
 
 /**
- * @brief Run every device whose scheduled sample is due.
+ * @brief Run every device whose scheduled sample or init retry is due.
  *
  * @param me     The devices AO.
  * @param now_ms Current HAL time, in ms.
@@ -212,6 +247,15 @@ static void node_dev_run_due(node_dev_ao_t *me, uint32_t now_ms);
  * @param now_ms Current HAL time, in ms.
  */
 static void node_dev_arm_timer(node_dev_ao_t *me, uint32_t now_ms);
+
+/**
+ * @brief Time left until a deadline; handles the HAL clock's wrap-around.
+ *
+ * @param at_ms  Deadline, in ms.
+ * @param now_ms Current HAL time, in ms.
+ * @return Time until @p at_ms, in ms; 0 if it has been reached.
+ */
+static uint32_t node_dev_delay_until(uint32_t at_ms, uint32_t now_ms);
 
 /**
  * @brief Whether a deadline has been reached; handles the HAL clock's
@@ -393,8 +437,9 @@ static void node_dev_init_all(node_dev_ao_t *me) {
   }
   const int n_dev =
       node_dev_clamp_count(me->cfg->n_dev, NODE_CONFIG_MAX_DEVICES);
+  const uint32_t now_ms = node_hal_time_ms();
   for (int i = 0; i < n_dev; i++) {
-    node_dev_init_device(me, i);
+    node_dev_init_device(me, i, now_ms, false);
   }
   node_dev_log_table_title(n_dev);
   for (int i = 0; i < n_dev; i++) {
@@ -412,9 +457,11 @@ static void node_dev_init_bus(node_dev_ao_t *me, int bus_index) {
   }
 }
 
-static void node_dev_init_device(node_dev_ao_t *me, int dev_index) {
+static void node_dev_init_device(node_dev_ao_t *me, int dev_index,
+                                 uint32_t now_ms, bool retry) {
   node_dev_instance_t *dev = &me->devs[dev_index];
   const node_config_dev_t *cfg = &me->cfg->dev[dev_index];
+  dev->retry_scheduled = false;
 
   dev->drv = node_dev_find_driver(cfg->type);
   if (dev->drv == NULL) {
@@ -427,11 +474,14 @@ static void node_dev_init_device(node_dev_ao_t *me, int dev_index) {
   node_dev_init_args_t args = {.dev_index = dev_index, .cfg = cfg};
   const int bus_index = node_dev_bus_index(cfg);
   if (bus_index != NODE_DEV_NO_BUS) {
+    if (retry && (me->buses[bus_index] == NULL)) {
+      node_dev_init_bus(me, bus_index);
+    }
     args.bus = me->buses[bus_index];
     if (args.bus == NULL) {
       node_dev_log_warning("[%d] '%s': its I2C bus is not initialised",
                            dev_index, cfg->id);
-      node_dev_set_fault(me, dev_index, true);
+      node_dev_init_failed(me, dev_index, now_ms);
       return;
     }
   }
@@ -442,7 +492,7 @@ static void node_dev_init_device(node_dev_ao_t *me, int dev_index) {
   if (err != NODE_DEV_OK) {
     node_dev_log_warning("[%d] '%s': init failed: %d", dev_index, cfg->id,
                          (int)err);
-    node_dev_set_fault(me, dev_index, true);
+    node_dev_init_failed(me, dev_index, now_ms);
     return;
   }
   if ((dev->drv->sample_sig == NODE_DEV_SIG_READING) &&
@@ -454,9 +504,18 @@ static void node_dev_init_device(node_dev_ao_t *me, int dev_index) {
   }
   dev->state = state;
   dev->initialised = true;
+  node_dev_set_fault(me, dev_index, false);
   if (dev->drv->sample != NULL) {
-    node_dev_schedule_sample(dev, node_hal_time_ms(), 0);
+    node_dev_schedule_sample(dev, now_ms, 0);
   }
+}
+
+static void node_dev_init_failed(node_dev_ao_t *me, int dev_index,
+                                 uint32_t now_ms) {
+  node_dev_instance_t *dev = &me->devs[dev_index];
+  node_dev_set_fault(me, dev_index, true);
+  dev->retry_at_ms = now_ms + NODE_DEV_INIT_RETRY_MS;
+  dev->retry_scheduled = true;
 }
 
 static void node_dev_sample_device(node_dev_ao_t *me, int dev_index,
@@ -478,12 +537,26 @@ static void node_dev_sample_device(node_dev_ao_t *me, int dev_index,
   dev->sample_in_progress = false;
 
   if (err == NODE_DEV_OK) {
+    dev->sample_fails = 0;
+    node_dev_set_fault(me, dev_index, false);
     node_dev_publish_if_due(me, dev_index, &value, now_ms);
   } else {
-    node_dev_log_warning("[%d] '%s': sample failed: %d", dev_index,
-                         me->cfg->dev[dev_index].id, (int)err);
+    node_dev_sample_failed(me, dev_index, err);
   }
   node_dev_schedule_periodic(dev, now_ms);
+}
+
+static void node_dev_sample_failed(node_dev_ao_t *me, int dev_index,
+                                   node_dev_err_t err) {
+  node_dev_instance_t *dev = &me->devs[dev_index];
+  node_dev_log_warning("[%d] '%s': sample failed: %d", dev_index,
+                       me->cfg->dev[dev_index].id, (int)err);
+  if (dev->sample_fails < NODE_DEV_MAX_SAMPLE_FAILS) {
+    dev->sample_fails++;
+  }
+  if (dev->sample_fails >= NODE_DEV_MAX_SAMPLE_FAILS) {
+    node_dev_set_fault(me, dev_index, true);
+  }
 }
 
 static void node_dev_publish_if_due(node_dev_ao_t *me, int dev_index,
@@ -523,6 +596,9 @@ static void node_dev_run_due(node_dev_ao_t *me, uint32_t now_ms) {
       node_dev_clamp_count(me->cfg->n_dev, NODE_CONFIG_MAX_DEVICES);
   for (int i = 0; i < n_dev; i++) {
     const node_dev_instance_t *dev = &me->devs[i];
+    if (dev->retry_scheduled && node_dev_is_due(dev->retry_at_ms, now_ms)) {
+      node_dev_init_device(me, i, now_ms, true);
+    }
     if (dev->sample_scheduled && node_dev_is_due(dev->sample_at_ms, now_ms)) {
       node_dev_sample_device(me, i, now_ms);
     }
@@ -534,15 +610,19 @@ static void node_dev_arm_timer(node_dev_ao_t *me, uint32_t now_ms) {
   uint32_t earliest_delay_ms = NODE_DEV_MAX_DELAY_MS;
   for (int i = 0; i < NODE_CONFIG_MAX_DEVICES; i++) {
     const node_dev_instance_t *dev = &me->devs[i];
-    if (!dev->sample_scheduled) {
-      continue;
+    if (dev->sample_scheduled) {
+      any = true;
+      const uint32_t delay_ms = node_dev_delay_until(dev->sample_at_ms, now_ms);
+      if (delay_ms < earliest_delay_ms) {
+        earliest_delay_ms = delay_ms;
+      }
     }
-    any = true;
-    const uint32_t delay_ms = node_dev_is_due(dev->sample_at_ms, now_ms)
-                                  ? 0
-                                  : dev->sample_at_ms - now_ms;
-    if (delay_ms < earliest_delay_ms) {
-      earliest_delay_ms = delay_ms;
+    if (dev->retry_scheduled) {
+      any = true;
+      const uint32_t delay_ms = node_dev_delay_until(dev->retry_at_ms, now_ms);
+      if (delay_ms < earliest_delay_ms) {
+        earliest_delay_ms = delay_ms;
+      }
     }
   }
   /* Arming and disarming fail only for an uninitialised timer, which
@@ -552,6 +632,10 @@ static void node_dev_arm_timer(node_dev_ao_t *me, uint32_t now_ms) {
   } else {
     (void)node_ao_time_evt_disarm(&me->timer);
   }
+}
+
+static uint32_t node_dev_delay_until(uint32_t at_ms, uint32_t now_ms) {
+  return node_dev_is_due(at_ms, now_ms) ? 0 : (at_ms - now_ms);
 }
 
 static bool node_dev_is_due(uint32_t at_ms, uint32_t now_ms) {
