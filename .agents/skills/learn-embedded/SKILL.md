@@ -79,7 +79,7 @@ Explain one module or feature at a time. For each one, use the following tools, 
 ### Diagram format
 
 - In the terminal, draw diagrams in **ASCII/Unicode** inside code blocks, so they render without any tools. Keep them under ~80 columns wide, and split a large diagram rather than cramming it.
-- At the end, offer to save the whole explanation as `docs/learn/<branch-name>.md`, with the diagrams written in **Mermaid** (`sequenceDiagram`, `stateDiagram-v2`, `classDiagram`, `flowchart`) so they render on GitHub and in IDEs. Only write the file if the developer agrees.
+- At the end, save the whole explanation to `tmp/learn/<branch-name>.md` in the repository root, with the diagrams written in **Mermaid** (`sequenceDiagram`, `stateDiagram-v2`, `classDiagram`, `flowchart`) so they render in IDE Markdown previews. `tmp/` is git-ignored, so this file is never committed. Tell the developer the path.
 
 ## Phase 4 — Check understanding and answer questions
 
@@ -94,6 +94,6 @@ When everything in scope has been covered, finish with:
 
 - Explain only the developer's own work on the branch. Surrounding code appears only as context, at the edge of the diagrams.
 - Be accurate. Every pseudocode step and diagram arrow must match the actual code. If something is unclear from the code (for example which context a callback runs in), say so instead of guessing.
-- Do not modify source files. The only file this skill may write is `docs/learn/<branch-name>.md`, and only with the developer's agreement.
+- Do not modify source files. The only file this skill may write is `tmp/learn/<branch-name>.md`.
 - Do not invent hardware facts. Quote values from the code or the spec, and point to the datasheet when relevant.
 - Pitch the explanation at a developer who wrote the code but may not yet fully understand the system around it: explain the embedded concepts that matter, and skip the generic C basics unless asked.
