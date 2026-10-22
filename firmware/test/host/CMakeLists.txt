@@ -52,6 +52,7 @@ target_link_libraries(node_config_header_check PRIVATE node_config_api)
 set(NODE_CONFIG_DIR ${FIRMWARE_DIR}/components/node_config)
 add_library(node_config STATIC
   ${NODE_CONFIG_DIR}/node_config_err.c
+  ${NODE_CONFIG_DIR}/node_config_parse.c
   mocks/node_config_log.c)
 target_include_directories(node_config PUBLIC mocks PRIVATE ${NODE_CONFIG_DIR})
 target_compile_options(node_config PRIVATE -Wall -Wextra -Werror)
