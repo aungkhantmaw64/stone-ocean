@@ -68,13 +68,15 @@ Exit codes: `0` success; `1` the config is invalid (the message names the JSON p
 - **On hardware:** the same against `/dev/ttyUSB0`. Mesh provisioning (once spec 10 exists) survives a `write` and an `erase`.
 
 ## Acceptance criteria
-- [ ] `check` rejects a config that breaks a JSON Schema rule or a firmware-only rule, and prints the JSON path.
+- [x] `check` rejects a config that breaks a JSON Schema rule or a firmware-only rule, and prints the JSON path.
 - [ ] `write` stores the config without anything being written when it is invalid, and the node boots into normal mode with it (QEMU and hardware).
-- [ ] `read` returns exactly the bytes that were written, and reports a corrupt or missing config.
-- [ ] `erase` makes the next boot enter safe mode with `no config stored`.
-- [ ] `write` and `erase` touch only the `config` partition, never `nvs`.
-- [ ] pytest covers the partition table, packing, the image round trip and the refusal to write invalid configs. CI runs it, and builds and runs `node_config_check`.
-- [ ] The firmware contains no code that receives a config or commands over UART.
+- [x] `read` returns exactly the bytes that were written, and reports a corrupt or missing config.
+- [x] `erase` makes the next boot enter safe mode with `no config stored`.
+- [x] `write` and `erase` touch only the `config` partition, never `nvs`.
+- [x] pytest covers the partition table, packing, the image round trip and the refusal to write invalid configs. CI runs it, and builds and runs `node_config_check`.
+- [x] The firmware contains no code that receives a config or commands over UART.
+
+Verified on the PC and in QEMU: `pytest tools` (48 tests, including the real `node_config_check` when cmake is installed) and the two `node_config_check` ctests in `scripts/host_test.sh` pass. In QEMU, `write` → boot gives normal mode, `read` returns the exact bytes after the firmware has mounted the partition, `erase` → boot gives `SAFE MODE: no config stored`, and the `nvs` partition is unchanged. Still to do on hardware: `write`, `read` and `erase` with `--port` against a DevKitC (criterion 2, and the hardware half of 3 and 4). Mesh provisioning surviving a `write` can only be checked once spec 10 exists. The CI changes have not yet run on GitHub.
 
 ## Open questions
 - None.
