@@ -1,6 +1,6 @@
 # 15 — Active object publish-subscribe
 
-**Status:** in-progress
+**Status:** done
 **Depends on:** 14
 **Target:** ESP32 · ESP-IDF v5.x / FreeRTOS · `firmware/components/node_ao`
 
@@ -85,10 +85,14 @@ A publishing component defines its signals from its block, for example `NODE_DEV
 - **On hardware:** nothing beyond spec 14. Publish-subscribe is exercised on the board through spec 06's devices AO.
 
 ## Acceptance criteria
-- [ ] Published events reach exactly the subscribers of their signal, in publish order (host tests).
-- [ ] Bad signals, duplicate subscriptions and a full subscription table are handled as specified (host tests).
-- [ ] Publishing never blocks, reports a full or too-small subscriber queue, and still delivers to the other subscribers (host tests).
-- [ ] The new headers compile in the ESP-IDF and host builds with no FreeRTOS or ESP-IDF includes.
+- [x] Published events reach exactly the subscribers of their signal, in publish order (host tests).
+- [x] Bad signals, duplicate subscriptions and a full subscription table are handled as specified (host tests).
+- [x] Publishing never blocks, reports a full or too-small subscriber queue, and still delivers to the other subscribers (host tests).
+- [x] The new headers compile in the ESP-IDF and host builds with no FreeRTOS or ESP-IDF includes.
+
+Host tests: `test_node_ao_pubsub` (17 tests) passes under ASan, LSan and UBSan (commit bbbae80). The `node_ao_header_check` target and the hardware build compile the new headers.
+
+Not covered by host tests: subscribing while another thread publishes. The host port has no threads, so this relies on the claim-then-ready ordering of the subscription table, and is exercised on the board through spec 06's devices AO.
 
 ## Open questions
 - None.

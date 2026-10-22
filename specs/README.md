@@ -98,7 +98,7 @@ tools/
 | 12 | [PC gateway script (BlueZ)](12-pc-gateway-script.md) | 10, 11 | todo |
 | 13 | [System tests](13-system-tests.md) | all | todo |
 | 14 | [Active object framework](14-active-objects.md) | 02 | in-progress |
-| 15 | [AO publish-subscribe](15-ao-publish-subscribe.md) | 14 | in-progress |
+| 15 | [AO publish-subscribe](15-ao-publish-subscribe.md) | 14 | done |
 
 ```
 01 ──► 02 ──────────────┐
