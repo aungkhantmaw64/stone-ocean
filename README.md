@@ -67,3 +67,22 @@ docker run --rm -it -u $(id -u):$(id -g) -e HOME=/tmp -e PORT=$PORT \
 ```
 
 `--group-add` gives the container user access to the serial port.
+
+## Host unit tests
+
+Pure-logic components are unit-tested on the PC with CMake, Unity and the host
+gcc, without ESP-IDF. Tests live in `firmware/test/host/`. Unity is downloaded
+by CMake on the first run.
+
+```sh
+scripts/host_test.sh
+```
+
+With Docker:
+
+```sh
+docker run --rm -u $(id -u):$(id -g) -e HOME=/tmp -v $PWD:/project -w /project \
+  espressif/idf:v5.4.4 scripts/host_test.sh
+```
+
+See [`docs/unit-testing-standards.md`](docs/unit-testing-standards.md) for how tests are written.
