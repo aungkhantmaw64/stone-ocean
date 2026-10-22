@@ -47,10 +47,13 @@ static void record_callback(int pin, void *ctx) {
   g_callback_ctx = ctx;
 }
 
+static void configure_pin(int pin, node_hal_gpio_dir_t dir,
+                          node_hal_gpio_pull_t pull) {
+  TEST_ASSERT_EQUAL_INT(NODE_HAL_OK, node_hal_gpio_config(pin, dir, pull));
+}
+
 static void watch_button(node_hal_gpio_edge_t edge) {
-  TEST_ASSERT_EQUAL_INT(NODE_HAL_OK,
-                        node_hal_gpio_config(BUTTON_PIN, NODE_HAL_GPIO_IN,
-                                             NODE_HAL_GPIO_PULL_NONE));
+  configure_pin(BUTTON_PIN, NODE_HAL_GPIO_IN, NODE_HAL_GPIO_PULL_NONE);
   TEST_ASSERT_EQUAL_INT(
       NODE_HAL_OK,
       node_hal_gpio_set_isr(BUTTON_PIN, edge, record_callback, NULL));
@@ -116,9 +119,10 @@ void test_callback_does_not_run_when_an_input_is_set_to_the_level_it_already_has
 void test_callback_receives_the_pin_number_and_the_context_it_was_registered_with(
     void) {
   int context = 0;
-  node_hal_gpio_config(BUTTON_PIN, NODE_HAL_GPIO_IN, NODE_HAL_GPIO_PULL_NONE);
-  node_hal_gpio_set_isr(BUTTON_PIN, NODE_HAL_GPIO_EDGE_RISING, record_callback,
-                        &context);
+  configure_pin(BUTTON_PIN, NODE_HAL_GPIO_IN, NODE_HAL_GPIO_PULL_NONE);
+  TEST_ASSERT_EQUAL_INT(
+      NODE_HAL_OK, node_hal_gpio_set_isr(BUTTON_PIN, NODE_HAL_GPIO_EDGE_RISING,
+                                         record_callback, &context));
 
   node_hal_gpio_mock_set_input(BUTTON_PIN, HIGH);
 
@@ -130,16 +134,16 @@ void test_callback_receives_the_pin_number_and_the_context_it_was_registered_wit
 
 /* AC: specs/02-hal.md #3 */
 void test_input_with_a_pull_up_reads_high_before_anything_drives_it(void) {
-  node_hal_gpio_config(BUTTON_PIN, NODE_HAL_GPIO_IN, NODE_HAL_GPIO_PULL_UP);
+  configure_pin(BUTTON_PIN, NODE_HAL_GPIO_IN, NODE_HAL_GPIO_PULL_UP);
 
   TEST_ASSERT_EQUAL_INT(HIGH, node_hal_gpio_read(BUTTON_PIN));
 }
 
 /* AC: specs/02-hal.md #3 */
 void test_output_reads_back_the_level_last_written(void) {
-  node_hal_gpio_config(LED_PIN, NODE_HAL_GPIO_OUT, NODE_HAL_GPIO_PULL_NONE);
+  configure_pin(LED_PIN, NODE_HAL_GPIO_OUT, NODE_HAL_GPIO_PULL_NONE);
 
-  node_hal_gpio_write(LED_PIN, HIGH);
+  TEST_ASSERT_EQUAL_INT(NODE_HAL_OK, node_hal_gpio_write(LED_PIN, HIGH));
 
   TEST_ASSERT_EQUAL_INT(HIGH, node_hal_gpio_read(LED_PIN));
 }
@@ -182,7 +186,7 @@ void test_unknown_direction_or_pull_setting_is_rejected(void) {
 
 /* AC: specs/02-hal.md #4 */
 void test_watching_edges_without_a_callback_is_rejected(void) {
-  node_hal_gpio_config(BUTTON_PIN, NODE_HAL_GPIO_IN, NODE_HAL_GPIO_PULL_NONE);
+  configure_pin(BUTTON_PIN, NODE_HAL_GPIO_IN, NODE_HAL_GPIO_PULL_NONE);
 
   node_hal_err_t err =
       node_hal_gpio_set_isr(BUTTON_PIN, NODE_HAL_GPIO_EDGE_ANY, NULL, NULL);
@@ -192,7 +196,7 @@ void test_watching_edges_without_a_callback_is_rejected(void) {
 
 /* AC: specs/02-hal.md #4 */
 void test_writing_to_a_pin_not_set_up_as_output_is_rejected(void) {
-  node_hal_gpio_config(BUTTON_PIN, NODE_HAL_GPIO_IN, NODE_HAL_GPIO_PULL_NONE);
+  configure_pin(BUTTON_PIN, NODE_HAL_GPIO_IN, NODE_HAL_GPIO_PULL_NONE);
 
   node_hal_err_t err = node_hal_gpio_write(BUTTON_PIN, HIGH);
 

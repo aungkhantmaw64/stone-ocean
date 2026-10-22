@@ -23,11 +23,15 @@
  * ========================================================================== */
 
 /* vTaskDelay(n) can return up to one tick early because the current tick is
- * already partly over, so round up and add one tick. */
+ * already partly over, so round up and add one tick. A delay too long for
+ * TickType_t saturates instead of wrapping to a short one. */
 static TickType_t node_hal_time_ticks_for_at_least_ms(uint32_t ms) {
   uint64_t ticks =
-      ((uint64_t)ms * configTICK_RATE_HZ + MS_PER_S - 1) / MS_PER_S;
-  return (TickType_t)(ticks + 1);
+      ((uint64_t)ms * configTICK_RATE_HZ + MS_PER_S - 1) / MS_PER_S + 1;
+  if (ticks > (uint64_t)portMAX_DELAY) {
+    return portMAX_DELAY;
+  }
+  return (TickType_t)ticks;
 }
 
 /* ==========================================================================

@@ -88,8 +88,10 @@ static bool g_failed = false;
 
 static void node_hal_i2c_record_failure(const char *message, uint8_t addr7) {
   if (!g_failed) {
-    snprintf(g_failure, sizeof g_failure, "transfer to 0x%02X: %s", addr7,
-             message);
+    /* snprintf always terminates the string, and a truncated message still
+     * names the transfer. */
+    (void)snprintf(g_failure, sizeof g_failure, "transfer to 0x%02X: %s", addr7,
+                   message);
     g_failed = true;
   }
 }

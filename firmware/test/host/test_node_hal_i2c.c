@@ -163,8 +163,9 @@ void test_script_reports_steps_that_were_never_used(void) {
   node_hal_i2c_mock_queue_read(SENSOR_ADDR, sensor_answer,
                                sizeof sensor_answer);
 
-  node_hal_i2c_write(sensor, measure_command, sizeof measure_command,
-                     TIMEOUT_MS);
+  TEST_ASSERT_EQUAL_INT(NODE_HAL_OK,
+                        node_hal_i2c_write(sensor, measure_command,
+                                           sizeof measure_command, TIMEOUT_MS));
 
   TEST_ASSERT_EQUAL_size_t(1, node_hal_i2c_mock_pending_steps());
 }
@@ -187,7 +188,9 @@ void test_reset_clears_the_script_and_any_recorded_failure(void) {
   node_hal_i2c_mock_expect_write(SENSOR_ADDR, measure_command,
                                  sizeof measure_command);
   const uint8_t wrong_command[] = {0x00};
-  node_hal_i2c_write(sensor, wrong_command, sizeof wrong_command, TIMEOUT_MS);
+  TEST_ASSERT_EQUAL_INT(NODE_HAL_ERR_IO,
+                        node_hal_i2c_write(sensor, wrong_command,
+                                           sizeof wrong_command, TIMEOUT_MS));
 
   node_hal_mock_reset();
 

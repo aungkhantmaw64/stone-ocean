@@ -54,6 +54,9 @@ static node_hal_err_t node_hal_gpio_enable_pull(int pin,
 
 static void node_hal_gpio_isr_trampoline(void *arg) {
   const isr_slot_t *slot = arg;
+  if (slot == NULL || slot->cb == NULL) {
+    return;
+  }
   slot->cb(slot->pin, slot->ctx);
 }
 
@@ -148,7 +151,10 @@ node_hal_err_t node_hal_gpio_set_isr(int pin, node_hal_gpio_edge_t edge,
 
   /* Keep the interrupt off while the slot is rewritten, so a pending edge
    * never sees a callback paired with the wrong context. */
-  gpio_intr_disable(pin);
+  err = node_hal_err_from_esp(gpio_intr_disable(pin));
+  if (err != NODE_HAL_OK) {
+    return err;
+  }
   g_isr_slots[pin] = (isr_slot_t){.pin = pin, .cb = cb, .ctx = ctx};
 
   err = node_hal_err_from_esp(

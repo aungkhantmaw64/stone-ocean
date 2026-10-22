@@ -62,7 +62,7 @@
  * ========================================================================== */
 
 /** @brief Log tag for self-test output and name of the self-test task. */
-static const char *TAG = "node_hal_selftest";
+static const char *const TAG = "node_hal_selftest";
 
 /**
  * @brief Pin numbers of button edges.
@@ -110,7 +110,9 @@ static void node_hal_selftest_scan_i2c(void) {
 static void node_hal_selftest_on_button_edge(int pin, void *ctx) {
   (void)ctx;
   BaseType_t woken = pdFALSE;
-  xQueueSendFromISR(g_edge_queue, &pin, &woken);
+  /* An ISR must not block, so an edge that arrives while the queue is full
+   * is dropped. */
+  (void)xQueueSendFromISR(g_edge_queue, &pin, &woken);
   portYIELD_FROM_ISR(woken);
 }
 
@@ -150,20 +152,28 @@ static bool node_hal_selftest_prepare_output(void) {
 static void node_hal_selftest_task(void *arg) {
   (void)arg;
   node_hal_selftest_scan_i2c();
-  node_hal_selftest_watch_button();
+  /* A failed button setup is already logged; the output toggle still runs. */
+  (void)node_hal_selftest_watch_button();
   bool toggling = node_hal_selftest_prepare_output();
 
   int level = 0;
   uint32_t next_toggle_ms = node_hal_time_ms() + TOGGLE_PERIOD_MS;
   for (;;) {
-    int pin;
-    if (xQueueReceive(g_edge_queue, &pin, pdMS_TO_TICKS(TOGGLE_PERIOD_MS))) {
+    int pin = 0;
+    if (xQueueReceive(g_edge_queue, &pin, pdMS_TO_TICKS(TOGGLE_PERIOD_MS)) ==
+        pdTRUE) {
       ESP_LOGI(TAG, "edge on GPIO %d at %lu ms, level now %d", pin,
                (unsigned long)node_hal_time_ms(), node_hal_gpio_read(pin));
     }
     if (toggling && (int32_t)(node_hal_time_ms() - next_toggle_ms) >= 0) {
       level = !level;
-      node_hal_gpio_write(CONFIG_NODE_HAL_SELFTEST_OUTPUT_GPIO, level);
+      node_hal_err_t err =
+          node_hal_gpio_write(CONFIG_NODE_HAL_SELFTEST_OUTPUT_GPIO, level);
+      if (err != NODE_HAL_OK) {
+        ESP_LOGE(TAG, "output GPIO %d write failed: %d; stopped toggling",
+                 CONFIG_NODE_HAL_SELFTEST_OUTPUT_GPIO, err);
+        toggling = false;
+      }
       next_toggle_ms += TOGGLE_PERIOD_MS;
     }
   }
@@ -174,11 +184,20 @@ static void node_hal_selftest_task(void *arg) {
  * ========================================================================== */
 
 void node_hal_selftest_start(void) {
+  if (g_edge_queue != NULL) {
+    ESP_LOGW(TAG, "self-test already started");
+    return;
+  }
   g_edge_queue = xQueueCreate(EDGE_QUEUE_LENGTH, sizeof(int));
-  if (g_edge_queue == NULL ||
-      xTaskCreate(node_hal_selftest_task, TAG, TASK_STACK_BYTES, NULL,
+  if (g_edge_queue == NULL) {
+    ESP_LOGE(TAG, "could not create the button edge queue");
+    return;
+  }
+  if (xTaskCreate(node_hal_selftest_task, TAG, TASK_STACK_BYTES, NULL,
                   TASK_PRIORITY, NULL) != pdPASS) {
     ESP_LOGE(TAG, "could not start the self-test task");
+    vQueueDelete(g_edge_queue);
+    g_edge_queue = NULL;
   }
 }
 

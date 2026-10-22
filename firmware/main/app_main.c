@@ -25,7 +25,7 @@
  * ========================================================================== */
 
 /** @brief Log tag for the boot banner. */
-static const char *TAG = "app_main";
+static const char *const TAG = "app_main";
 
 /* ==========================================================================
  * PUBLIC FUNCTIONS
