@@ -34,7 +34,7 @@
  * ========================================================================== */
 
 /**
- * @brief Forget every started AO and its queued events.
+ * @brief Forget every started AO, its queued events and every subscription.
  *
  * Zeroes each AO started since the last reset, and the time events it owns,
  * so tests can start them again.

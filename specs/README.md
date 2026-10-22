@@ -2,7 +2,7 @@
 
 Generic, config-driven BLE mesh node firmware for the ESP32. A JSON config stored in flash says which sensors and actuators are attached. At boot the firmware loads it, starts the matching drivers and exposes each device on the mesh using standard Bluetooth SIG models.
 
-Each spec below is one implementation chunk. Implement them in order and respect `Depends on`. Spec 14 was added after the others were numbered; implement it before 06. Update the **Status** column (and the `Status:` line inside the spec) as work progresses: `todo` → `in-progress` → `done`.
+Each spec below is one implementation chunk. Implement them in order and respect `Depends on`. Specs 14 and 15 were added after the others were numbered; implement them, in that order, before 06. Update the **Status** column (and the `Status:` line inside the spec) as work progresses: `todo` → `in-progress` → `done`.
 
 ## Requirements summary
 
@@ -43,7 +43,7 @@ Each sensor's sampling and reporting intervals are set in the JSON config. The P
 - Runs continuously on USB/mains power. Must survive bad configs and unexpected resets.
 - A config is at most 4 KB.
 - The node has no command interface over serial. UART0 is used only for flashing and the log, and runtime state is reported in the log.
-- **Concurrency: active objects only.** Every thread of the firmware is an active object built on `node_ao` (spec 14): a private event queue, a thread that runs one event at a time to completion, and time events. Firmware code never creates plain FreeRTOS tasks or timers, and threads share no state directly; they post events. Tasks owned by ESP-IDF itself (Bluedroid, the timer service, idle, `app_main`) are exempt. ISRs and the callbacks ESP-IDF runs in its own tasks only post events to an AO.
+- **Concurrency: active objects only.** Every thread of the firmware is an active object built on `node_ao` (spec 14): a private event queue, a thread that runs one event at a time to completion, and time events. Firmware code never creates plain FreeRTOS tasks or timers, and threads share no state directly. They post commands to the AO that owns a resource, and data that changes is published (spec 15) to the AOs that subscribed to it, which keep their own copy. Tasks owned by ESP-IDF itself (Bluedroid, the timer service, idle, `app_main`) are exempt. ISRs and the callbacks ESP-IDF runs in its own tasks only post events to an AO.
 
 ### Out of scope for v1 (later)
 - **Config delivery over the mesh:** needs a custom vendor model and chunked transfer to fit the ~380-byte mesh message limit. Once this exists, a node with no valid config should wait for one over the mesh.
@@ -89,7 +89,7 @@ tools/
 | 03 | [Config schema & parser](03-config-parser.md) | 01 | done |
 | 04 | [Config storage](04-config-storage.md) | 03 | done |
 | 05 | [PC config flashing tool](05-config-flash-tool.md) | 04 | done |
-| 06 | [Driver framework](06-driver-framework.md) | 02, 03, 14 | todo |
+| 06 | [Driver framework](06-driver-framework.md) | 02, 03, 14, 15 | todo |
 | 07 | [GPIO drivers: PIR & LED](07-gpio-drivers.md) | 06 | todo |
 | 08 | [SHTC3 driver](08-shtc3-driver.md) | 06 | todo |
 | 09 | [Watchdog, reset reason & factory reset](09-health-factory-reset.md) | 02, 04, 05 | todo |
@@ -98,13 +98,14 @@ tools/
 | 12 | [PC gateway script (BlueZ)](12-pc-gateway-script.md) | 10, 11 | todo |
 | 13 | [System tests](13-system-tests.md) | all | todo |
 | 14 | [Active object framework](14-active-objects.md) | 02 | in-progress |
+| 15 | [AO publish-subscribe](15-ao-publish-subscribe.md) | 14 | in-progress |
 
 ```
 01 ──► 02 ──────────────┐
  └───► 03 ──► 04 ──► 05 │
         │      │     │  ▼
         │      └─────┴► 09 ──► 10 ──┐
-        └──► 06 ◄── 14 ◄── 02       ▼
+        └──► 06 ◄── 15 ◄── 14 ◄── 02▼
               ├──► 07 ──────────►  11 ──► 12 ──► 13
               └──► 08 ──────────►
 ```

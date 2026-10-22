@@ -61,6 +61,7 @@ target_link_libraries(node_ao_header_check PRIVATE node_ao_api)
 set(NODE_AO_DIR ${FIRMWARE_DIR}/components/node_ao)
 add_library(node_ao STATIC
   ${NODE_AO_DIR}/node_ao.c
+  ${NODE_AO_DIR}/node_ao_pubsub.c
   ${NODE_AO_DIR}/node_ao_time.c
   mocks/node_ao_port.c)
 target_include_directories(node_ao PUBLIC mocks PRIVATE ${NODE_AO_DIR})

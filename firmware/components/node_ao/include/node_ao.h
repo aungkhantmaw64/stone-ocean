@@ -14,6 +14,11 @@
  * with a node_ao_evt_t header that holds its signal. Time events deliver a
  * plain node_ao_evt_t carrying their signal, in the owning AO's thread.
  *
+ * An AO can also publish an event to every AO that subscribed to its
+ * signal (node_ao_pubsub_publish()). Published signals are
+ * NODE_AO_SIG_PUB_FIRST or above and are allocated per component in
+ * node_ao_pub_sigs.h; an AO's private signals stay below it.
+ *
  * Dispatch functions run in the AO's thread and must not block: no delays,
  * no blocking queue or semaphore calls. This header includes no FreeRTOS or
  * ESP-IDF headers.
@@ -45,6 +50,9 @@ extern "C" {
  *         so the task watchdog (spec 09) can be fed from the AO loop. */
 #define NODE_AO_MAX_WAIT_MS 1000
 
+/** @brief Most (AO, signal) subscriptions in the whole firmware. */
+#define NODE_AO_PUBSUB_MAX_SUBSCRIPTIONS 32
+
 /* ==========================================================================
  * TYPES
  * ========================================================================== */
@@ -68,8 +76,11 @@ typedef uint16_t node_ao_sig_t;
 
 /** @brief Signals reserved by the framework. */
 enum {
-  NODE_AO_SIG_INIT = 0, /**< Dispatched once, first, in the AO's thread. */
-  NODE_AO_SIG_USER = 1, /**< First signal an AO may define. */
+  NODE_AO_SIG_INIT = 0,        /**< Dispatched once, first, in the AO's
+                                  thread. */
+  NODE_AO_SIG_USER = 1,        /**< First private signal an AO may define. */
+  NODE_AO_SIG_PUB_FIRST = 256, /**< First published signal; private signals
+                                  are NODE_AO_SIG_USER up to one below this. */
 };
 
 /** @brief Header of every event. An AO's own event structs start with it. */
@@ -233,6 +244,44 @@ node_ao_err_t node_ao_time_evt_disarm(node_ao_time_evt_t *te);
  * @return True if @p te is armed.
  */
 bool node_ao_time_evt_is_armed(const node_ao_time_evt_t *te);
+
+/**
+ * @brief Subscribe an AO to a published signal.
+ *
+ * Task context only. Allowed before or after @p me is started, and while
+ * other threads publish; the subscription takes effect when this returns.
+ * Subscribing the same AO to the same signal again changes nothing. There is
+ * no unsubscribe.
+ *
+ * @param me  AO that receives the published events; must not be NULL and
+ *            must stay valid forever.
+ * @param sig Published signal; at least NODE_AO_SIG_PUB_FIRST.
+ * @return NODE_AO_OK, NODE_AO_ERR_ARG for a NULL @p me or a private signal,
+ *         or NODE_AO_ERR_FULL if NODE_AO_PUBSUB_MAX_SUBSCRIPTIONS are
+ *         already made.
+ */
+node_ao_err_t node_ao_pubsub_subscribe(node_ao_t *me, node_ao_sig_t sig);
+
+/**
+ * @brief Post an event to every started AO subscribed to its signal. Never
+ *        blocks.
+ *
+ * Task context only, including an AO's own dispatch; not callable from an
+ * ISR. Subscribers receive the event in the order they subscribed, by the
+ * rules of node_ao_post(). Subscribers that are not started are skipped.
+ * Every subscriber is tried even when an earlier one fails.
+ *
+ * @param evt  Event; starts with a node_ao_evt_t whose signal is at least
+ *             NODE_AO_SIG_PUB_FIRST. Must not be NULL.
+ * @param size Size of @p evt in bytes; from sizeof(node_ao_evt_t) to
+ *             NODE_AO_MAX_EVT_SIZE.
+ * @return NODE_AO_OK if every started subscriber queued the event, or there
+ *         were none; NODE_AO_ERR_ARG for a bad argument or a private signal.
+ *         Otherwise the error of the first subscriber that did not queue it:
+ *         NODE_AO_ERR_FULL for a full queue, or NODE_AO_ERR_ARG for an event
+ *         larger than that subscriber's evt_size.
+ */
+node_ao_err_t node_ao_pubsub_publish(const void *evt, size_t size);
 
 #ifdef __cplusplus
 }
