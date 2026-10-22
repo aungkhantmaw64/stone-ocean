@@ -69,7 +69,7 @@ typedef struct {
     node_dev_type_t type;
     union {
         struct { int bus_index; uint32_t sample_interval_ms; node_report_cfg_t report; } shtc3;
-        struct { int gpio; bool active_high; uint32_t debounce_ms; hal_pull_t pull; } pir;
+        struct { int gpio; bool active_high; uint32_t debounce_ms; node_hal_gpio_pull_t pull; } pir;
         struct { int gpio; bool active_high; bool default_on; } led;
     };
 } node_dev_cfg_t;
