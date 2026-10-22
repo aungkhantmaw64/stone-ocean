@@ -90,7 +90,7 @@ tools/
 | 04 | [Config storage](04-config-storage.md) | 03 | done |
 | 05 | [PC config flashing tool](05-config-flash-tool.md) | 04 | done |
 | 06 | [Driver framework](06-driver-framework.md) | 02, 03, 14, 15 | in-progress |
-| 07 | [GPIO drivers: PIR & LED](07-gpio-drivers.md) | 06 | todo |
+| 07 | [GPIO drivers: PIR & LED](07-gpio-drivers.md) | 06 | in-progress |
 | 08 | [SHTC3 driver](08-shtc3-driver.md) | 06 | todo |
 | 09 | [Watchdog, reset reason & factory reset](09-health-factory-reset.md) | 02, 04, 05 | todo |
 | 10 | [Mesh node core](10-mesh-node-core.md) | 03, 09 | todo |

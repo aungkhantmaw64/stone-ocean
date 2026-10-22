@@ -1,6 +1,6 @@
 # 07 — GPIO drivers: PIR & LED
 
-**Status:** todo
+**Status:** in-progress
 **Depends on:** 06
 **Target:** ESP32-DevKitC · ESP-IDF v5.x · `firmware/components/node_dev/node_dev_pir.c`, `node_dev_led.c`
 
