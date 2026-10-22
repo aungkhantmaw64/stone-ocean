@@ -83,11 +83,16 @@ Mock-only helpers (host), declared in `node_hal_mock.h`:
 - **On hardware:** a temporary test command or example: toggle an output pin, read the BOOT button (GPIO0) and log edges. Run an I2C scan across addresses 0x08–0x77 and log the addresses that ACK. The SHTC3 should appear when wired. Enable it with `CONFIG_NODE_HAL_SELFTEST=y` (`idf.py menuconfig` → Node HAL); the SHTC3 is wired to SDA GPIO 32 / SCL GPIO 33 at address 0x70, and the output pin is set with `CONFIG_NODE_HAL_SELFTEST_OUTPUT_GPIO`.
 
 ## Acceptance criteria
-- [ ] Public header compiles in both the ESP-IDF and host builds with no ESP-IDF includes.
-- [ ] ESP implementation uses the IDF I2C master driver and the GPIO ISR service.
-- [ ] Mock supports scripted I2C transactions, GPIO edge injection and virtual time, with unit tests.
-- [ ] Invalid arguments return `NODE_HAL_ERR_ARG` (tested on host).
+- [x] Public header compiles in both the ESP-IDF and host builds with no ESP-IDF includes.
+- [x] ESP implementation uses the IDF I2C master driver and the GPIO ISR service.
+- [x] Mock supports scripted I2C transactions, GPIO edge injection and virtual time, with unit tests.
+- [x] Invalid arguments return `NODE_HAL_ERR_ARG` (tested on host).
 - [ ] On hardware, an I2C scan finds the wired SHTC3, and BOOT-button edges are logged.
+
+Still to verify:
+- Hardware (AC 5): enable `CONFIG_NODE_HAL_SELFTEST` and check that the scan finds the SHTC3 at 0x70 and that BOOT-button presses and releases are logged.
+- Hardware: a transfer that fails after the address was acknowledged is reported as `NODE_HAL_ERR_IO`, and GPIO edge interrupts fire through the ESP-IDF ISR service. QEMU checked pin rejection and the probe's ACK/NACK paths only.
+- Host tests cover the mock's behaviour and argument checks; the ESP implementation's argument checks were checked in QEMU.
 
 ## Open questions
 - None. Resolved: GPIO pin validity is checked in both the HAL (through ESP-IDF errors and reservations) and config validation (spec 03).
