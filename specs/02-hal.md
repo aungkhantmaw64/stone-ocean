@@ -19,6 +19,9 @@ Classic ESP32 GPIO notes, for implementers. Confirm against the ESP32 datasheet:
 - GPIO 6–11 are connected to the SPI flash and must not be used.
 - GPIO 34–39 are input-only and have no internal pull-ups/pull-downs.
 - GPIO 0, 2, 5, 12, 15 are strapping pins. GPIO 0 is the DevKitC BOOT button.
+- On the WROVER module, PSRAM occupies GPIO 16 and 17.
+
+The HAL does not hard-code these lists. It relies on ESP-IDF to reject unusable pins: `gpio_config` rejects pins that do not exist and output on input-only pins; `gpio_pullup_en`/`gpio_pulldown_en` reject pulls on input-only pins; `esp_gpio_is_reserved()` reports pins claimed at runtime by flash, PSRAM or another driver (such as an I2C bus). `esp_gpio_is_reserved()` is private ESP-IDF API, so re-check it when moving off the pinned IDF version.
 
 ## Scope
 - In scope:
@@ -57,6 +60,7 @@ Mock-only helpers (host): `mock_gpio_set_input(pin, level)` triggers an ISR on a
 
 ## Behavior & constraints
 - All functions validate arguments and return `HAL_ERR_ARG` rather than asserting.
+- GPIO functions return `HAL_ERR_ARG` for pins the hardware cannot use, as reported by ESP-IDF (see Hardware details). Config validation (spec 03) also checks pins, to give readable errors.
 - `hal_gpio_set_isr` installs the ESP-IDF GPIO ISR service once, on first use.
 - ISR callbacks must be safe to call from ISR context. Document that callers only signal a task or queue from them.
 - No dynamic allocation after init.
@@ -73,4 +77,4 @@ Mock-only helpers (host): `mock_gpio_set_input(pin, level)` triggers an ISR on a
 - [ ] On hardware, an I2C scan finds the wired SHTC3, and BOOT-button edges are logged.
 
 ## Open questions
-- Should GPIO pin validity (flash pins, input-only pins) be checked here or only in config validation (spec 03)? Proposed: in both places, as a defensive check in the HAL.
+- None. Resolved: GPIO pin validity is checked in both the HAL (through ESP-IDF errors and reservations) and config validation (spec 03).

@@ -15,7 +15,9 @@ Define the JSON config format and implement a parser/validator that turns raw JS
 ## Hardware details
 Pin validation rules for the classic ESP32. Confirm against the datasheet:
 - Reject GPIO 6–11 (flash).
-- Reject GPIO 34–39 for outputs.
+- Reject GPIO 16–17 (PSRAM on the WROVER module).
+- Reject GPIO 24 and 28–31 (not present on the ESP32).
+- Reject GPIO 34–39 for outputs and for internal pull resistors.
 - Reject pins above 39.
 - Warn (don't reject) on strapping pins 0, 2, 5, 12, 15.
 
