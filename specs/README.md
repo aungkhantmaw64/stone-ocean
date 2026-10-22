@@ -14,7 +14,7 @@ Each spec below is one implementation chunk. Implement them in order and respect
 5. **Maintenance:** factory reset (serial command or BOOT-button long press) wipes the config and mesh membership. A task watchdog restarts a hung node, and the reset reason and a crash counter are logged.
 
 ### Hardware
-- 2+ **ESP32-DevKitC** (classic ESP32, BLE 4.2), programmed and logged over USB serial only. No JTAG.
+- 2+ **ESP32-DevKitC** (classic ESP32, BLE 4.2) with a **WROVER** module (16 MB flash, 8 MB PSRAM), programmed and logged over USB serial only. No JTAG. PSRAM occupies GPIO 16/17.
 - **SHTC3** temperature/humidity sensor (I2C).
 - **PIR** motion sensor (digital GPIO input). The exact module is not yet chosen.
 - **LED** (GPIO output, external).
@@ -82,7 +82,7 @@ tools/
 | # | Spec | Depends on | Status |
 |---|---|---|---|
 | 01 | [Project skeleton](01-project-skeleton.md) | none | in-progress |
-| 02 | [HAL abstraction](02-hal.md) | 01 | todo |
+| 02 | [HAL abstraction](02-hal.md) | 01 | in-progress |
 | 03 | [Config schema & parser](03-config-parser.md) | 01 | todo |
 | 04 | [Config storage](04-config-storage.md) | 03 | todo |
 | 05 | [Serial CLI & PC upload tool](05-serial-cli.md) | 04 | todo |

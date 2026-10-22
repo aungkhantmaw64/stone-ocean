@@ -1,9 +1,13 @@
-# Hardware build: ESP32-DevKitC, 16 MB flash, BLE mesh enabled
+# Hardware build: ESP32-DevKitC (WROVER, 16 MB flash, 8 MB PSRAM), BLE mesh enabled
 
 # Flash and partition table
 CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# PSRAM: the classic ESP32 maps 4 MB into the address space; the rest is
+# reachable only through the himem API.
+CONFIG_SPIRAM=y
 
 # Bluetooth: BLE only, Bluedroid host
 CONFIG_BT_ENABLED=y

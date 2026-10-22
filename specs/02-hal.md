@@ -1,6 +1,6 @@
 # 02 — HAL abstraction
 
-**Status:** todo
+**Status:** in-progress
 **Depends on:** 01
 **Target:** ESP32-DevKitC · ESP-IDF v5.x · `firmware/components/node_hal`
 
