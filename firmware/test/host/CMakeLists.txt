@@ -160,3 +160,7 @@ target_link_libraries(test_config_store_crc PRIVATE config_store)
 add_host_test(test_config_store test_config_store.c)
 target_include_directories(test_config_store PRIVATE ${CONFIG_STORE_DIR})
 target_link_libraries(test_config_store PRIVATE config_store)
+
+add_host_test(test_config_store_mode test_config_store_mode.c)
+target_link_libraries(test_config_store_mode PRIVATE config_store
+                      node_config_example)
