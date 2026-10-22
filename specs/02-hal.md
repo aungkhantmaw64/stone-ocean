@@ -1,6 +1,6 @@
 # 02 — HAL abstraction
 
-**Status:** in-progress
+**Status:** done
 **Depends on:** 01
 **Target:** ESP32-DevKitC · ESP-IDF v5.x · `firmware/components/node_hal`
 
@@ -87,12 +87,11 @@ Mock-only helpers (host), declared in `node_hal_mock.h`:
 - [x] ESP implementation uses the IDF I2C master driver and the GPIO ISR service.
 - [x] Mock supports scripted I2C transactions, GPIO edge injection and virtual time, with unit tests.
 - [x] Invalid arguments return `NODE_HAL_ERR_ARG` (tested on host).
-- [ ] On hardware, an I2C scan finds the wired SHTC3, and BOOT-button edges are logged.
+- [x] On hardware, an I2C scan finds the wired SHTC3, and BOOT-button edges are logged.
 
-Still to verify:
-- Hardware (AC 5): enable `CONFIG_NODE_HAL_SELFTEST` and check that the scan finds the SHTC3 at 0x70 and that BOOT-button presses and releases are logged.
-- Hardware: a transfer that fails after the address was acknowledged is reported as `NODE_HAL_ERR_IO`, and GPIO edge interrupts fire through the ESP-IDF ISR service. QEMU checked pin rejection and the probe's ACK/NACK paths only.
-- Host tests cover the mock's behaviour and argument checks; the ESP implementation's argument checks were checked in QEMU.
+Verified on hardware (WROVER board, commit e2fe47b): the self-test scan found the SHTC3 at 0x70, BOOT-button presses and releases were logged with contact bounce visible, and 8 MB PSRAM was detected (4 MB mapped).
+
+Not yet exercised on hardware: an I2C transfer that fails after the address was acknowledged (reported as `NODE_HAL_ERR_IO`). QEMU covered pin rejection and the probe's ACK/NACK paths.
 
 ## Open questions
 - None. Resolved: GPIO pin validity is checked in both the HAL (through ESP-IDF errors and reservations) and config validation (spec 03).

@@ -82,7 +82,7 @@ tools/
 | # | Spec | Depends on | Status |
 |---|---|---|---|
 | 01 | [Project skeleton](01-project-skeleton.md) | none | in-progress |
-| 02 | [HAL abstraction](02-hal.md) | 01 | in-progress |
+| 02 | [HAL abstraction](02-hal.md) | 01 | done |
 | 03 | [Config schema & parser](03-config-parser.md) | 01 | todo |
 | 04 | [Config storage](04-config-storage.md) | 03 | todo |
 | 05 | [Serial CLI & PC upload tool](05-serial-cli.md) | 04 | todo |
