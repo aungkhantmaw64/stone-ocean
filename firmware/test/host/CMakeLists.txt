@@ -70,6 +70,37 @@ target_include_directories(node_config PUBLIC mocks PRIVATE ${NODE_CONFIG_DIR})
 target_compile_options(node_config PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(node_config PUBLIC node_config_api PRIVATE cjson)
 
+add_library(config_store_api INTERFACE)
+target_include_directories(config_store_api INTERFACE
+  ${FIRMWARE_DIR}/components/config_store/include)
+target_link_libraries(config_store_api INTERFACE node_config_api)
+
+add_library(config_store_header_check OBJECT config_store_header_check.c)
+target_compile_options(config_store_header_check PRIVATE -Wall -Wextra -Werror)
+target_include_directories(config_store_header_check PRIVATE
+  ${FIRMWARE_DIR}/components/config_store)
+target_link_libraries(config_store_header_check PRIVATE config_store_api)
+
+# In-memory stand-in for config_store_fs.c, the LittleFS file layer.
+add_library(config_store_fs_mock STATIC mocks/config_store_fs.c)
+target_include_directories(config_store_fs_mock PUBLIC mocks
+  ${FIRMWARE_DIR}/components/config_store)
+target_compile_options(config_store_fs_mock PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(config_store_fs_mock PUBLIC config_store_api)
+
+# The real config_store sources, with the in-memory file fake in place of
+# config_store_fs.c and the host log mock in place of config_store_log.c.
+set(CONFIG_STORE_DIR ${FIRMWARE_DIR}/components/config_store)
+add_library(config_store STATIC
+  ${CONFIG_STORE_DIR}/config_store.c
+  ${CONFIG_STORE_DIR}/config_store_crc.c
+  ${CONFIG_STORE_DIR}/config_store_mode.c
+  mocks/config_store_log.c)
+target_include_directories(config_store PUBLIC mocks PRIVATE ${CONFIG_STORE_DIR})
+target_compile_options(config_store PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(config_store PUBLIC config_store_api config_store_fs_mock
+                      node_config)
+
 # Embed configs/example-shtc3-pir-led.json in the tests as a byte array, so
 # they check the same file the JSON Schema validates without reading files at
 # run time. Editing the JSON re-runs this step.
@@ -120,4 +151,16 @@ target_link_libraries(test_node_config_validate PRIVATE node_config)
 
 add_host_test(test_node_config_composition test_node_config_composition.c)
 target_link_libraries(test_node_config_composition PRIVATE node_config
+                      node_config_example)
+
+add_host_test(test_config_store_crc test_config_store_crc.c)
+target_include_directories(test_config_store_crc PRIVATE ${CONFIG_STORE_DIR})
+target_link_libraries(test_config_store_crc PRIVATE config_store)
+
+add_host_test(test_config_store test_config_store.c)
+target_include_directories(test_config_store PRIVATE ${CONFIG_STORE_DIR})
+target_link_libraries(test_config_store PRIVATE config_store)
+
+add_host_test(test_config_store_mode test_config_store_mode.c)
+target_link_libraries(test_config_store_mode PRIVATE config_store
                       node_config_example)

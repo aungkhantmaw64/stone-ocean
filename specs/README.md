@@ -22,7 +22,7 @@ Each spec below is one implementation chunk. Implement them in order and respect
 - Power: USB/mains. No sleep modes. The node acts as a mesh relay.
 
 ### Toolchain
-- **ESP-IDF** v5.4.4 (pinned; mesh APIs differ between versions): FreeRTOS, ESP-BLE-MESH (Bluedroid host), cJSON, `esp_console`, NVS.
+- **ESP-IDF** v5.4.4 (pinned; mesh APIs differ between versions): FreeRTOS, ESP-BLE-MESH (Bluedroid host), cJSON, `esp_console`, NVS, LittleFS (managed component `joltwallet/littlefs`).
 - **Python 3** tools on the PC: config upload and the gateway script.
 
 ### Mesh mapping
@@ -63,7 +63,7 @@ firmware/                 ESP-IDF project
   components/
     node_hal/             thin hardware abstraction (GPIO, I2C, time) + ESP-IDF impl
     node_config/          JSON parse + validate → node_config_t
-    config_store/         NVS persistence of the raw config
+    config_store/         LittleFS persistence of the raw config
     node_cli/             esp_console commands
     drivers/              driver framework + pir, led, shtc3
     node_health/          watchdog, reset reason, crash counter, factory reset
@@ -84,7 +84,7 @@ tools/
 | 01 | [Project skeleton](01-project-skeleton.md) | none | in-progress |
 | 02 | [HAL abstraction](02-hal.md) | 01 | done |
 | 03 | [Config schema & parser](03-config-parser.md) | 01 | done |
-| 04 | [Config storage](04-config-storage.md) | 03 | todo |
+| 04 | [Config storage](04-config-storage.md) | 03 | done |
 | 05 | [Serial CLI & PC upload tool](05-serial-cli.md) | 04 | todo |
 | 06 | [Driver framework](06-driver-framework.md) | 02, 03 | todo |
 | 07 | [GPIO drivers: PIR & LED](07-gpio-drivers.md) | 06 | todo |

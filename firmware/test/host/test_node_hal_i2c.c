@@ -207,16 +207,16 @@ void test_bus_setup_with_an_invalid_port_pins_or_frequency_is_rejected(void) {
   const int invalid_pin = 40;
   node_hal_i2c_bus_t other = NULL;
 
-  TEST_ASSERT_EQUAL_INT_MESSAGE(NODE_HAL_ERR_ARG,
-                                node_hal_i2c_bus_init(invalid_port, SDA_PIN,
-                                                      SCL_PIN, BUS_FREQ_HZ,
-                                                      &other),
-                                "port");
-  TEST_ASSERT_EQUAL_INT_MESSAGE(NODE_HAL_ERR_ARG,
-                                node_hal_i2c_bus_init(unused_port, invalid_pin,
-                                                      SCL_PIN, BUS_FREQ_HZ,
-                                                      &other),
-                                "data pin");
+  TEST_ASSERT_EQUAL_INT_MESSAGE(
+      NODE_HAL_ERR_ARG,
+      node_hal_i2c_bus_init(invalid_port, SDA_PIN, SCL_PIN, BUS_FREQ_HZ,
+                            &other),
+      "port");
+  TEST_ASSERT_EQUAL_INT_MESSAGE(
+      NODE_HAL_ERR_ARG,
+      node_hal_i2c_bus_init(unused_port, invalid_pin, SCL_PIN, BUS_FREQ_HZ,
+                            &other),
+      "data pin");
   TEST_ASSERT_EQUAL_INT_MESSAGE(
       NODE_HAL_ERR_ARG,
       node_hal_i2c_bus_init(unused_port, SDA_PIN, SDA_PIN, BUS_FREQ_HZ, &other),
@@ -281,11 +281,11 @@ void test_transfer_with_a_missing_buffer_or_zero_length_is_rejected(void) {
       node_hal_i2c_write_read(sensor, measure_command, sizeof measure_command,
                               NULL, sizeof answer, TIMEOUT_MS),
       "read without buffer");
-  TEST_ASSERT_EQUAL_INT_MESSAGE(NODE_HAL_ERR_ARG,
-                                node_hal_i2c_write_read(sensor, measure_command,
-                                                        sizeof measure_command,
-                                                        answer, 0, TIMEOUT_MS),
-                                "read of zero bytes");
+  TEST_ASSERT_EQUAL_INT_MESSAGE(
+      NODE_HAL_ERR_ARG,
+      node_hal_i2c_write_read(sensor, measure_command, sizeof measure_command,
+                              answer, 0, TIMEOUT_MS),
+      "read of zero bytes");
   TEST_ASSERT_EQUAL_size_t(0, node_hal_i2c_mock_pending_steps());
   TEST_ASSERT_NULL(node_hal_i2c_mock_failure());
 }

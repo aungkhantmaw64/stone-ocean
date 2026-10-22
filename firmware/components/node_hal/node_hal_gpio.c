@@ -43,12 +43,12 @@ static bool g_isr_service_installed = false;
 static node_hal_err_t node_hal_gpio_enable_pull(int pin,
                                                 node_hal_gpio_pull_t pull) {
   switch (pull) {
-  case NODE_HAL_GPIO_PULL_UP:
-    return node_hal_err_from_esp(gpio_pullup_en(pin));
-  case NODE_HAL_GPIO_PULL_DOWN:
-    return node_hal_err_from_esp(gpio_pulldown_en(pin));
-  default:
-    return NODE_HAL_OK;
+    case NODE_HAL_GPIO_PULL_UP:
+      return node_hal_err_from_esp(gpio_pullup_en(pin));
+    case NODE_HAL_GPIO_PULL_DOWN:
+      return node_hal_err_from_esp(gpio_pulldown_en(pin));
+    default:
+      return NODE_HAL_OK;
   }
 }
 
@@ -62,12 +62,12 @@ static void node_hal_gpio_isr_trampoline(void *arg) {
 
 static gpio_int_type_t node_hal_gpio_intr_type_for(node_hal_gpio_edge_t edge) {
   switch (edge) {
-  case NODE_HAL_GPIO_EDGE_RISING:
-    return GPIO_INTR_POSEDGE;
-  case NODE_HAL_GPIO_EDGE_FALLING:
-    return GPIO_INTR_NEGEDGE;
-  default:
-    return GPIO_INTR_ANYEDGE;
+    case NODE_HAL_GPIO_EDGE_RISING:
+      return GPIO_INTR_POSEDGE;
+    case NODE_HAL_GPIO_EDGE_FALLING:
+      return GPIO_INTR_NEGEDGE;
+    default:
+      return GPIO_INTR_ANYEDGE;
   }
 }
 

@@ -56,22 +56,22 @@
 #define CONFIG_WITH_VERSION(version, rest) "{\"version\":" #version "," rest "}"
 
 /** @brief I2C bus "i2c0" on port 0 at the given clock, in Hz. */
-#define BUS_AT_HZ(freq_hz)                                                     \
+#define BUS_AT_HZ(freq_hz) \
   "{\"id\":\"i2c0\",\"port\":0,\"sda\":21,\"scl\":22,\"freq_hz\":" #freq_hz "}"
 
 /** @brief I2C bus "i2c0" on the given port. */
-#define BUS_ON_PORT(port)                                                      \
-  "{\"id\":\"i2c0\",\"port\":" #port                                           \
+#define BUS_ON_PORT(port)            \
+  "{\"id\":\"i2c0\",\"port\":" #port \
   ",\"sda\":21,\"scl\":22,\"freq_hz\":100000}"
 
 /** @brief SHTC3 on bus "i2c0" sampling at the given interval, in ms. */
-#define SHTC3_SAMPLING_EVERY(interval_ms)                                      \
-  "{\"id\":\"env1\",\"type\":\"shtc3\",\"bus\":\"i2c0\","                      \
+#define SHTC3_SAMPLING_EVERY(interval_ms)                 \
+  "{\"id\":\"env1\",\"type\":\"shtc3\",\"bus\":\"i2c0\"," \
   "\"sample_interval_ms\":" #interval_ms "}"
 
 /** @brief LED with GPIO 25 and the given extra members. */
-#define LED_WITH(members)                                                      \
-  "{\"id\":\"led1\",\"type\":\"led\",\"gpio\":25,\"active_high\":"             \
+#define LED_WITH(members)                                          \
+  "{\"id\":\"led1\",\"type\":\"led\",\"gpio\":25,\"active_high\":" \
   "true," members "}"
 
 /* ==========================================================================
@@ -248,8 +248,9 @@ void test_error_details_are_empty_after_a_config_is_accepted(void) {
 
 /* AC: specs/03-config-parser.md #2 */
 void test_motion_sensor_debounce_defaults_to_50_ms_when_omitted(void) {
-  TEST_ASSERT_EQUAL_INT(NODE_CONFIG_OK, parse_text(TEST_CONFIG_WITHOUT_BUSES(
-                                            TEST_PIR("pir1", 27))));
+  TEST_ASSERT_EQUAL_INT(
+      NODE_CONFIG_OK,
+      parse_text(TEST_CONFIG_WITHOUT_BUSES(TEST_PIR("pir1", 27))));
 
   TEST_ASSERT_EQUAL_UINT32(DEFAULT_DEBOUNCE_MS,
                            g_config.dev[0].pir.debounce_ms);
@@ -257,16 +258,18 @@ void test_motion_sensor_debounce_defaults_to_50_ms_when_omitted(void) {
 
 /* AC: specs/03-config-parser.md #2 */
 void test_motion_sensor_pull_resistor_defaults_to_none_when_omitted(void) {
-  TEST_ASSERT_EQUAL_INT(NODE_CONFIG_OK, parse_text(TEST_CONFIG_WITHOUT_BUSES(
-                                            TEST_PIR("pir1", 27))));
+  TEST_ASSERT_EQUAL_INT(
+      NODE_CONFIG_OK,
+      parse_text(TEST_CONFIG_WITHOUT_BUSES(TEST_PIR("pir1", 27))));
 
   TEST_ASSERT_EQUAL_INT(NODE_HAL_GPIO_PULL_NONE, g_config.dev[0].pir.pull);
 }
 
 /* AC: specs/03-config-parser.md #2 */
 void test_led_is_off_at_boot_when_default_on_is_omitted(void) {
-  TEST_ASSERT_EQUAL_INT(NODE_CONFIG_OK, parse_text(TEST_CONFIG_WITHOUT_BUSES(
-                                            TEST_LED("led1", 25))));
+  TEST_ASSERT_EQUAL_INT(
+      NODE_CONFIG_OK,
+      parse_text(TEST_CONFIG_WITHOUT_BUSES(TEST_LED("led1", 25))));
 
   TEST_ASSERT_FALSE(g_config.dev[0].led.default_on);
 }

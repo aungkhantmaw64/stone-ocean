@@ -37,12 +37,12 @@ static bool node_hal_gpio_pin_in_range(int pin) {
 static bool node_hal_gpio_edge_matches(node_hal_gpio_edge_t edge, int from,
                                        int to) {
   switch (edge) {
-  case NODE_HAL_GPIO_EDGE_RISING:
-    return from == 0 && to == 1;
-  case NODE_HAL_GPIO_EDGE_FALLING:
-    return from == 1 && to == 0;
-  default:
-    return from != to;
+    case NODE_HAL_GPIO_EDGE_RISING:
+      return from == 0 && to == 1;
+    case NODE_HAL_GPIO_EDGE_FALLING:
+      return from == 1 && to == 0;
+    default:
+      return from != to;
   }
 }
 

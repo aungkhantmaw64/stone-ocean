@@ -101,9 +101,10 @@ static void node_hal_i2c_queue_step(node_hal_i2c_mock_step_kind_t kind,
                                     size_t len, node_hal_err_t err) {
   if (g_steps_queued == NODE_HAL_MOCK_I2C_MAX_STEPS ||
       len > NODE_HAL_MOCK_I2C_MAX_DATA || (len > 0 && data == NULL)) {
-    node_hal_i2c_record_failure("test script step rejected (too many steps, "
-                                "too long or no data)",
-                                addr7);
+    node_hal_i2c_record_failure(
+        "test script step rejected (too many steps, "
+        "too long or no data)",
+        addr7);
     return;
   }
   node_hal_i2c_mock_step_t *step = &g_steps[g_steps_queued++];

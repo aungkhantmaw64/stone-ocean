@@ -8,7 +8,7 @@
 Provide a generic device layer that instantiates drivers from `node_config_t`, runs their sampling on a schedule, and turns readings and commands into events. This decouples device drivers from the mesh layer.
 
 ## Context
-- At boot in normal mode, `devices_start(node_config_active())` creates one device instance per config entry.
+- At boot in normal mode, `devices_start(config_store_mode_active_config())` creates one device instance per config entry.
 - Concrete drivers: PIR and LED (07), SHTC3 (08).
 - The mesh model mapping (11) subscribes to device events and calls `device_set_onoff` for actuators.
 - Report-throttling logic (delta / min / max intervals) lives here, so it is shared and host-testable.

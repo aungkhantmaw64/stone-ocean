@@ -21,11 +21,11 @@
 
 /** @brief Most GPIO claims a config can make: SDA and SCL per bus, one pin
  *         per device. */
-#define NODE_CONFIG_VALIDATE_MAX_CLAIMS                                        \
+#define NODE_CONFIG_VALIDATE_MAX_CLAIMS \
   (2 * NODE_CONFIG_MAX_I2C_BUSES + NODE_CONFIG_MAX_DEVICES)
 
 /** @brief Most ids a config can hold: one per bus and one per device. */
-#define NODE_CONFIG_VALIDATE_MAX_IDS                                           \
+#define NODE_CONFIG_VALIDATE_MAX_IDS \
   (NODE_CONFIG_MAX_I2C_BUSES + NODE_CONFIG_MAX_DEVICES)
 
 /* ==========================================================================
@@ -77,31 +77,26 @@ typedef struct {
  * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
 
-static node_config_err_code_t
-node_config_validate_bus(const node_config_t *cfg, int index,
-                         node_config_validate_seen_t *seen,
-                         node_config_err_t *err);
-static node_config_err_code_t
-node_config_validate_device(const node_config_dev_t *dev, int index,
-                            node_config_validate_seen_t *seen,
-                            node_config_err_t *err);
-static node_config_err_code_t
-node_config_validate_report(const node_config_report_t *report, int index,
-                            node_config_err_t *err);
+static node_config_err_code_t node_config_validate_bus(
+    const node_config_t *cfg, int index, node_config_validate_seen_t *seen,
+    node_config_err_t *err);
+static node_config_err_code_t node_config_validate_device(
+    const node_config_dev_t *dev, int index, node_config_validate_seen_t *seen,
+    node_config_err_t *err);
+static node_config_err_code_t node_config_validate_report(
+    const node_config_report_t *report, int index, node_config_err_t *err);
 static node_config_err_code_t node_config_validate_use_pin(
     int gpio, node_config_validate_pin_use_t use,
     node_config_validate_owner_t owner, const char *pull_field,
     node_config_validate_seen_t *seen, node_config_err_t *err);
-static node_config_err_code_t
-node_config_validate_pin_rules(int gpio, node_config_validate_pin_use_t use,
-                               const char *path, const char *pull_path,
-                               node_config_err_t *err);
+static node_config_err_code_t node_config_validate_pin_rules(
+    int gpio, node_config_validate_pin_use_t use, const char *path,
+    const char *pull_path, node_config_err_t *err);
 static bool node_config_validate_pin_exists(int gpio);
 static bool node_config_validate_pin_is_strapping(int gpio);
-static node_config_err_code_t
-node_config_validate_use_id(const char *id, node_config_validate_owner_t owner,
-                            node_config_validate_seen_t *seen,
-                            node_config_err_t *err);
+static node_config_err_code_t node_config_validate_use_id(
+    const char *id, node_config_validate_owner_t owner,
+    node_config_validate_seen_t *seen, node_config_err_t *err);
 static void node_config_validate_owner_path(char *dst, size_t size,
                                             node_config_validate_owner_t owner);
 
@@ -140,10 +135,9 @@ node_config_err_code_t node_config_validate(const node_config_t *cfg,
  * PRIVATE FUNCTIONS
  * ========================================================================== */
 
-static node_config_err_code_t
-node_config_validate_bus(const node_config_t *cfg, int index,
-                         node_config_validate_seen_t *seen,
-                         node_config_err_t *err) {
+static node_config_err_code_t node_config_validate_bus(
+    const node_config_t *cfg, int index, node_config_validate_seen_t *seen,
+    node_config_err_t *err) {
   const node_config_i2c_bus_t *bus = &cfg->i2c[index];
   node_config_validate_owner_t owner = {"i2c_buses", index, "id"};
   node_config_err_code_t code =
@@ -174,10 +168,9 @@ node_config_validate_bus(const node_config_t *cfg, int index,
                                       owner, NULL, seen, err);
 }
 
-static node_config_err_code_t
-node_config_validate_device(const node_config_dev_t *dev, int index,
-                            node_config_validate_seen_t *seen,
-                            node_config_err_t *err) {
+static node_config_err_code_t node_config_validate_device(
+    const node_config_dev_t *dev, int index, node_config_validate_seen_t *seen,
+    node_config_err_t *err) {
   node_config_validate_owner_t owner = {"devices", index, "id"};
   node_config_err_code_t code =
       node_config_validate_use_id(dev->id, owner, seen, err);
@@ -187,31 +180,31 @@ node_config_validate_device(const node_config_dev_t *dev, int index,
 
   owner.field = "gpio";
   switch (dev->type) {
-  case NODE_CONFIG_DEV_SHTC3:
-    return node_config_validate_report(&dev->shtc3.report, index, err);
-  case NODE_CONFIG_DEV_PIR:
-    return node_config_validate_use_pin(
-        dev->pir.gpio,
-        (dev->pir.pull == NODE_HAL_GPIO_PULL_NONE)
-            ? NODE_CONFIG_VALIDATE_PIN_INPUT
-            : NODE_CONFIG_VALIDATE_PIN_INPUT_WITH_PULL,
-        owner, "pull", seen, err);
-  case NODE_CONFIG_DEV_LED:
-    return node_config_validate_use_pin(
-        dev->led.gpio, NODE_CONFIG_VALIDATE_PIN_OUTPUT, owner, NULL, seen, err);
-  default: {
-    char path[NODE_CONFIG_ERR_PATH_LEN] = {0};
-    owner.field = "type";
-    node_config_validate_owner_path(path, sizeof(path), owner);
-    return node_config_err_set(err, NODE_CONFIG_ERR_DEVICE_TYPE, path,
-                               "unsupported device type");
-  }
+    case NODE_CONFIG_DEV_SHTC3:
+      return node_config_validate_report(&dev->shtc3.report, index, err);
+    case NODE_CONFIG_DEV_PIR:
+      return node_config_validate_use_pin(
+          dev->pir.gpio,
+          (dev->pir.pull == NODE_HAL_GPIO_PULL_NONE)
+              ? NODE_CONFIG_VALIDATE_PIN_INPUT
+              : NODE_CONFIG_VALIDATE_PIN_INPUT_WITH_PULL,
+          owner, "pull", seen, err);
+    case NODE_CONFIG_DEV_LED:
+      return node_config_validate_use_pin(dev->led.gpio,
+                                          NODE_CONFIG_VALIDATE_PIN_OUTPUT,
+                                          owner, NULL, seen, err);
+    default: {
+      char path[NODE_CONFIG_ERR_PATH_LEN] = {0};
+      owner.field = "type";
+      node_config_validate_owner_path(path, sizeof(path), owner);
+      return node_config_err_set(err, NODE_CONFIG_ERR_DEVICE_TYPE, path,
+                                 "unsupported device type");
+    }
   }
 }
 
-static node_config_err_code_t
-node_config_validate_report(const node_config_report_t *report, int index,
-                            node_config_err_t *err) {
+static node_config_err_code_t node_config_validate_report(
+    const node_config_report_t *report, int index, node_config_err_t *err) {
   if (report->min_interval_ms <= report->max_interval_ms) {
     return NODE_CONFIG_OK;
   }
@@ -271,10 +264,9 @@ static node_config_err_code_t node_config_validate_use_pin(
 
 /* Pin rules for the classic ESP32 on a WROVER module (spec 03, Hardware
  * details), from the ESP32 datasheet's pin list. */
-static node_config_err_code_t
-node_config_validate_pin_rules(int gpio, node_config_validate_pin_use_t use,
-                               const char *path, const char *pull_path,
-                               node_config_err_t *err) {
+static node_config_err_code_t node_config_validate_pin_rules(
+    int gpio, node_config_validate_pin_use_t use, const char *path,
+    const char *pull_path, node_config_err_t *err) {
   if (!node_config_validate_pin_exists(gpio)) {
     return node_config_err_set(err, NODE_CONFIG_ERR_PIN, path,
                                "GPIO %d does not exist on the ESP32", gpio);
@@ -294,25 +286,25 @@ node_config_validate_pin_rules(int gpio, node_config_validate_pin_use_t use,
 
   bool input_only = gpio >= NODE_CONFIG_VALIDATE_FIRST_INPUT_ONLY_GPIO;
   switch (use) {
-  case NODE_CONFIG_VALIDATE_PIN_INPUT:
-    return NODE_CONFIG_OK;
-  case NODE_CONFIG_VALIDATE_PIN_INPUT_WITH_PULL:
-    if (input_only) {
-      return node_config_err_set(
-          err, NODE_CONFIG_ERR_PIN,
-          (pull_path != NULL && pull_path[0] != '\0') ? pull_path : path,
-          "GPIO %d has no internal pull resistor", gpio);
-    }
-    return NODE_CONFIG_OK;
-  case NODE_CONFIG_VALIDATE_PIN_OUTPUT:
-    if (input_only) {
-      return node_config_err_set(err, NODE_CONFIG_ERR_PIN, path,
-                                 "GPIO %d is input-only", gpio);
-    }
-    return NODE_CONFIG_OK;
-  default:
-    return node_config_err_set(err, NODE_CONFIG_ERR_ARG, path,
-                               "unknown pin use");
+    case NODE_CONFIG_VALIDATE_PIN_INPUT:
+      return NODE_CONFIG_OK;
+    case NODE_CONFIG_VALIDATE_PIN_INPUT_WITH_PULL:
+      if (input_only) {
+        return node_config_err_set(
+            err, NODE_CONFIG_ERR_PIN,
+            (pull_path != NULL && pull_path[0] != '\0') ? pull_path : path,
+            "GPIO %d has no internal pull resistor", gpio);
+      }
+      return NODE_CONFIG_OK;
+    case NODE_CONFIG_VALIDATE_PIN_OUTPUT:
+      if (input_only) {
+        return node_config_err_set(err, NODE_CONFIG_ERR_PIN, path,
+                                   "GPIO %d is input-only", gpio);
+      }
+      return NODE_CONFIG_OK;
+    default:
+      return node_config_err_set(err, NODE_CONFIG_ERR_ARG, path,
+                                 "unknown pin use");
   }
 }
 
@@ -327,10 +319,9 @@ static bool node_config_validate_pin_is_strapping(int gpio) {
   return gpio == 0 || gpio == 2 || gpio == 5 || gpio == 12 || gpio == 15;
 }
 
-static node_config_err_code_t
-node_config_validate_use_id(const char *id, node_config_validate_owner_t owner,
-                            node_config_validate_seen_t *seen,
-                            node_config_err_t *err) {
+static node_config_err_code_t node_config_validate_use_id(
+    const char *id, node_config_validate_owner_t owner,
+    node_config_validate_seen_t *seen, node_config_err_t *err) {
   char path[NODE_CONFIG_ERR_PATH_LEN] = {0};
   node_config_validate_owner_path(path, sizeof(path), owner);
 
@@ -356,9 +347,8 @@ node_config_validate_use_id(const char *id, node_config_validate_owner_t owner,
 
 /* A path longer than the buffer is truncated; the error is still reported,
  * with a shortened path. */
-static void
-node_config_validate_owner_path(char *dst, size_t size,
-                                node_config_validate_owner_t owner) {
+static void node_config_validate_owner_path(
+    char *dst, size_t size, node_config_validate_owner_t owner) {
   int written = 0;
   if (owner.field != NULL) {
     written =

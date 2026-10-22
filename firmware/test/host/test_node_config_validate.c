@@ -21,12 +21,12 @@
 #define COUNT_OF(array) (sizeof(array) / sizeof((array)[0]))
 
 /** @brief A second I2C bus on port 0, which "i2c0" already uses. */
-#define SECOND_BUS_ON_PORT_0                                                   \
+#define SECOND_BUS_ON_PORT_0 \
   "{\"id\":\"i2c1\",\"port\":0,\"sda\":18,\"scl\":19,\"freq_hz\":100000}"
 
 /** @brief SHTC3 on bus "i2c0" with the given "report" members. */
-#define SHTC3_REPORTING(members)                                               \
-  "{\"id\":\"env1\",\"type\":\"shtc3\",\"bus\":\"i2c0\","                      \
+#define SHTC3_REPORTING(members)                          \
+  "{\"id\":\"env1\",\"type\":\"shtc3\",\"bus\":\"i2c0\"," \
   "\"sample_interval_ms\":10000,\"report\":{" members "}}"
 
 /* ==========================================================================
