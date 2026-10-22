@@ -161,6 +161,9 @@ target_link_libraries(test_node_hal_i2c PRIVATE node_hal_mock)
 add_host_test(test_node_hal_time test_node_hal_time.c)
 target_link_libraries(test_node_hal_time PRIVATE node_hal_mock)
 
+add_host_test(test_node_ao test_node_ao.c)
+target_link_libraries(test_node_ao PRIVATE node_ao)
+
 add_host_test(test_node_config_parse test_node_config_parse.c)
 target_link_libraries(test_node_config_parse PRIVATE node_config
                       node_config_example)
