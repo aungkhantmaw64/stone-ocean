@@ -82,6 +82,10 @@ static char g_failure[FAILURE_MESSAGE_SIZE] = {0};
  *         reset. */
 static bool g_failed = false;
 
+/** @brief Error the next valid node_hal_i2c_bus_init() returns;
+ *         NODE_HAL_OK when it should succeed. */
+static node_hal_err_t g_bus_init_error = NODE_HAL_OK;
+
 /* ==========================================================================
  * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
@@ -174,6 +178,11 @@ void node_hal_i2c_mock_reset(void) {
   g_steps_consumed = 0;
   g_failure[0] = '\0';
   g_failed = false;
+  g_bus_init_error = NODE_HAL_OK;
+}
+
+void node_hal_i2c_mock_fail_next_bus_init(node_hal_err_t err) {
+  g_bus_init_error = err;
 }
 
 void node_hal_i2c_mock_expect_write(uint8_t addr7, const uint8_t *data,
@@ -212,6 +221,11 @@ node_hal_err_t node_hal_i2c_bus_init(int port, int sda, int scl,
       scl >= NODE_HAL_MOCK_GPIO_COUNT || sda == scl || freq_hz == 0 ||
       out == NULL) {
     return NODE_HAL_ERR_ARG;
+  }
+  if (g_bus_init_error != NODE_HAL_OK) {
+    const node_hal_err_t err = g_bus_init_error;
+    g_bus_init_error = NODE_HAL_OK;
+    return err;
   }
   g_buses[port].in_use = true;
   *out = &g_buses[port];
