@@ -131,12 +131,18 @@ Driver methods run in the devices AO's thread and must not block: no delays and 
 - **On hardware:** covered by specs 07 and 08 via the device log lines.
 
 ## Acceptance criteria
-- [ ] Drivers register by type, and `node_dev_start` builds instances from config in order.
-- [ ] Reporting policy behaves as specified (host tests with virtual time).
-- [ ] Device faults are isolated, published and retried without affecting other devices.
-- [ ] `node_dev_set_onoff` is safe to call from any task.
-- [ ] Driver calls never block the devices AO: pending samples and ISR-triggered samples are scheduled with time events (host tests).
+- [x] Drivers register by type, and `node_dev_start` builds instances from config in order.
+- [x] Reporting policy behaves as specified (host tests with virtual time).
+- [x] Device faults are isolated, published and retried without affecting other devices.
+- [x] `node_dev_set_onoff` is safe to call from any task.
+- [x] Driver calls never block the devices AO: pending samples and ISR-triggered samples are scheduled with time events (host tests).
 - [ ] The log shows the device table at start (index, id, type, state), every state change, and every published reading.
+
+Host tests: `test_node_dev_report` (14 tests) and `test_node_dev` (42 tests) pass under ASan, LSan and UBSan (commit 064f253). Mutation checks confirmed the tests catch a drifting sample period, a deadline that fires late, a failure count that never resets, a second interrupt that does not restart the delay, and on/off published without a change.
+
+`node_dev_set_onoff` (AC 4) only posts to the devices AO and never blocks, also with a full queue (host tests). Calls from several real tasks are exercised on the board through spec 11, from the mesh task.
+
+Not yet verified on hardware: the log lines (AC 6). A QEMU boot with `configs/example-shtc3-pir-led.json` (commit 1bc0a90) logged the device table and every state change, and the host tests check that every published reading is logged. Real readings in the board log need the drivers of specs 07 and 08.
 
 ## Open questions
 - None.
