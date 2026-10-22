@@ -102,10 +102,11 @@ target_link_libraries(node_dev_header_check PRIVATE node_dev_api)
 # The real node_dev sources, on the host node_ao port and the mock HAL.
 set(NODE_DEV_DIR ${FIRMWARE_DIR}/components/node_dev)
 add_library(node_dev STATIC
-  ${NODE_DEV_DIR}/node_dev.c)
+  ${NODE_DEV_DIR}/node_dev.c
+  ${NODE_DEV_DIR}/node_dev_report.c)
 target_include_directories(node_dev PRIVATE ${NODE_DEV_DIR})
 target_compile_options(node_dev PRIVATE -Wall -Wextra -Werror)
-target_link_libraries(node_dev PUBLIC node_dev_api node_ao node_config)
+target_link_libraries(node_dev PUBLIC node_dev_api node_ao node_config PRIVATE m)
 
 add_library(config_store_api INTERFACE)
 target_include_directories(config_store_api INTERFACE
