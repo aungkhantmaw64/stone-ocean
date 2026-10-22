@@ -65,7 +65,9 @@ void     node_hal_time_delay_ms(uint32_t ms);
 Mock-only helpers (host), declared in `node_hal_mock.h`:
 - `node_hal_mock_reset()` clears all mock state.
 - `node_hal_gpio_mock_set_input(pin, level)` sets an input level and triggers the ISR on a matching edge.
-- `node_hal_i2c_mock_expect_write(...)`, `node_hal_i2c_mock_queue_read(...)`, `node_hal_i2c_mock_queue_error(...)` and `node_hal_i2c_mock_set_present(...)` script I2C traffic.
+- `node_hal_i2c_mock_expect_write(...)`, `node_hal_i2c_mock_queue_read(...)`, `node_hal_i2c_mock_queue_error(...)` and `node_hal_i2c_mock_set_present(...)` script I2C traffic. Steps are consumed in order; a transfer that does not match returns `NODE_HAL_ERR_IO`.
+- `node_hal_i2c_mock_failure()` describes the first mismatching transfer (NULL if none) and `node_hal_i2c_mock_pending_steps()` counts unconsumed steps, so tests can check the whole script ran.
+- `node_hal_gpio_mock_reset()`, `node_hal_i2c_mock_reset()` and `node_hal_time_mock_reset()` reset one area each.
 - `node_hal_time_mock_advance(ms)` and `node_hal_time_mock_set(ms)` control virtual time.
 
 ## Behavior & constraints

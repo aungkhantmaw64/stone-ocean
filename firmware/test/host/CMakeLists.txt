@@ -13,6 +13,15 @@ add_library(node_hal_api INTERFACE)
 target_include_directories(node_hal_api INTERFACE
   ${FIRMWARE_DIR}/components/node_hal/include)
 
+add_library(node_hal_mock STATIC
+  mocks/node_hal_mock.c
+  mocks/node_hal_gpio.c
+  mocks/node_hal_i2c.c
+  mocks/node_hal_time.c)
+target_include_directories(node_hal_mock PUBLIC mocks)
+target_compile_options(node_hal_mock PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_hal_mock PUBLIC node_hal_api)
+
 add_library(node_hal_header_check OBJECT node_hal_header_check.c)
 target_compile_options(node_hal_header_check PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(node_hal_header_check PRIVATE node_hal_api)

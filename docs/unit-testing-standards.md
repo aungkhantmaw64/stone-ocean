@@ -70,7 +70,7 @@ FAIL  node starts in safe mode when no config is stored
 void test_temperature_is_reported_in_hundredths_of_a_degree(void)
 {
     /* Raw SHTC3 reading 0x6666 is 24.999 °C by the datasheet formula, which rounds to 25.00 °C */
-    hal_mock_i2c_script_read(SHTC3_ADDR, raw_reading_25_degrees, sizeof raw_reading_25_degrees);
+    node_hal_i2c_mock_queue_read(SHTC3_ADDR, raw_reading_25_degrees, sizeof raw_reading_25_degrees);
 
     int16_t centi_celsius = 0;
     shtc3_read_temperature(&sensor, &centi_celsius);
@@ -102,9 +102,9 @@ Do not unit-test:
 
 ## 4. Mocks, fakes and time
 
-- Code under test reaches hardware only through the HAL (spec 02). Host tests link `hal_mock` (`firmware/test/host/mocks/`), never ESP-IDF headers.
+- Code under test reaches hardware only through the HAL (spec 02). Host tests link the `node_hal_mock` library (`firmware/test/host/mocks/`), never ESP-IDF headers.
 - Prefer **fakes with scriptable behaviour** (scripted I2C responses, injected GPIO edges) over strict call-by-call mocks. Tests should check outcomes, not the exact sequence of internal calls, unless that sequence is the requirement (for example a sensor's wake-up → measure → sleep protocol).
-- **Time is virtual.** Advance it with the mock clock (`hal_mock_time_advance_ms`). Never `sleep()` or busy-wait in a unit test.
+- **Time is virtual.** Advance it with the mock clock (`node_hal_time_mock_advance`). Never `sleep()` or busy-wait in a unit test.
 - **No randomness and no real I/O.** Tests must be deterministic and must not touch the network, serial ports or real files, except temporary files created by pytest's `tmp_path` fixture.
 - Fakes for storage and NVS live in `mocks/` too, and are reset in `setUp()`.
 
