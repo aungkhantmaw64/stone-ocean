@@ -1,6 +1,16 @@
 cmake_minimum_required(VERSION 3.16...3.30)
 project(mesh_node_host_tests C)
 
+# AddressSanitizer (with LeakSanitizer) and UndefinedBehaviorSanitizer for
+# every target, third-party code included, so a leak or undefined behaviour
+# anywhere fails the test that triggers it.
+option(HOST_SANITIZE "Build host tests with ASan, LSan and UBSan" ON)
+if(HOST_SANITIZE)
+  add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer
+                      -fno-sanitize-recover=undefined)
+  add_link_options(-fsanitize=address,undefined)
+endif()
+
 include(FetchContent)
 FetchContent_Declare(unity
   URL https://github.com/ThrowTheSwitch/Unity/archive/refs/tags/v2.7.0.tar.gz
@@ -67,6 +77,10 @@ function(add_host_test name)
   target_compile_options(${name} PRIVATE -Wall -Wextra -Werror)
   target_link_libraries(${name} PRIVATE unity)
   add_test(NAME ${name} COMMAND ${name})
+  if(HOST_SANITIZE)
+    set_tests_properties(${name} PROPERTIES ENVIRONMENT
+      "ASAN_OPTIONS=detect_leaks=1;UBSAN_OPTIONS=print_stacktrace=1")
+  endif()
 endfunction()
 
 add_host_test(test_host_build test_host_build.c)
