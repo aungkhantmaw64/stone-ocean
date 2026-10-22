@@ -8,6 +8,7 @@
 
 #include "node_ao.h"
 #include "node_ao_port.h"
+#include "node_ao_time.h"
 
 /* ==========================================================================
  * TYPES
@@ -110,11 +111,12 @@ bool node_ao_run_once(node_ao_t *me) {
     return false;
   }
   node_ao_slot_t slot = {0};
-  if (!node_ao_port_receive(me, &slot, NODE_AO_MAX_WAIT_MS)) {
-    return false;
+  bool dispatched =
+      node_ao_port_receive(me, &slot, node_ao_time_next_wait_ms(me));
+  if (dispatched) {
+    me->dispatch(me, &slot.evt);
   }
-  me->dispatch(me, &slot.evt);
-  return true;
+  return node_ao_time_dispatch_due(me) || dispatched;
 }
 
 /* ==========================================================================

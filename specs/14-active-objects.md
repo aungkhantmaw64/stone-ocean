@@ -59,7 +59,7 @@ node_ao_err_t node_ao_post_from_isr(node_ao_t *me, const void *evt, size_t size)
 
 /* node_ao_time.c — call only before node_ao_start() or from the owning AO's dispatch */
 node_ao_err_t node_ao_time_evt_init(node_ao_time_evt_t *te, node_ao_t *owner, node_ao_sig_t sig);
-node_ao_err_t node_ao_time_evt_arm(node_ao_time_evt_t *te, uint32_t delay_ms, uint32_t period_ms); /* period 0 = one-shot */
+node_ao_err_t node_ao_time_evt_arm(node_ao_time_evt_t *te, uint32_t delay_ms, uint32_t period_ms); /* period 0 = one-shot; both <= INT32_MAX */
 node_ao_err_t node_ao_time_evt_disarm(node_ao_time_evt_t *te);
 bool          node_ao_time_evt_is_armed(const node_ao_time_evt_t *te);
 ```

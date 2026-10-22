@@ -204,11 +204,12 @@ node_ao_err_t node_ao_time_evt_init(node_ao_time_evt_t *te, node_ao_t *owner,
  * and is rescheduled one period from then, so it never fires in a burst.
  *
  * @param te        Initialised time event; must not be NULL.
- * @param delay_ms  Time until it first fires, in ms; 0 fires at the next
- *                  turn of the AO loop.
- * @param period_ms Time between later firings, in ms; 0 for one-shot.
- * @return NODE_AO_OK, NODE_AO_ERR_ARG, or NODE_AO_ERR_STATE if @p te is not
- *         initialised.
+ * @param delay_ms  Time until it first fires, in ms, at most INT32_MAX; 0
+ *                  fires at the next turn of the AO loop.
+ * @param period_ms Time between later firings, in ms, at most INT32_MAX; 0
+ *                  for one-shot.
+ * @return NODE_AO_OK, NODE_AO_ERR_ARG for a NULL @p te or a time above
+ *         INT32_MAX, or NODE_AO_ERR_STATE if @p te is not initialised.
  */
 node_ao_err_t node_ao_time_evt_arm(node_ao_time_evt_t *te, uint32_t delay_ms,
                                    uint32_t period_ms);
