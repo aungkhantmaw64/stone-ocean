@@ -22,7 +22,7 @@ Each spec below is one implementation chunk. Implement them in order and respect
 - Power: USB/mains. No sleep modes. The node acts as a mesh relay.
 
 ### Toolchain
-- **ESP-IDF** v5.x: FreeRTOS, ESP-BLE-MESH (Bluedroid host), cJSON, `esp_console`, NVS.
+- **ESP-IDF** v5.4.4 (pinned; mesh APIs differ between versions): FreeRTOS, ESP-BLE-MESH (Bluedroid host), cJSON, `esp_console`, NVS.
 - **Python 3** tools on the PC: config upload and the gateway script.
 
 ### Mesh mapping
@@ -79,7 +79,7 @@ tools/
 
 | # | Spec | Depends on | Status |
 |---|---|---|---|
-| 01 | [Project skeleton](01-project-skeleton.md) | none | todo |
+| 01 | [Project skeleton](01-project-skeleton.md) | none | in-progress |
 | 02 | [HAL abstraction](02-hal.md) | 01 | todo |
 | 03 | [Config schema & parser](03-config-parser.md) | 01 | todo |
 | 04 | [Config storage](04-config-storage.md) | 03 | todo |

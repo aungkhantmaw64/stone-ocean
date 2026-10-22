@@ -1,8 +1,8 @@
 # 01 — Project skeleton
 
-**Status:** todo
+**Status:** in-progress
 **Depends on:** none
-**Target:** ESP32-DevKitC (ESP32) · ESP-IDF v5.x / FreeRTOS · idf.py, CMake, Python 3
+**Target:** ESP32-DevKitC (ESP32) · ESP-IDF v5.4.4 / FreeRTOS · idf.py, CMake, Python 3
 
 ## Goal
 Create the empty but buildable project: the ESP-IDF firmware, a host unit-test build, a QEMU run path and CI. Every later chunk drops its code into this structure.
@@ -14,12 +14,12 @@ The project is a config-driven BLE mesh node (see `specs/README.md`). Three buil
 - **Host test build:** plain CMake + Unity, compiled with the PC's gcc. Tests pure-logic components against a mock HAL.
 
 ## Hardware details
-ESP32-DevKitC with on-board USB-UART bridge. Flashing and logging go through `idf.py -p <port> flash monitor`. There is no JTAG. Flash size depends on the module (commonly 4 MB). Confirm with `esptool.py flash_id`.
+ESP32-DevKitC with on-board USB-UART bridge. Flashing and logging go through `idf.py -p <port> flash monitor`. There is no JTAG. The modules have 16 MB flash (confirmed by the developer).
 
 ## Scope
 - In scope:
   - Repository layout as listed in `specs/README.md`, with empty component stubs that compile.
-  - A custom partition table with a factory app partition large enough for Bluedroid + BLE Mesh (start at 2 MB on 4 MB flash), plus `nvs` and `phy_init`.
+  - A custom partition table with a factory app partition large enough for Bluedroid + BLE Mesh (2 MB to start; the rest of the 16 MB flash stays unallocated), plus `nvs` and `phy_init`.
   - `sdkconfig.defaults`: Bluetooth enabled (BLE only, Bluedroid), `CONFIG_BLE_MESH=y`, and a project Kconfig option `NODE_MESH_ENABLE` (default `y`).
   - `sdkconfig.qemu`: `NODE_MESH_ENABLE=n`, Bluetooth disabled.
   - Helper scripts: `scripts/build.sh`, `scripts/qemu.sh` (wraps `idf.py qemu monitor` using the QEMU sdkconfig), `scripts/host_test.sh`.
@@ -34,7 +34,7 @@ ESP32-DevKitC with on-board USB-UART bridge. Flashing and logging go through `id
 - Scripts take the serial port from the `PORT` env var where relevant.
 
 ## Behavior & constraints
-- Pin an ESP-IDF minor version (e.g. v5.3) in README/CI. Mesh APIs differ between versions.
+- Pin ESP-IDF v5.4.4 in README/CI. Mesh APIs differ between versions.
 - Host test build must not include any ESP-IDF headers.
 - Warnings as errors (`-Werror`) for project components.
 
@@ -50,5 +50,4 @@ ESP32-DevKitC with on-board USB-UART bridge. Flashing and logging go through `id
 - [ ] Partition table fits the hardware build with ≥ 15% app-partition headroom (check with `idf.py size`).
 
 ## Open questions
-- Flash size of the actual DevKitC modules (4 MB assumed).
-- CI host (GitHub Actions assumed).
+- None. Resolved: flash is 16 MB; CI runs on GitHub Actions.

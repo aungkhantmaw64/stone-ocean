@@ -1,0 +1,11 @@
+menu "Mesh node"
+
+    config NODE_MESH_ENABLE
+        bool "Enable BLE mesh"
+        depends on BLE_MESH
+        default y
+        help
+            Start the BLE mesh node at boot. Disabled in the QEMU build,
+            because QEMU does not emulate Bluetooth.
+
+endmenu
