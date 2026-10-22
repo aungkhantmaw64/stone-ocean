@@ -199,6 +199,13 @@ static void start_devices(void);
 static void run_until_idle(void);
 
 /**
+ * @brief Move virtual time forward, then run every AO until idle.
+ *
+ * @param ms Time to advance, in ms.
+ */
+static void advance_and_run(uint32_t ms);
+
+/**
  * @brief Number of events with this signal and device a subscriber got.
  *
  * @param sub       The subscriber.
@@ -395,6 +402,147 @@ void test_sensor_whose_driver_gives_no_report_policy_is_marked_as_faulty(void) {
   TEST_ASSERT_EQUAL_INT(0, g_fakes[env].sample_calls);
 }
 
+/* ---- Sampling and publishing ---- */
+
+/* AC: specs/06-driver-framework.md #2 */
+void test_sensor_is_sampled_right_after_start_and_then_every_sample_interval(
+    void) {
+  const int env = add_device(NODE_CONFIG_DEV_SHTC3, "env1");
+  register_fake_drivers();
+
+  start_devices();
+  TEST_ASSERT_EQUAL_INT(1, g_fakes[env].sample_calls);
+
+  advance_and_run(SAMPLE_INTERVAL_MS - 1u);
+  TEST_ASSERT_EQUAL_INT(1, g_fakes[env].sample_calls);
+
+  advance_and_run(1u);
+  TEST_ASSERT_EQUAL_INT(2, g_fakes[env].sample_calls);
+
+  advance_and_run(SAMPLE_INTERVAL_MS);
+  TEST_ASSERT_EQUAL_INT(3, g_fakes[env].sample_calls);
+  TEST_ASSERT_EQUAL_UINT32(2u * SAMPLE_INTERVAL_MS,
+                           g_fakes[env].last_sample_ms);
+}
+
+/* AC: specs/06-driver-framework.md #2 */
+void test_readings_are_throttled_by_the_report_policy_while_the_node_runs(
+    void) {
+  const int env = add_device(NODE_CONFIG_DEV_SHTC3, "env1");
+  g_fakes[env].value = (node_dev_value_t){.temp_c = 20.0f, .rh_pct = 40.0f};
+  register_fake_drivers();
+  start_devices();
+
+  /* A 1 °C rise, above the 0.5 °C delta, is sampled every second but held
+   * back until the 5 s minimum interval has passed. */
+  g_fakes[env].value.temp_c = 21.0f;
+  for (int second = 1; second <= 4; second++) {
+    advance_and_run(SAMPLE_INTERVAL_MS);
+  }
+  const size_t before_minimum =
+      count_events(&g_subscribers[0], NODE_DEV_SIG_READING, env);
+  advance_and_run(SAMPLE_INTERVAL_MS);
+  const size_t at_minimum =
+      count_events(&g_subscribers[0], NODE_DEV_SIG_READING, env);
+
+  TEST_ASSERT_EQUAL_size_t(1, before_minimum);
+  TEST_ASSERT_EQUAL_size_t(2, at_minimum);
+  TEST_ASSERT_EQUAL_FLOAT(21.0f, g_subscribers[0].events[1].value.temp_c);
+  TEST_ASSERT_EQUAL_UINT32(5u * SAMPLE_INTERVAL_MS,
+                           g_subscribers[0].events[1].ts_ms);
+}
+
+/* AC: specs/06-driver-framework.md #2 */
+void test_published_reading_reaches_every_subscriber(void) {
+  const int env = add_device(NODE_CONFIG_DEV_SHTC3, "env1");
+  g_fakes[env].value = (node_dev_value_t){.temp_c = 22.5f, .rh_pct = 55.0f};
+  register_fake_drivers();
+
+  start_devices();
+
+  for (size_t i = 0; i < 2; i++) {
+    TEST_ASSERT_EQUAL_size_t_MESSAGE(1, g_subscribers[i].count,
+                                     "events received by a subscriber");
+    const node_dev_evt_t *evt = &g_subscribers[i].events[0];
+    TEST_ASSERT_EQUAL_UINT16(NODE_DEV_SIG_READING, evt->super.sig);
+    TEST_ASSERT_EQUAL_UINT8(env, evt->dev_index);
+    TEST_ASSERT_EQUAL_FLOAT(22.5f, evt->value.temp_c);
+    TEST_ASSERT_EQUAL_FLOAT(55.0f, evt->value.rh_pct);
+  }
+}
+
+/* AC: specs/06-driver-framework.md #6 */
+void test_every_published_reading_is_logged(void) {
+  const int env = add_device(NODE_CONFIG_DEV_SHTC3, "env1");
+  g_fakes[env].value = (node_dev_value_t){.temp_c = 20.0f, .rh_pct = 40.0f};
+  register_fake_drivers();
+  start_devices();
+
+  g_fakes[env].value.temp_c = 25.0f;
+  for (int second = 1; second <= 5; second++) {
+    advance_and_run(SAMPLE_INTERVAL_MS);
+  }
+
+  const size_t published =
+      count_events(&g_subscribers[0], NODE_DEV_SIG_READING, env);
+  TEST_ASSERT_EQUAL_size_t(2, published);
+  TEST_ASSERT_EQUAL_size_t(published, node_dev_log_mock_event_count());
+  TEST_ASSERT_EQUAL_FLOAT(25.0f, node_dev_log_mock_event(1)->value.temp_c);
+}
+
+/* AC: specs/06-driver-framework.md #5 */
+void test_sample_still_in_progress_is_finished_after_the_time_the_driver_asked_for(
+    void) {
+  /* The SHTC3 needs about 12 ms to measure; the fake asks for 15 ms. */
+  const uint32_t measure_ms = 15u;
+  const int env = add_device(NODE_CONFIG_DEV_SHTC3, "env1");
+  g_fakes[env].pending_calls = 1;
+  g_fakes[env].again_ms = measure_ms;
+  register_fake_drivers();
+
+  start_devices();
+  advance_and_run(measure_ms - 1u);
+  const int calls_before = g_fakes[env].sample_calls;
+  advance_and_run(1u);
+
+  TEST_ASSERT_EQUAL_INT(1, calls_before);
+  TEST_ASSERT_EQUAL_INT(2, g_fakes[env].sample_calls);
+  TEST_ASSERT_EQUAL_size_t(
+      1, count_events(&g_subscribers[0], NODE_DEV_SIG_READING, env));
+  TEST_ASSERT_EQUAL_UINT32(measure_ms, g_subscribers[0].events[0].ts_ms);
+}
+
+/* AC: specs/06-driver-framework.md #5 */
+void test_sample_in_progress_does_not_delay_the_next_periodic_sample(void) {
+  const uint32_t measure_ms = 15u;
+  const int env = add_device(NODE_CONFIG_DEV_SHTC3, "env1");
+  g_fakes[env].pending_calls = 1;
+  g_fakes[env].again_ms = measure_ms;
+  register_fake_drivers();
+  start_devices();
+  advance_and_run(measure_ms);
+
+  advance_and_run(SAMPLE_INTERVAL_MS - measure_ms);
+
+  TEST_ASSERT_EQUAL_INT(3, g_fakes[env].sample_calls);
+  TEST_ASSERT_EQUAL_UINT32(SAMPLE_INTERVAL_MS, g_fakes[env].last_sample_ms);
+}
+
+/* AC: specs/06-driver-framework.md #2 */
+void test_led_initial_state_is_published_once_after_start(void) {
+  const int led = add_device(NODE_CONFIG_DEV_LED, "led1");
+  g_fakes[led].value.on = true;
+  register_fake_drivers();
+
+  start_devices();
+  advance_and_run(10u * SAMPLE_INTERVAL_MS);
+
+  TEST_ASSERT_EQUAL_size_t(
+      1, count_events(&g_subscribers[0], NODE_DEV_SIG_ONOFF_CHANGED, led));
+  TEST_ASSERT_TRUE(g_subscribers[0].events[0].value.on);
+  TEST_ASSERT_EQUAL_INT(1, g_fakes[led].sample_calls);
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_driver_without_an_init_method_is_rejected);
@@ -412,6 +560,16 @@ int main(void) {
   RUN_TEST(
       test_device_with_no_driver_for_its_type_is_marked_as_faulty_and_never_retried);
   RUN_TEST(test_sensor_whose_driver_gives_no_report_policy_is_marked_as_faulty);
+  RUN_TEST(
+      test_sensor_is_sampled_right_after_start_and_then_every_sample_interval);
+  RUN_TEST(
+      test_readings_are_throttled_by_the_report_policy_while_the_node_runs);
+  RUN_TEST(test_published_reading_reaches_every_subscriber);
+  RUN_TEST(test_every_published_reading_is_logged);
+  RUN_TEST(
+      test_sample_still_in_progress_is_finished_after_the_time_the_driver_asked_for);
+  RUN_TEST(test_sample_in_progress_does_not_delay_the_next_periodic_sample);
+  RUN_TEST(test_led_initial_state_is_published_once_after_start);
   return UNITY_END();
 }
 
@@ -558,6 +716,11 @@ static void register_fake_drivers(void) {
 
 static void start_devices(void) {
   TEST_ASSERT_EQUAL_INT(NODE_DEV_OK, node_dev_start(&g_cfg));
+  run_until_idle();
+}
+
+static void advance_and_run(uint32_t ms) {
+  node_hal_time_mock_advance(ms);
   run_until_idle();
 }
 
