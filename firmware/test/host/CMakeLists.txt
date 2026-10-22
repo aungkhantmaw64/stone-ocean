@@ -81,6 +81,13 @@ target_include_directories(config_store_header_check PRIVATE
   ${FIRMWARE_DIR}/components/config_store)
 target_link_libraries(config_store_header_check PRIVATE config_store_api)
 
+# In-memory stand-in for config_store_fs.c, the LittleFS file layer.
+add_library(config_store_fs_mock STATIC mocks/config_store_fs.c)
+target_include_directories(config_store_fs_mock PUBLIC mocks
+  ${FIRMWARE_DIR}/components/config_store)
+target_compile_options(config_store_fs_mock PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(config_store_fs_mock PUBLIC config_store_api)
+
 # Embed configs/example-shtc3-pir-led.json in the tests as a byte array, so
 # they check the same file the JSON Schema validates without reading files at
 # run time. Editing the JSON re-runs this step.
