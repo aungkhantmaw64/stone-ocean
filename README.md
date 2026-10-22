@@ -1,5 +1,8 @@
 # ESP32 BLE Mesh IoT Node
 
+[![CI](https://github.com/aungkhantmaw64/stone-ocean/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aungkhantmaw64/stone-ocean/actions/workflows/ci.yml)
+[![ESP-IDF](https://img.shields.io/badge/ESP--IDF-v5.4.4-blue)](https://docs.espressif.com/projects/esp-idf/en/v5.4.4/esp32/)
+
 Config-driven BLE mesh node firmware for the ESP32-DevKitC. A JSON config
 stored in flash says which sensors and actuators are attached. See
 [`specs/README.md`](specs/README.md) for requirements, architecture and the
