@@ -68,14 +68,61 @@ static const int g_strapping_pins[] = {0, 2, 5, 12, 15};
  * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
 
+/**
+ * @brief Parse a NUL-terminated config into g_config and g_err.
+ *
+ * @param json Config text.
+ * @return The result of node_config_parse().
+ */
 static node_config_err_code_t parse_text(const char *json);
+
+/**
+ * @brief Parse a config with one LED on @p gpio and no I2C buses.
+ *
+ * @param gpio GPIO number of the LED.
+ * @return The result of node_config_parse().
+ */
 static node_config_err_code_t parse_led_on(int gpio);
+
+/**
+ * @brief Parse a config with one PIR sensor on @p gpio and no I2C buses.
+ *
+ * @param gpio GPIO number of the sensor.
+ * @param pull Value of "pull": "none", "up" or "down".
+ * @return The result of node_config_parse().
+ */
 static node_config_err_code_t parse_motion_sensor_on(int gpio,
                                                      const char *pull);
+
+/**
+ * @brief Parse a config with one I2C bus on @p sda and @p scl.
+ *
+ * @param sda GPIO number of SDA.
+ * @param scl GPIO number of SCL.
+ * @return The result of node_config_parse().
+ */
 static node_config_err_code_t parse_bus_on(int sda, int scl);
+
+/**
+ * @brief Check that a parse failed with @p expected_code and that g_err names
+ *        @p expected_path, with a message starting with it.
+ *
+ * @param code          Result of the parse.
+ * @param expected_code Expected error code.
+ * @param expected_path Expected JSON path.
+ */
 static void assert_rejected(node_config_err_code_t code,
                             node_config_err_code_t expected_code,
                             const char *expected_path);
+
+/**
+ * @brief Check that an LED on each of @p pins is rejected with the message
+ *        "devices[0].gpio: GPIO <pin> <reason>".
+ *
+ * @param pins   GPIO numbers to try.
+ * @param n_pins Number of entries in @p pins.
+ * @param reason Expected end of the message, for example "is input-only".
+ */
 static void assert_led_pins_rejected(const int *pins, size_t n_pins,
                                      const char *reason);
 

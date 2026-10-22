@@ -39,7 +39,22 @@ static node_config_err_t g_err = {0};
  * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
 
+/**
+ * @brief Parse a config into g_config and return its composition hash. Fails
+ *        the test if the config is rejected.
+ *
+ * @param json Config text.
+ * @param len  Length of @p json in bytes.
+ * @return node_config_composition_hash() of the parsed config.
+ */
 static uint32_t hash_of(const char *json, size_t len);
+
+/**
+ * @brief hash_of() for a NUL-terminated config.
+ *
+ * @param json Config text.
+ * @return node_config_composition_hash() of the parsed config.
+ */
 static uint32_t hash_of_text(const char *json);
 
 /* ==========================================================================

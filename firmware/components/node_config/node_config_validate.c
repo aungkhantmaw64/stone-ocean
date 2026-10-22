@@ -77,26 +77,120 @@ typedef struct {
  * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
 
+/**
+ * @brief Check one I2C bus: unique id, unique port, usable SDA and SCL pins.
+ *
+ * @param cfg   Config holding the bus; must not be NULL.
+ * @param index Index of the bus in @p cfg; the buses before it are checked.
+ * @param seen  Ids and GPIOs claimed so far; updated with this bus's. Must
+ *              not be NULL.
+ * @param err   Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, or the code of the first error found.
+ */
 static node_config_err_code_t node_config_validate_bus(
     const node_config_t *cfg, int index, node_config_validate_seen_t *seen,
     node_config_err_t *err);
+
+/**
+ * @brief Check one device: unique id, then the rules for its type.
+ *
+ * @param dev   Device to check; must not be NULL.
+ * @param index Index of the device in the config.
+ * @param seen  Ids and GPIOs claimed so far; updated with this device's.
+ *              Must not be NULL.
+ * @param err   Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, or the code of the first error found.
+ */
 static node_config_err_code_t node_config_validate_device(
     const node_config_dev_t *dev, int index, node_config_validate_seen_t *seen,
     node_config_err_t *err);
+
+/**
+ * @brief Check that an SHTC3 report's min_interval_ms <= max_interval_ms.
+ *
+ * @param report Report settings to check; must not be NULL.
+ * @param index  Index of the owning device in the config.
+ * @param err    Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK or NODE_CONFIG_ERR_RANGE.
+ */
 static node_config_err_code_t node_config_validate_report(
     const node_config_report_t *report, int index, node_config_err_t *err);
+
+/**
+ * @brief Check that @p gpio suits @p use and is not claimed yet, then claim
+ *        it. Logs a warning for a strapping pin.
+ *
+ * @param gpio       GPIO number.
+ * @param use        How the entry uses the pin.
+ * @param owner      Entry and field that use the pin.
+ * @param pull_field Field of @p owner that sets the pull resistor, to blame
+ *                   it when the pin has none; NULL if there is none.
+ * @param seen       Ids and GPIOs claimed so far; must not be NULL.
+ * @param err        Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, NODE_CONFIG_ERR_PIN, NODE_CONFIG_ERR_DUPLICATE or
+ *         NODE_CONFIG_ERR_TOO_MANY.
+ */
 static node_config_err_code_t node_config_validate_use_pin(
     int gpio, node_config_validate_pin_use_t use,
     node_config_validate_owner_t owner, const char *pull_field,
     node_config_validate_seen_t *seen, node_config_err_t *err);
+
+/**
+ * @brief Check that @p gpio exists, is free for the application and suits
+ *        @p use.
+ *
+ * @param gpio      GPIO number.
+ * @param use       How the entry uses the pin.
+ * @param path      JSON path of the pin field, for the error.
+ * @param pull_path JSON path of the pull field, blamed when the pin has no
+ *                  pull resistor; NULL or "" to blame @p path instead.
+ * @param err       Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, NODE_CONFIG_ERR_PIN, or NODE_CONFIG_ERR_ARG for an
+ *         unknown @p use.
+ */
 static node_config_err_code_t node_config_validate_pin_rules(
     int gpio, node_config_validate_pin_use_t use, const char *path,
     const char *pull_path, node_config_err_t *err);
+
+/**
+ * @brief Whether @p gpio is a GPIO of the classic ESP32.
+ *
+ * @param gpio GPIO number.
+ * @return True for 0–39 except 24 and 28–31.
+ */
 static bool node_config_validate_pin_exists(int gpio);
+
+/**
+ * @brief Whether @p gpio is an ESP32 strapping pin.
+ *
+ * @param gpio GPIO number.
+ * @return True for GPIO 0, 2, 5, 12 and 15.
+ */
 static bool node_config_validate_pin_is_strapping(int gpio);
+
+/**
+ * @brief Check that @p id is not used yet, then record it.
+ *
+ * @param id    NUL-terminated id; must stay valid while @p seen is used.
+ * @param owner Entry that uses the id.
+ * @param seen  Ids and GPIOs claimed so far; must not be NULL.
+ * @param err   Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, NODE_CONFIG_ERR_DUPLICATE or
+ *         NODE_CONFIG_ERR_TOO_MANY.
+ */
 static node_config_err_code_t node_config_validate_use_id(
     const char *id, node_config_validate_owner_t owner,
     node_config_validate_seen_t *seen, node_config_err_t *err);
+
+/**
+ * @brief Build the JSON path of @p owner, "<list>[<index>].<field>", or
+ *        "<list>[<index>]" when it has no field.
+ *
+ * @param dst   Receives the NUL-terminated path, truncated to fit; must not
+ *              be NULL.
+ * @param size  Size of @p dst in bytes.
+ * @param owner Entry, and optionally field, to name.
+ */
 static void node_config_validate_owner_path(char *dst, size_t size,
                                             node_config_validate_owner_t owner);
 
