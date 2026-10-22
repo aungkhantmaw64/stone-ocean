@@ -104,6 +104,7 @@ target_link_libraries(node_dev_header_check PRIVATE node_dev_api)
 set(NODE_DEV_DIR ${FIRMWARE_DIR}/components/node_dev)
 add_library(node_dev STATIC
   ${NODE_DEV_DIR}/node_dev.c
+  ${NODE_DEV_DIR}/node_dev_led.c
   ${NODE_DEV_DIR}/node_dev_pir.c
   ${NODE_DEV_DIR}/node_dev_report.c
   mocks/node_dev_log.c)
