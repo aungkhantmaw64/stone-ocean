@@ -2,9 +2,8 @@
 """Build a QEMU flash image, optionally with a node config pre-loaded.
 
 The config is packed exactly as the firmware's config_store writes it
-(specs/04-config-storage.md): a 16-byte header of four little-endian uint32
-fields (magic "NCFG", format version, JSON length, CRC32 of the JSON), then
-the raw JSON, stored as config.bin on the LittleFS `config` partition.
+(config_format.py, specs/04-config-storage.md) and stored as config.bin on the
+LittleFS `config` partition.
 
 Run inside the ESP-IDF environment, after building the QEMU flavour:
 
@@ -16,37 +15,20 @@ Without --config the config partition is left erased, as on a new board.
 """
 
 import argparse
-import json
 import os
-import struct
 import subprocess
 import sys
 import tempfile
 import venv
-import zlib
 from pathlib import Path
 
-CONFIG_MAGIC = 0x4746434E  # "NCFG" read as a little-endian uint32
-CONFIG_FORMAT_VERSION = 1  # CONFIG_STORE_FORMAT_VERSION
-CONFIG_MAX_RAW_LEN = 4096  # NODE_CONFIG_MAX_RAW_LEN
-CONFIG_FILE_NAME = "config.bin"  # CONFIG_STORE_FILE_NAME
+from config_format import CONFIG_FILE_NAME, pack_config
+
 CONFIG_PARTITION = "config"
 LITTLEFS_BLOCK_SIZE = 4096  # what littlefs_create_partition_image() uses
 
 REPO_DIR = Path(__file__).resolve().parent.parent
 LITTLEFS_COMPONENT_DIR = REPO_DIR / "firmware/managed_components/joltwallet__littlefs"
-
-
-def pack_config(raw_json: bytes) -> bytes:
-    """Return the config.bin contents for raw_json."""
-    if not raw_json:
-        raise ValueError("config is empty")
-    if len(raw_json) > CONFIG_MAX_RAW_LEN:
-        raise ValueError(f"config is {len(raw_json)} bytes; the limit is {CONFIG_MAX_RAW_LEN}")
-    json.loads(raw_json)  # catch a malformed file here rather than as safe mode in QEMU
-    header = struct.pack("<IIII", CONFIG_MAGIC, CONFIG_FORMAT_VERSION, len(raw_json),
-                         zlib.crc32(raw_json))
-    return header + raw_json
 
 
 def read_sdkconfig(build_dir: Path) -> dict:
