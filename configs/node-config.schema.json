@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/aungkhantmaw64/stone-ocean/configs/node-config.schema.json",
+  "title": "Node config, version 1",
+  "description": "Config of one ESP32 BLE mesh node (spec 03). The firmware parser is the authority: it also checks rules JSON Schema cannot express, namely ids unique across buses and devices, I2C ports unique, no GPIO used twice, every device bus naming a bus, and report.min_interval_ms <= report.max_interval_ms. Unlike the firmware, which only warns, this schema rejects unknown keys so typos are caught before upload.",
+  "type": "object",
+  "required": ["version", "node_name", "devices"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "node_name": {
+      "description": "At most 31 bytes; keep it ASCII, since maxLength counts characters, not bytes.",
+      "type": "string", "minLength": 1, "maxLength": 31
+    },
+    "i2c_buses": {
+      "type": "array", "maxItems": 2,
+      "items": { "$ref": "#/$defs/i2c_bus" }
+    },
+    "devices": {
+      "type": "array", "maxItems": 8,
+      "items": { "$ref": "#/$defs/device" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "description": "At most 15 bytes; keep it ASCII.",
+      "type": "string", "minLength": 1, "maxLength": 15
+    },
+    "uint32": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "gpio_input": {
+      "description": "Classic ESP32 GPIO usable as an input on a WROVER module. Excludes UART0 (1, 3), flash (6-11), PSRAM (16, 17) and pins that do not exist (24, 28-31). Strapping pins 0, 2, 5, 12 and 15 are allowed; the firmware warns about them.",
+      "type": "integer", "minimum": 0, "maximum": 39,
+      "not": { "enum": [1, 3, 6, 7, 8, 9, 10, 11, 16, 17, 24, 28, 29, 30, 31] }
+    },
+    "gpio_output": {
+      "description": "As gpio_input, without the input-only pins 34-39. Also applies to inputs with an internal pull resistor.",
+      "allOf": [ { "$ref": "#/$defs/gpio_input" }, { "maximum": 33 } ]
+    },
+    "i2c_bus": {
+      "type": "object",
+      "required": ["id", "port", "sda", "scl", "freq_hz"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "port": { "enum": [0, 1] },
+        "sda": { "$ref": "#/$defs/gpio_output" },
+        "scl": { "$ref": "#/$defs/gpio_output" },
+        "freq_hz": { "type": "integer", "minimum": 10000, "maximum": 400000 }
+      }
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_interval_ms": { "$ref": "#/$defs/uint32", "default": 5000 },
+        "max_interval_ms": { "$ref": "#/$defs/uint32", "default": 60000 },
+        "delta_temp_c": { "type": "number", "default": 0.5 },
+        "delta_rh_pct": { "type": "number", "default": 2.0 }
+      }
+    },
+    "shtc3": {
+      "type": "object",
+      "required": ["id", "type", "bus", "sample_interval_ms"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "const": "shtc3" },
+        "bus": { "$ref": "#/$defs/id" },
+        "sample_interval_ms": { "$ref": "#/$defs/uint32", "minimum": 1000 },
+        "report": { "$ref": "#/$defs/report" }
+      }
+    },
+    "pir": {
+      "type": "object",
+      "required": ["id", "type", "gpio", "active_high"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "const": "pir" },
+        "gpio": { "$ref": "#/$defs/gpio_input" },
+        "active_high": { "type": "boolean" },
+        "debounce_ms": { "$ref": "#/$defs/uint32", "default": 50 },
+        "pull": { "enum": ["none", "up", "down"], "default": "none" }
+      },
+      "if": {
+        "required": ["pull"],
+        "properties": { "pull": { "enum": ["up", "down"] } }
+      },
+      "then": { "properties": { "gpio": { "$ref": "#/$defs/gpio_output" } } }
+    },
+    "led": {
+      "type": "object",
+      "required": ["id", "type", "gpio", "active_high"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "const": "led" },
+        "gpio": { "$ref": "#/$defs/gpio_output" },
+        "active_high": { "type": "boolean" },
+        "default_on": { "type": "boolean", "default": false }
+      }
+    },
+    "device": {
+      "type": "object",
+      "required": ["type"],
+      "properties": { "type": { "enum": ["shtc3", "pir", "led"] } },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "shtc3" } } }, "then": { "$ref": "#/$defs/shtc3" } },
+        { "if": { "properties": { "type": { "const": "pir" } } }, "then": { "$ref": "#/$defs/pir" } },
+        { "if": { "properties": { "type": { "const": "led" } } }, "then": { "$ref": "#/$defs/led" } }
+      ]
+    }
+  }
+}
