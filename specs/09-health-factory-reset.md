@@ -18,7 +18,7 @@ Make the node recover from hangs, record why it reset, and give the developer a 
 
 ## Scope
 - In scope:
-  - TWDT enabled with a 10 s timeout. The devices task (06) and the main loop subscribe to it.
+  - TWDT enabled with a 10 s timeout. The devices AO (06) and the main loop subscribe to it.
   - Initialise NVS at boot (`nvs_flash_init`). If it reports no free pages or a newer format version, log at ERROR, erase the `nvs` partition and retry. This wipes the mesh state too, but happens only after a partition layout or ESP-IDF version change.
   - On boot, log the reset reason as text. Increment a crash counter in NVS (namespace `health`) when the reason is panic, task WDT, interrupt WDT or brownout. Log `reset_reason=<reason> crash_count=<n>` once per boot. Factory reset clears the counter.
   - Factory reset triggers:

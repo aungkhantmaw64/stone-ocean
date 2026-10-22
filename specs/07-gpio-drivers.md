@@ -2,14 +2,14 @@
 
 **Status:** todo
 **Depends on:** 06
-**Target:** ESP32-DevKitC · ESP-IDF v5.x · `firmware/components/drivers/pir.c`, `led.c`
+**Target:** ESP32-DevKitC · ESP-IDF v5.x · `firmware/components/node_dev/node_dev_pir.c`, `node_dev_led.c`
 
 ## Goal
-Implement the PIR motion-input and LED output drivers as `dev_driver_t` plugins, so a config entry of type `pir` or `led` produces a working device.
+Implement the PIR motion-input and LED output drivers as `node_dev_driver_t` plugins (spec 06), so a config entry of type `pir` or `led` produces a working device.
 
 ## Context
-- PIR: event-driven. GPIO edge ISR → `devices_post_from_isr` → debounced `DEV_EVT_MOTION` with `motion=true/false`.
-- LED: actuator. `device_set_onoff` → `set_onoff` → GPIO write, then `DEV_EVT_ONOFF_CHANGED`.
+- PIR: event-driven. GPIO edge ISR → `node_dev_post_from_isr` → `on_isr` returns `debounce_ms` → the framework samples after the delay → `NODE_DEV_SIG_MOTION` published with `motion=true/false` when it changes.
+- LED: actuator. `node_dev_set_onoff` → `set_onoff` → GPIO write, then the framework publishes `NODE_DEV_SIG_ONOFF_CHANGED`.
 - The mesh mapping (11) turns these into Sensor Server (Motion Sensed) and Generic OnOff Server.
 
 ## Hardware details
@@ -24,16 +24,15 @@ Implement the PIR motion-input and LED output drivers as `dev_driver_t` plugins,
 
 ## Interface
 ```c
-extern const dev_driver_t pir_driver;   /* type NODE_CONFIG_DEV_PIR */
-extern const dev_driver_t led_driver;   /* type NODE_CONFIG_DEV_LED */
-void gpio_drivers_register(void);        /* registers both with the framework */
+node_dev_err_t node_dev_pir_register(void);   /* registers the PIR driver (NODE_CONFIG_DEV_PIR, sample_sig MOTION) */
+node_dev_err_t node_dev_led_register(void);   /* registers the LED driver (NODE_CONFIG_DEV_LED, sample_sig ONOFF_CHANGED) */
 ```
 
 ## Behavior & constraints
-- The ISR does only `devices_post_from_isr`. Debounce happens in the devices task: a level must stay stable for `debounce_ms` before it counts.
+- The ISR does only `node_dev_post_from_isr`. Debounce happens in the devices AO: `on_isr` returns `debounce_ms`, every new edge restarts that delay, and the delayed sample reports the level once it has been stable for `debounce_ms`.
 - A PIR emits an event only when the debounced level changes. Repeated edges within the debounce window produce at most one event.
-- A PIR at init reads the current level and emits the initial state once.
-- LED `set_onoff` to the current state is a no-op and emits no event.
+- A PIR's initial state is published once after init (the framework samples every device right after init).
+- LED `set_onoff` to the current state is a no-op, and the framework publishes no event because the state did not change.
 
 ## Verification
 - **Simulation/host:** Unity tests with the mock HAL cover:

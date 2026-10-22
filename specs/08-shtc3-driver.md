@@ -2,10 +2,10 @@
 
 **Status:** todo
 **Depends on:** 06
-**Target:** ESP32-DevKitC · ESP-IDF v5.x · `firmware/components/drivers/shtc3.c`
+**Target:** ESP32-DevKitC · ESP-IDF v5.x · `firmware/components/node_dev/node_dev_shtc3.c`
 
 ## Goal
-Implement the Sensirion SHTC3 temperature/humidity driver as a `dev_driver_t` plugin. It produces periodic `temp_c` / `rh_pct` readings that the framework (06) throttles into reports.
+Implement the Sensirion SHTC3 temperature/humidity driver as a `node_dev_driver_t` plugin. It produces periodic `temp_c` / `rh_pct` readings that the framework (06) throttles into reports.
 
 ## Context
 - Config entry type `shtc3`, on a configured I2C bus.
@@ -29,26 +29,25 @@ Implement the Sensirion SHTC3 temperature/humidity driver as a `dev_driver_t` pl
 ## Scope
 - In scope:
   - Init: soft reset, read ID and verify it (log the ID).
-  - Sample: wakeup → measure → wait → read 6 bytes → verify CRCs → convert → sleep.
+  - Sample, in two non-blocking steps: wakeup → measure, then return `NODE_DEV_PENDING` with `again_ms` set to the datasheet's max measurement time; on the next call read 6 bytes → verify CRCs → convert → sleep.
   - CRC-8 helper.
 - Out of scope: low-power measurement mode, clock-stretching mode.
 
 ## Interface
 ```c
-extern const dev_driver_t shtc3_driver;   /* type NODE_CONFIG_DEV_SHTC3 */
-void shtc3_driver_register(void);
+node_dev_err_t node_dev_shtc3_register(void);   /* registers the driver (NODE_CONFIG_DEV_SHTC3, sample_sig READING) */
 
 /* pure helpers, exposed for host tests */
-uint8_t shtc3_crc8(const uint8_t *data, size_t len);
-float   shtc3_raw_to_temp_c(uint16_t raw);
-float   shtc3_raw_to_rh_pct(uint16_t raw);
+uint8_t node_dev_shtc3_crc8(const uint8_t *data, size_t len);
+float   node_dev_shtc3_raw_to_temp_c(uint16_t raw);
+float   node_dev_shtc3_raw_to_rh_pct(uint16_t raw);
 ```
 
 ## Behavior & constraints
 - A CRC mismatch or I2C error makes `sample` return an error, and the framework's fault logic (06) applies. Never report a value with a bad CRC.
 - The sensor is put to sleep after every measurement.
 - Clamp RH to 0–100 %.
-- `sample` must finish within 50 ms, including the measurement wait.
+- `sample` never waits for the measurement: it returns `NODE_DEV_PENDING` and the framework calls it again (spec 06). Each call finishes within a few bus transfers.
 
 ## Verification
 - **Simulation/host:** Unity tests with the scripted mock I2C cover:
