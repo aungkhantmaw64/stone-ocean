@@ -114,3 +114,6 @@ target_link_libraries(test_node_hal_time PRIVATE node_hal_mock)
 add_host_test(test_node_config_parse test_node_config_parse.c)
 target_link_libraries(test_node_config_parse PRIVATE node_config
                       node_config_example)
+
+add_host_test(test_node_config_validate test_node_config_validate.c)
+target_link_libraries(test_node_config_validate PRIVATE node_config)
