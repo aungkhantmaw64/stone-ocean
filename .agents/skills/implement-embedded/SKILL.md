@@ -97,6 +97,7 @@ Start only after the developer has agreed to proceed. Follow `docs/unit-testing-
   - Exceptions: `main/` keeps ESP-IDF's fixed names, such as `app_main`. Unit test files and test functions follow `docs/unit-testing-standards.md` (`test_<module>.c`, `test_<sentence>`).
 - Zero-initialize every variable where you declare it (`int count = 0;`, `node_hal_gpio_config_t config = {0};`, `char buf[16] = {0};`), globals and locals alike, even when it is assigned before it is used.
 - Document every public function, type and macro in its header with a Doxygen block (`/** @brief … */` plus `@param`, and `@return` where there is a return value). Document behaviour, preconditions, units and calling context (for example "ISR context"), not the implementation.
+- Document every struct, union and enum, private ones in `.c` files included, with a Doxygen block where it is defined: a `/** @brief … */` for the type, and a trailing `/**< … */` for every member and enum value. Say what each member holds, its units and its valid range.
 - Document every global variable and every macro, private ones in `.c` files included, with a Doxygen block where it is defined: `/** @brief … */`, or a trailing `/**< … */` for a short one. Say what it holds, its units, and who writes it (for example "written from ISR context").
 - Split every source and header file into sections, each opened by a banner, in this order. Leave out a section that would be empty.
 
@@ -106,10 +107,10 @@ Start only after the developer has agreed to proceed. Follow `docs/unit-testing-
    * ========================================================================== */
   ```
 
-  - `.c` files: `INCLUDES`, `MACROS`, `TYPES`, `GLOBAL VARIABLES`, `PRIVATE FUNCTION PROTOTYPES`, `PRIVATE FUNCTIONS`, `PUBLIC FUNCTIONS`.
+  - `.c` files: `INCLUDES`, `MACROS`, `TYPES`, `GLOBAL VARIABLES`, `PRIVATE FUNCTION PROTOTYPES`, `PUBLIC FUNCTIONS`, `PRIVATE FUNCTIONS`.
   - Headers: `INCLUDES`, `MACROS`, `TYPES`, `PUBLIC FUNCTIONS`. The include guard and any `@file` block come before the first section. An `extern "C"` block opens after `INCLUDES` and closes at the end of the file.
 
-  `PRIVATE FUNCTIONS` holds the `static` functions and `PUBLIC FUNCTIONS` the ones declared in a header. A file that keeps its private functions above their first use needs no `PRIVATE FUNCTION PROTOTYPES`. In a unit test file, `setUp()`, `tearDown()`, the tests and `main()` go under `PUBLIC FUNCTIONS`, and the test groups keep their own headings inside it. Unit test files follow `docs/unit-testing-standards.md` where it says otherwise.
+  `PRIVATE FUNCTION PROTOTYPES` declares every `static` function in the file. `PUBLIC FUNCTIONS` holds the definitions of the functions declared in a header. `PRIVATE FUNCTIONS`, at the bottom of the file, holds the definitions of the `static` functions, in the same order as their prototypes. Every `static` function has a prototype, even one defined before its first use. In a unit test file, `setUp()`, `tearDown()`, the tests and `main()` go under `PUBLIC FUNCTIONS`, and the test groups keep their own headings inside it. Unit test files follow `docs/unit-testing-standards.md` where it says otherwise.
 - Avoid inline comments that explain what the code does. If code needs explaining, make it self-explanatory instead: use clearer names, extract a well-named function, or use a named constant. Keep a comment only for what the code cannot say, such as a datasheet reference, a hardware quirk or the reason for a non-obvious choice.
 - Do not use `extern` or `volatile` without a reason you can justify, and put that reason in a comment next to it.
   - `extern`: share state through functions declared in a header, not through `extern` variables. The `extern "C"` block in a header is fine.
