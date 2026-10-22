@@ -86,7 +86,7 @@ Parts, pins, buses, addresses, clock speeds, timing diagrams/datasheet sections 
 - Out of scope: … (point to the spec that covers it, if any)
 
 ## Interface
-Public API / module boundary this chunk exposes (function signatures, structs, message formats, config options). Keep it concrete enough to code against.
+Public API / module boundary this chunk exposes (function signatures, structs, message formats, config options), grouped by the source file that will define each function. Keep it concrete enough to code against, and follow the naming rule under **Rules**.
 
 ## Behavior & constraints
 Functional behavior, error handling, timing/real-time limits, memory budget, power behavior, concurrency (ISR vs task context).
@@ -106,6 +106,11 @@ Anything still undecided; the implementer should ask before guessing.
 
 - Don't invent hardware facts (register addresses, pinouts, I2C addresses, emulator support). If you aren't sure, say so in the spec's Open questions or tell the developer to confirm against the datasheet.
 - Prefer designs that isolate hardware behind a thin HAL so logic can be tested on the host or in an emulator.
+- Name every interface after the component and file that own it, so the implementer can code against it unchanged:
+  - Source files take the component name as a prefix: `<component>_<area>.c` (for example `node_hal_gpio.c` in component `node_hal`). A host mock or fake that replaces a source file uses the same file name in its own directory.
+  - Every function takes its source file's name as a prefix: functions in `node_hal_gpio.c` are `node_hal_gpio_*`, and test-only mock helpers follow their file (`node_hal_gpio_mock_set_input`).
+  - Public types, enum values and macros take the component prefix (`node_hal_err_t`, `NODE_HAL_OK`).
+  - Exceptions: the framework's fixed entry points (such as ESP-IDF's `app_main` in `main/`) and unit test files and functions, which follow the project's testing standards.
 - Write specs for an implementer with no access to this conversation: no "as discussed above".
 - Do not write firmware code beyond short illustrative signatures in the Interface section.
 - Finish by listing the files you created and suggesting which spec to implement first.
