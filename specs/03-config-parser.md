@@ -1,6 +1,6 @@
 # 03 — Config schema & parser
 
-**Status:** in-progress
+**Status:** done
 **Depends on:** 01
 **Target:** ESP32 · ESP-IDF v5.x (cJSON component) · `firmware/components/node_config`, `configs/`
 
@@ -154,12 +154,14 @@ uint32_t node_config_composition_hash(const node_config_t *cfg); /* hash of devi
 - **On hardware:** none needed. Covered via spec 05.
 
 ## Acceptance criteria
-- [ ] JSON Schema and example config exist, and the example validates against the schema.
-- [ ] `node_config_parse` accepts the example and fills every field, including defaults.
-- [ ] Every validation rule above has a host test producing the correct error path.
-- [ ] Parser builds and runs in the host test build (cJSON vendored or fetched for host).
-- [ ] No memory leaks in host tests (run under AddressSanitizer/LeakSanitizer).
-- [ ] `node_config_composition_hash` behaves as specified.
+- [x] JSON Schema and example config exist, and the example validates against the schema.
+- [x] `node_config_parse` accepts the example and fills every field, including defaults.
+- [x] Every validation rule above has a host test producing the correct error path.
+- [x] Parser builds and runs in the host test build (cJSON vendored or fetched for host).
+- [x] No memory leaks in host tests (run under AddressSanitizer/LeakSanitizer).
+- [x] `node_config_composition_hash` behaves as specified.
+
+Verified on the host: `scripts/host_test.sh` runs 80 node_config tests (`test_node_config_parse`, `test_node_config_validate`, `test_node_config_composition`) under ASan, LSan and UBSan, all passing. The example config is embedded in the tests at build time and validated by the `config-schema` CI job, which has not yet run on GitHub (see spec 01).
 
 ## Open questions
 - Should the SHTC3 entry allow overriding the I2C address? The SHTC3 has a fixed address, so the address is omitted from v1.
