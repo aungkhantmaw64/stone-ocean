@@ -26,10 +26,11 @@
  * @brief Mount the config partition, formatting it first if it does not
  *        mount.
  *
- * Call once at boot before any other config_store function.
+ * Called by config_store_mode_boot() before any other config_store_fs
+ * function. Calling it again once mounted does nothing.
  *
- * @return CONFIG_STORE_OK, or CONFIG_STORE_ERR_IO if the partition is missing
- *         or still does not mount after formatting.
+ * @return CONFIG_STORE_OK, also when already mounted, or CONFIG_STORE_ERR_IO if
+ * the partition is missing or still does not mount after formatting.
  */
 config_store_err_t config_store_fs_init(void);
 

@@ -38,9 +38,10 @@ typedef enum {
 /**
  * @brief Load and parse the stored config and choose the mode.
  *
- * Called once from the boot sequence, in task context, after the config
- * filesystem is mounted. In safe mode, logs "SAFE MODE: <reason>" at ERROR
- * level exactly once per call. A later call re-runs the decision.
+ * Called once from the boot sequence, in task context, before any other
+ * config_store function. Mounts the config partition first, formatting it if
+ * it does not mount. In safe mode, logs "SAFE MODE: <reason>" at ERROR level
+ * exactly once per call. A later call re-runs the decision.
  */
 void config_store_mode_boot(void);
 

@@ -74,6 +74,9 @@ static bool config_store_fs_write_file(const char *path, const void *head,
  * ========================================================================== */
 
 config_store_err_t config_store_fs_init(void) {
+  if (esp_littlefs_mounted(CONFIG_STORE_FS_PARTITION_LABEL)) {
+    return CONFIG_STORE_OK;
+  }
   esp_vfs_littlefs_conf_t conf = {
       .base_path = CONFIG_STORE_FS_BASE_PATH,
       .partition_label = CONFIG_STORE_FS_PARTITION_LABEL,
