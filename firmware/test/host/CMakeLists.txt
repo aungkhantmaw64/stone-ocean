@@ -42,3 +42,6 @@ target_link_libraries(test_node_hal_gpio PRIVATE node_hal_mock)
 
 add_host_test(test_node_hal_i2c test_node_hal_i2c.c)
 target_link_libraries(test_node_hal_i2c PRIVATE node_hal_mock)
+
+add_host_test(test_node_hal_time test_node_hal_time.c)
+target_link_libraries(test_node_hal_time PRIVATE node_hal_mock)
