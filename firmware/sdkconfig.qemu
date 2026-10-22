@@ -1,0 +1,4 @@
+# QEMU build: layered on sdkconfig.defaults. Espressif QEMU does not emulate
+# Bluetooth, so Bluetooth and the mesh node are disabled.
+CONFIG_BT_ENABLED=n
+CONFIG_NODE_MESH_ENABLE=n
