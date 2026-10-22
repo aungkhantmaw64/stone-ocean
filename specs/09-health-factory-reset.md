@@ -10,7 +10,7 @@ Make the node recover from hangs, record why it reset, and give the developer a 
 ## Context
 - Runs in both normal and safe mode.
 - Factory reset erases the config (spec 04) and, once spec 10 exists, the mesh state, through a hook that spec 10 registers.
-- Extends the `status` CLI command (spec 05).
+- Reports through the boot log; the node has no command interface. Adds a `factory-reset` subcommand to the PC flashing tool (spec 05).
 
 ## Hardware details
 - **BOOT button:** GPIO0 on the ESP32-DevKitC, active low with an on-board pull-up. GPIO0 is a strapping pin. Holding it during reset enters download mode, so only presses after boot count.
@@ -18,11 +18,14 @@ Make the node recover from hangs, record why it reset, and give the developer a 
 
 ## Scope
 - In scope:
-  - TWDT enabled with a 10 s timeout. The devices task (06), the console task and the main loop subscribe to it.
+  - TWDT enabled with a 10 s timeout. The devices task (06) and the main loop subscribe to it.
   - Initialise NVS at boot (`nvs_flash_init`). If it reports no free pages or a newer format version, log at ERROR, erase the `nvs` partition and retry. This wipes the mesh state too, but happens only after a partition layout or ESP-IDF version change.
-  - On boot, log the reset reason as text. Increment a crash counter in NVS (namespace `health`) when the reason is panic, task WDT, interrupt WDT or brownout. Reset the counter with a CLI command.
-  - Factory reset triggers: CLI command `factory-reset` (asks for `factory-reset confirm`) and holding the BOOT button for ≥ 5 s after boot.
+  - On boot, log the reset reason as text. Increment a crash counter in NVS (namespace `health`) when the reason is panic, task WDT, interrupt WDT or brownout. Log `reset_reason=<reason> crash_count=<n>` once per boot. Factory reset clears the counter.
+  - Factory reset triggers:
+    - holding the BOOT button for ≥ 5 s after boot;
+    - from the PC, `tools/config_flash.py factory-reset`, which erases the `config` and `nvs` partitions with esptool. This clears the config, the mesh state and the crash counter without running the hooks, and the node then boots unprovisioned in safe mode. `--flash-image` works for QEMU, as in spec 05.
   - A factory-reset hook registry, so other modules (mesh) can register erase callbacks.
+  - Debug Kconfig option `NODE_HEALTH_DEBUG_HANG` (default off, never set in `sdkconfig.defaults` or `sdkconfig.qemu`): 15 s after boot, a subscribed task stops feeding the watchdog, to test the TWDT.
   - Status LED feedback is **not** required. Log lines only.
 - Out of scope: boot-loop protection (future), remote health reporting via the mesh Health Server fault codes (future).
 
@@ -38,7 +41,7 @@ const char *health_reset_reason_str(void);
 uint32_t    health_crash_count(void);
 void        health_crash_count_clear(void);
 ```
-CLI additions: `factory-reset [confirm]`, `crash-clear`, and the `status` fields `reset_reason=`, `crash_count=`.
+Boot log line: `reset_reason=<reason> crash_count=<n>`. PC tool addition: `config_flash.py factory-reset`.
 
 ## Behavior & constraints
 - Factory reset order: log `FACTORY RESET`, run registered hooks, then `config_store_erase()`, erase the `health` namespace, then `esp_restart()`.
@@ -48,8 +51,8 @@ CLI additions: `factory-reset [confirm]`, `crash-clear`, and the `status` fields
 ## Verification
 - **Simulation/host:** Unity tests for reset-reason → string/counter logic (with an injected reason), long-press detection with the mock GPIO and time (4.9 s → no reset, 5 s → reset, bounce ignored), and hook ordering.
 - **QEMU:**
-  - `factory-reset confirm` erases the config and reboots into safe mode.
-  - Add a hidden debug command `debug hang`, compiled only in debug builds, that blocks a subscribed task. The node resets via TWDT, and the next boot logs `reset_reason=task_wdt crash_count=1`.
+  - `config_flash.py --flash-image ... factory-reset`, then boot with `--reuse`: the node boots in safe mode with `crash_count=0`.
+  - A build with `NODE_HEALTH_DEBUG_HANG` resets via TWDT, and the next boot logs `reset_reason=task_wdt crash_count=1`.
 - **On hardware:**
   - Same as QEMU.
   - Hold the BOOT button for 5 s after boot: the node factory-resets.
@@ -57,10 +60,11 @@ CLI additions: `factory-reset [confirm]`, `crash-clear`, and the `status` fields
 
 ## Acceptance criteria
 - [ ] TWDT resets a hung subscribed task within ~10 s, and the next boot logs the reason and increments the crash counter.
-- [ ] `status` shows the reset reason and crash count. `crash-clear` resets the count.
-- [ ] `factory-reset confirm` and a 5 s BOOT press both erase the config, run hooks and reboot into safe mode.
+- [ ] The boot log shows the reset reason and crash count. Factory reset clears the count.
+- [ ] A 5 s BOOT press erases the config, runs the hooks and reboots into safe mode.
+- [ ] `config_flash.py factory-reset` erases the `config` and `nvs` partitions, and the node boots unprovisioned in safe mode.
 - [ ] Long-press logic is host-tested with virtual time.
-- [ ] `debug hang` is absent from release builds.
+- [ ] `NODE_HEALTH_DEBUG_HANG` is off in the hardware and QEMU builds.
 
 ## Open questions
 - None.

@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "node_name": "flash-pin",
+  "devices": [
+    { "id": "led1", "type": "led", "gpio": 7, "active_high": true }
+  ]
+}

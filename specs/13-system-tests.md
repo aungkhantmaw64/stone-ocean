@@ -9,7 +9,7 @@ Prove the full v1 loop works end-to-end, and keep it working. Automated QEMU tes
 
 ## Context
 Exercises everything:
-- config upload (05) → config-driven boot (04, 06–08)
+- config flashing (05) → config-driven boot (04, 06–08)
 - provisioning (10, 12) → sensor reads, events and LED control (11, 12)
 - relaying through a second node (10)
 - safe mode, watchdog and factory reset (04, 09)
@@ -25,15 +25,15 @@ Exercises everything:
   - Fixtures: QEMU node (boot the QEMU build, serial over `socket://`), HW node (serial port from env `NODE_A_PORT`, `NODE_B_PORT`), and gateway (wraps `python -m gateway ... --json`).
   - **QEMU tests (CI):**
     1. Fresh boot → `SAFE MODE: no config stored`.
-    2. Upload an invalid config → `ERR VALIDATION` with path. Stored config unchanged.
-    3. Upload the example config → reboot → `mode=normal`. On QEMU, devices fault because there's no SHTC3, and the node stays up.
-    4. `factory-reset confirm` → safe mode again.
-    5. `debug hang` (debug build) → TWDT reset → `crash_count=1`.
+    2. `config_flash.py write` with an invalid config → non-zero exit with the JSON path. The flash image is unchanged.
+    3. Write the example config into the flash image → boot → the log shows normal mode. On QEMU, devices fault because there's no SHTC3, and the node stays up.
+    4. `config_flash.py factory-reset` on the flash image → boot → safe mode again.
+    5. `NODE_HEALTH_DEBUG_HANG` build → TWDT reset → `crash_count=1` in the log.
   - **HIL tests:**
-    1. Upload configs to A and B, then factory-reset both.
+    1. Factory-reset A and B, then write their configs with the flashing tool.
     2. Provision A and B via the gateway. Check composition element counts.
-    3. SHTC3 `get` on A matches A's `devices` output within tolerance.
-    4. `set` LED on/off on A. The Status matches. `devices` on A shows the state.
+    3. SHTC3 `get` on A matches the reading in A's log within tolerance.
+    4. `set` LED on/off on A. The Status matches. A's log shows the state.
     5. `listen` receives a periodic SHTC3 report within `max_interval_ms` + 5 s.
     6. **Relay:** the operator moves A out of the gateway's direct range, or the test lowers the gateway adapter's TX power if supported. Repeat test 4 via B. Document the bench procedure.
     7. Reboot A → still provisioned, `get` works without reprovisioning.

@@ -23,7 +23,7 @@ N/A. Drivers access hardware only through the HAL (spec 02).
   - A single "devices" FreeRTOS task with an event queue. Sampling timers and ISR signals post to the queue, and the task calls driver methods.
   - Reporting policy: emit a `DEV_EVT_READING` when the value changed by at least the configured delta and `min_interval_ms` has passed, or when `max_interval_ms` has passed since the last report.
   - Event subscription API (one or more listeners).
-  - A `devices` CLI command listing devices, state and last reading.
+  - Device log lines: a table of devices (index, id, type, state) once at start, a line on every state change (ok ↔ fault), and every emitted reading at INFO level.
 - Out of scope: concrete drivers (07, 08), mesh (11).
 
 ## Interface
@@ -74,14 +74,14 @@ void devices_post_from_isr(int dev_index, dev_evt_type_t type, const dev_value_t
   - multiple listeners
   
   The task/queue is abstracted so tests can drive the loop synchronously.
-- **On hardware:** covered by specs 07 and 08 via the `devices` CLI command.
+- **On hardware:** covered by specs 07 and 08 via the device log lines.
 
 ## Acceptance criteria
 - [ ] Drivers register by type, and `devices_start` builds instances from config in order.
 - [ ] Reporting policy behaves as specified (host tests with virtual time).
 - [ ] Device faults are isolated, reported and retried without affecting other devices.
 - [ ] `device_set_onoff` is safe to call from any task.
-- [ ] `devices` CLI command shows index, id, type, state (ok/fault) and last value.
+- [ ] The log shows the device table at start (index, id, type, state), every state change, and every emitted reading.
 
 ## Open questions
 - None.

@@ -6,3 +6,4 @@ firmware/sdkconfig.old
 firmware/managed_components/
 __pycache__/
 .pytest_cache/
+.venv/

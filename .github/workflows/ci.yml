@@ -32,8 +32,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Install the PC tools' packages
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install -r tools/requirements.txt
+      - name: Build the PC config checker
+        run: |
+          cmake -S tools/node_config_check -B build/node_config_check
+          cmake --build build/node_config_check
+      - name: Check the example configs with the firmware parser
+        run: |
+          for config in configs/example-*.json; do
+            .venv/bin/python tools/config_flash.py \
+              --checker build/node_config_check/node_config_check check "$config"
+          done
       - name: Run PC tool unit tests
-        run: pipx run pytest==9.1.1 tools
+        run: .venv/bin/pytest tools
 
   hardware-build:
     runs-on: ubuntu-latest

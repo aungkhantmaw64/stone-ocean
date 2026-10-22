@@ -5,11 +5,11 @@
 **Target:** ESP32 · ESP-IDF v5.x · LittleFS (`joltwallet/littlefs` 1.22.3) · `firmware/components/config_store`, `firmware/main`
 
 ## Goal
-Persist the raw JSON config in flash and load it at boot. If the config is missing or invalid, the node enters **safe mode**: it logs the error and starts no drivers, but keeps the CLI running.
+Persist the raw JSON config in flash and load it at boot. If the config is missing or invalid, the node enters **safe mode**: it logs the error and starts no drivers. A new config can still be flashed from the PC (05).
 
 ## Context
-- The raw JSON, not the parsed struct, is stored so the format can evolve and the config can be read back exactly as uploaded.
-- Writers: CLI upload (05). In the future, mesh config transfer.
+- The raw JSON, not the parsed struct, is stored so the format can evolve and the config can be read back exactly as written.
+- Writers: the PC flashing tool (05) writes `config.bin` straight into the partition, bypassing `config_store_save()`. In the future, mesh config transfer will use `config_store_save()`.
 - Reader: the boot sequence in `main`, which passes the parsed config to the driver framework (06) and mesh (10).
 - Factory reset (09) erases it.
 
@@ -51,15 +51,15 @@ const char          *config_store_mode_safe_reason(void);     /* human-readable 
 ```
 Keep the filesystem access behind a small file interface, `config_store_fs.h` (`config_store_fs_init`, `_size`, `_read`, `_write_atomic`, `_remove`), so the host build can use an in-memory fake with the same file name.
 
-- `config_store_save()` trusts the caller to have validated the JSON (spec 05 does). It checks only its arguments and the size limit.
+- `config_store_save()` trusts the caller to have validated the JSON. It has no caller in v1; the future mesh config transfer will validate first. It checks only its arguments and the size limit.
 - `config_store_erase()` removes the file. Erasing when nothing is stored succeeds.
 
 ## Behavior & constraints
 - Boot log in safe mode, at ERROR level, exactly once: `SAFE MODE: <reason>`. Example reasons: `no config stored`, `stored config is corrupt`, `devices[1].gpio: pin 7 is reserved for flash`.
-- Safe mode starts: CLI (05), health (09), and mesh core (10) if the node is already provisioned.
+- Safe mode starts: health (09), and mesh core (10) if the node is already provisioned.
 - Safe mode does not start: drivers (06–08) or device model mapping (11).
 - A new config saved at runtime is applied on the next reboot. There is no hot reload in v1.
-- Flash wear: saving happens only on explicit upload, so no special wear handling is needed.
+- Flash wear: the config is written only when a developer flashes one from the PC, so no special wear handling is needed.
 
 ## Verification
 - **Simulation/host:** Unity tests with the in-memory `config_store_fs` fake cover:
@@ -68,7 +68,7 @@ Keep the filesystem access behind a small file interface, `config_store_fs.h` (`
   - missing → `NOT_FOUND`
   - oversize → `TOO_LARGE`
   - the boot decision logic (normal vs safe, with each reason)
-- **QEMU:** boot with an empty `config` partition shows `SAFE MODE: no config stored`. Boot with a `config` partition image pre-loaded with the example config shows normal mode, and so does a reset after it. After spec 05: save via the CLI, reboot, and the log shows normal mode.
+- **QEMU:** boot with an empty `config` partition shows `SAFE MODE: no config stored`. Boot with a `config` partition image pre-loaded with the example config shows normal mode, and so does a reset after it. After spec 05: write a config into the QEMU flash image with the flashing tool, boot with `--reuse`, and the log shows normal mode.
 - **On hardware:** same as QEMU, and the config survives a power cycle.
 
 ## Acceptance criteria

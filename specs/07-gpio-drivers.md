@@ -42,16 +42,16 @@ void gpio_drivers_register(void);        /* registers both with the framework */
   - initial state event
   - LED default state, polarity, no-op on same state, and the event on change
 - **On hardware:**
-  - Wire the PIR and LED per the example config and upload it (spec 05).
-  - Wave a hand: a motion event is logged, and `devices` shows `motion=1` and then `motion=0` after the hold time.
-  - Add a temporary CLI command `dev set <id> on|off` to toggle the LED, and verify the LED physically.
+  - Wire the PIR and LED per the example config and write it with the flashing tool (spec 05).
+  - Wave a hand: the log shows `motion=1` and then `motion=0` after the hold time.
+  - Write configs with `default_on` true and false, and with `active_high` true and false, and check the LED's state after each boot. Switching the LED on and off at runtime is verified over the mesh in specs 11 and 12.
 
 ## Acceptance criteria
 - [ ] PIR and LED drivers register and instantiate from config.
 - [ ] PIR debounce and polarity behave as specified (host tests).
 - [ ] The PIR ISR does no work beyond posting an event.
 - [ ] LED honours `default_on` and `active_high`, and emits events only on change (host tests).
-- [ ] On hardware, motion events are logged and the LED toggles via `dev set`.
+- [ ] On hardware, motion events are logged and the LED's boot state follows `default_on` and `active_high`.
 
 ## Open questions
 - Exact PIR module and its output voltage. Confirm 3.3 V-compatible output before wiring.

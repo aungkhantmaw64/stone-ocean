@@ -1,0 +1,5 @@
+# PC tools in tools/: pip install -r tools/requirements.txt
+esptool==4.11.0  # the version ESP-IDF v5.4.4 ships
+jsonschema==4.23.0
+littlefs-python==0.15.0  # the version joltwallet/littlefs 1.22.3 pins for its images
+pytest==9.1.1

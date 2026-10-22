@@ -72,7 +72,7 @@ Python module boundaries: `mesh_app.py` (D-Bus application/element objects), `co
 ## Acceptance criteria
 - [ ] `init`, `scan`, `provision`, `nodes`, `get`, `set`, `listen` and `remove` work against a real node.
 - [ ] Provisioning automatically binds app keys and sets publication on all server models.
-- [ ] Decoded values match the node's `devices` CLI output.
+- [ ] Decoded values match the readings in the node's log.
 - [ ] `--json` output is available for scripting, and exit codes are meaningful.
 - [ ] Encode/decode logic is covered by pytest with vectors shared with the firmware tests.
 - [ ] README documents BlueZ version, daemon setup and adapter exclusivity.
