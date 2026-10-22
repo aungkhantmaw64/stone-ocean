@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.4.4
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run host unit tests
+        run: |
+          . "$IDF_PATH/export.sh" > /dev/null
+          scripts/host_test.sh
+
+  hardware-build:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.4.4
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # full history and tags for the git describe version
+      - name: Build hardware firmware
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          . "$IDF_PATH/export.sh" > /dev/null
+          scripts/build.sh
+      - name: Report firmware size
+        run: |
+          . "$IDF_PATH/export.sh" > /dev/null
+          scripts/build.sh size
