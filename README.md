@@ -1,3 +1,5 @@
+![ESP32 BLE Mesh IoT Node](docs/images/banner.png)
+
 # ESP32 BLE Mesh IoT Node
 
 [![CI](https://github.com/aungkhantmaw64/stone-ocean/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aungkhantmaw64/stone-ocean/actions/workflows/ci.yml)
