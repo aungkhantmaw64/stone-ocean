@@ -61,6 +61,7 @@ target_link_libraries(node_ao_header_check PRIVATE node_ao_api)
 set(NODE_AO_DIR ${FIRMWARE_DIR}/components/node_ao)
 add_library(node_ao STATIC
   ${NODE_AO_DIR}/node_ao.c
+  ${NODE_AO_DIR}/node_ao_pubsub.c
   ${NODE_AO_DIR}/node_ao_time.c
   mocks/node_ao_port.c)
 target_include_directories(node_ao PUBLIC mocks PRIVATE ${NODE_AO_DIR})
@@ -166,6 +167,9 @@ target_link_libraries(test_node_ao PRIVATE node_ao)
 
 add_host_test(test_node_ao_time test_node_ao_time.c)
 target_link_libraries(test_node_ao_time PRIVATE node_ao)
+
+add_host_test(test_node_ao_pubsub test_node_ao_pubsub.c)
+target_link_libraries(test_node_ao_pubsub PRIVATE node_ao)
 
 add_host_test(test_node_config_parse test_node_config_parse.c)
 target_link_libraries(test_node_config_parse PRIVATE node_config

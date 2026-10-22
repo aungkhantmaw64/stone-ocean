@@ -10,7 +10,7 @@ Provide a small active object (AO) framework, so that every thread in the firmwa
 ## Context
 - Project-wide rule (see `specs/README.md`): firmware code never calls `xTaskCreate` or creates FreeRTOS timers directly. Each concurrent activity is an AO built on this component. Tasks owned by ESP-IDF itself (Bluedroid, the timer service, idle, `app_main`) are not ours. Callbacks that ESP-IDF runs in those tasks, and ISRs, only post events to an AO.
 - Users: the HAL self-test (spec 02) is converted to an AO here. The devices AO (spec 06) and later components (09, 10, 11) build on it.
-- The framework is deliberately minimal: no hierarchical state machines, no event pools, no publish-subscribe. An AO's dispatch function implements its own state machine, usually as a `switch` on its state and the event signal.
+- The framework is deliberately minimal: no hierarchical state machines, no event pools. Publish-subscribe is added separately by spec 15. An AO's dispatch function implements its own state machine, usually as a `switch` on its state and the event signal.
 
 ## Hardware details
 N/A. The FreeRTOS port uses only FreeRTOS queues and tasks.
@@ -24,7 +24,7 @@ N/A. The FreeRTOS port uses only FreeRTOS queues and tasks.
   - Time events: one-shot or periodic, owned by one AO, which dispatches them in its own thread as a plain event with the time event's signal.
   - A FreeRTOS port (`node_ao_port.c`) and a host port (`firmware/test/host/mocks/node_ao_port.c`) that runs AOs synchronously.
   - Converting the HAL self-test (`node_hal_selftest.c`) from a plain task to an AO, with the same behaviour and log output.
-- Out of scope: hierarchical state machines, dynamic event allocation, deferred events, publish-subscribe between AOs, priority inheritance.
+- Out of scope: hierarchical state machines, dynamic event allocation, deferred events, priority inheritance. Publish-subscribe between AOs is added by spec 15.
 
 ## Interface
 ```c

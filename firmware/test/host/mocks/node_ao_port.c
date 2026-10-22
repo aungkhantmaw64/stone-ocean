@@ -10,6 +10,7 @@
 #include "node_ao.h"
 #include "node_ao_port.h"
 #include "node_ao_port_mock.h"
+#include "node_ao_pubsub.h"
 
 /* ==========================================================================
  * TYPES
@@ -63,6 +64,7 @@ void node_ao_port_mock_reset(void) {
     }
   }
   (void)memset(g_queues, 0, sizeof(g_queues));
+  node_ao_pubsub_reset();
 }
 
 int node_ao_port_mock_run_until_idle(void) {
