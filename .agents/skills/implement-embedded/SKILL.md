@@ -111,5 +111,16 @@ Start only after the developer has agreed to proceed. Follow `docs/unit-testing-
 
   `PRIVATE FUNCTIONS` holds the `static` functions and `PUBLIC FUNCTIONS` the ones declared in a header. A file that keeps its private functions above their first use needs no `PRIVATE FUNCTION PROTOTYPES`. In a unit test file, `setUp()`, `tearDown()`, the tests and `main()` go under `PUBLIC FUNCTIONS`, and the test groups keep their own headings inside it. Unit test files follow `docs/unit-testing-standards.md` where it says otherwise.
 - Avoid inline comments that explain what the code does. If code needs explaining, make it self-explanatory instead: use clearer names, extract a well-named function, or use a named constant. Keep a comment only for what the code cannot say, such as a datasheet reference, a hardware quirk or the reason for a non-obvious choice.
+- Do not use `extern` or `volatile` without a reason you can justify, and put that reason in a comment next to it.
+  - `extern`: share state through functions declared in a header, not through `extern` variables. The `extern "C"` block in a header is fine.
+  - `volatile`: use it only for memory-mapped registers or a variable that an ISR shares with a task. Even then, it gives no atomicity or ordering. Use a critical section, a FreeRTOS primitive or `<stdatomic.h>` when those are needed.
+- Code defensively and use safe C wherever possible:
+  - Validate every argument of a public function: `NULL` pointers, out-of-range values, enum values and buffer lengths. Return an error code; never crash or assert on bad input from a caller.
+  - Check every return value that can report an error, and pass the error on or handle it. Cast an ignored result to `(void)` only where ignoring it is deliberate, and say why.
+  - Bounds-check every array index and buffer write. Use `snprintf`, `memcpy` with a checked length, and `sizeof` of the destination. Never use `strcpy`, `strcat`, `sprintf`, `gets` or other unbounded string functions.
+  - Use fixed-width integer types (`uint8_t`, `int32_t`, `size_t` for sizes) wherever width matters. Guard against overflow, wrap-around and signed/unsigned mix-ups in arithmetic and comparisons, and cast explicitly.
+  - Make pointers and data `const` wherever they are not written, and make file-local functions and variables `static`.
+  - Give every `switch` a `default`, every `if`/`else` and loop body braces, and every loop a fixed bound, except the endless main loop of a task.
+  - No recursion and no variable-length arrays. Keep stack use bounded, especially in ISRs and small tasks.
 - Respect embedded constraints stated in the spec or README: memory budget, no dynamic allocation where forbidden, ISR versus task context, timing limits, `-Werror`.
 - Report results honestly. If a build or test fails, show the output. If a step was skipped, say so.
