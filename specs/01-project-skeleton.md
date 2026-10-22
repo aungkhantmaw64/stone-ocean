@@ -43,11 +43,16 @@ ESP32-DevKitC with on-board USB-UART bridge. Flashing and logging go through `id
 - **On hardware:** `idf.py -p $PORT flash monitor` shows the banner with flavour `hw`.
 
 ## Acceptance criteria
-- [ ] `idf.py build` succeeds with the default (hardware) config, with BLE Mesh compiled in.
-- [ ] QEMU build boots in Espressif QEMU and prints the banner with flavour `qemu`.
-- [ ] Host test build compiles with no ESP-IDF dependency and the sample test passes.
+- [x] `idf.py build` succeeds with the default (hardware) config, with BLE Mesh compiled in.
+- [x] QEMU build boots in Espressif QEMU and prints the banner with flavour `qemu`.
+- [x] Host test build compiles with no ESP-IDF dependency and the sample test passes.
 - [ ] CI runs host tests + hardware build on every push and fails on any error.
 - [ ] Partition table fits the hardware build with ≥ 15% app-partition headroom (check with `idf.py size`).
+
+Still to verify:
+- CI (AC 4): the steps pass in `espressif/idf:v5.4.4` locally, but no GitHub remote exists yet, so the workflow has not run on GitHub.
+- Headroom (AC 5): 91% free now, but nothing links the mesh code until spec 10. Re-check then.
+- Hardware: banner with flavour `hw` on a DevKitC, and the 16 MB flash size (`esptool.py flash_id`).
 
 ## Open questions
 - None. Resolved: flash is 16 MB; CI runs on GitHub Actions.
