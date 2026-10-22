@@ -1,3 +1,7 @@
+/* ==========================================================================
+ * INCLUDES
+ * ========================================================================== */
+
 #include <stdbool.h>
 
 #include "driver/gpio.h"
@@ -7,22 +11,34 @@
 #include "node_hal_err.h"
 #include "node_hal_gpio_internal.h"
 
+/* ==========================================================================
+ * TYPES
+ * ========================================================================== */
+
 typedef struct {
   int pin;
   node_hal_gpio_isr_cb cb;
   void *ctx;
 } isr_slot_t;
 
+/* ==========================================================================
+ * GLOBAL VARIABLES
+ * ========================================================================== */
+
+/**
+ * @brief Callback and context registered for each pin, indexed by GPIO number.
+ *
+ * Written by node_hal_gpio_set_isr() with the pin's interrupt disabled, read
+ * from ISR context by node_hal_gpio_isr_trampoline().
+ */
 static isr_slot_t g_isr_slots[GPIO_NUM_MAX] = {0};
+
+/** @brief Whether the ESP-IDF GPIO interrupt service has been installed. */
 static bool g_isr_service_installed = false;
 
-/* Flash and PSRAM claim their pins at startup, and drivers such as I2C claim
- * theirs when created, so the reservation set describes this board without a
- * hard-coded pin list. esp_gpio_is_reserved() is private ESP-IDF API; re-check
- * it when moving off the pinned IDF version. */
-bool node_hal_gpio_pin_is_usable(int pin) {
-  return GPIO_IS_VALID_GPIO(pin) && !esp_gpio_is_reserved(BIT64(pin));
-}
+/* ==========================================================================
+ * PRIVATE FUNCTIONS
+ * ========================================================================== */
 
 static node_hal_err_t node_hal_gpio_enable_pull(int pin,
                                                 node_hal_gpio_pull_t pull) {
@@ -34,6 +50,46 @@ static node_hal_err_t node_hal_gpio_enable_pull(int pin,
   default:
     return NODE_HAL_OK;
   }
+}
+
+static void node_hal_gpio_isr_trampoline(void *arg) {
+  const isr_slot_t *slot = arg;
+  slot->cb(slot->pin, slot->ctx);
+}
+
+static gpio_int_type_t node_hal_gpio_intr_type_for(node_hal_gpio_edge_t edge) {
+  switch (edge) {
+  case NODE_HAL_GPIO_EDGE_RISING:
+    return GPIO_INTR_POSEDGE;
+  case NODE_HAL_GPIO_EDGE_FALLING:
+    return GPIO_INTR_NEGEDGE;
+  default:
+    return GPIO_INTR_ANYEDGE;
+  }
+}
+
+static node_hal_err_t node_hal_gpio_install_isr_service_once(void) {
+  if (g_isr_service_installed) {
+    return NODE_HAL_OK;
+  }
+  esp_err_t err = gpio_install_isr_service(0);
+  if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+    return node_hal_err_from_esp(err);
+  }
+  g_isr_service_installed = true;
+  return NODE_HAL_OK;
+}
+
+/* ==========================================================================
+ * PUBLIC FUNCTIONS
+ * ========================================================================== */
+
+/* Flash and PSRAM claim their pins at startup, and drivers such as I2C claim
+ * theirs when created, so the reservation set describes this board without a
+ * hard-coded pin list. esp_gpio_is_reserved() is private ESP-IDF API; re-check
+ * it when moving off the pinned IDF version. */
+bool node_hal_gpio_pin_is_usable(int pin) {
+  return GPIO_IS_VALID_GPIO(pin) && !esp_gpio_is_reserved(BIT64(pin));
 }
 
 node_hal_err_t node_hal_gpio_config(int pin, node_hal_gpio_dir_t dir,
@@ -75,34 +131,6 @@ int node_hal_gpio_read(int pin) {
     return -1;
   }
   return gpio_get_level(pin);
-}
-
-static void node_hal_gpio_isr_trampoline(void *arg) {
-  const isr_slot_t *slot = arg;
-  slot->cb(slot->pin, slot->ctx);
-}
-
-static gpio_int_type_t node_hal_gpio_intr_type_for(node_hal_gpio_edge_t edge) {
-  switch (edge) {
-  case NODE_HAL_GPIO_EDGE_RISING:
-    return GPIO_INTR_POSEDGE;
-  case NODE_HAL_GPIO_EDGE_FALLING:
-    return GPIO_INTR_NEGEDGE;
-  default:
-    return GPIO_INTR_ANYEDGE;
-  }
-}
-
-static node_hal_err_t node_hal_gpio_install_isr_service_once(void) {
-  if (g_isr_service_installed) {
-    return NODE_HAL_OK;
-  }
-  esp_err_t err = gpio_install_isr_service(0);
-  if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-    return node_hal_err_from_esp(err);
-  }
-  g_isr_service_installed = true;
-  return NODE_HAL_OK;
 }
 
 node_hal_err_t node_hal_gpio_set_isr(int pin, node_hal_gpio_edge_t edge,

@@ -1,6 +1,14 @@
+/* ==========================================================================
+ * INCLUDES
+ * ========================================================================== */
+
 #include <stdbool.h>
 
 #include "node_hal_mock.h"
+
+/* ==========================================================================
+ * TYPES
+ * ========================================================================== */
 
 typedef struct {
   bool configured;
@@ -11,11 +19,36 @@ typedef struct {
   node_hal_gpio_edge_t edge;
 } node_hal_gpio_mock_pin_t;
 
+/* ==========================================================================
+ * GLOBAL VARIABLES
+ * ========================================================================== */
+
+/** @brief Simulated state of every pin, indexed by GPIO number. */
 static node_hal_gpio_mock_pin_t g_pins[NODE_HAL_MOCK_GPIO_COUNT] = {0};
+
+/* ==========================================================================
+ * PRIVATE FUNCTIONS
+ * ========================================================================== */
 
 static bool node_hal_gpio_pin_in_range(int pin) {
   return pin >= 0 && pin < NODE_HAL_MOCK_GPIO_COUNT;
 }
+
+static bool node_hal_gpio_edge_matches(node_hal_gpio_edge_t edge, int from,
+                                       int to) {
+  switch (edge) {
+  case NODE_HAL_GPIO_EDGE_RISING:
+    return from == 0 && to == 1;
+  case NODE_HAL_GPIO_EDGE_FALLING:
+    return from == 1 && to == 0;
+  default:
+    return from != to;
+  }
+}
+
+/* ==========================================================================
+ * PUBLIC FUNCTIONS
+ * ========================================================================== */
 
 void node_hal_gpio_mock_reset(void) {
   for (int pin = 0; pin < NODE_HAL_MOCK_GPIO_COUNT; pin++) {
@@ -66,18 +99,6 @@ node_hal_err_t node_hal_gpio_set_isr(int pin, node_hal_gpio_edge_t edge,
   g_pins[pin].cb = cb;
   g_pins[pin].ctx = ctx;
   return NODE_HAL_OK;
-}
-
-static bool node_hal_gpio_edge_matches(node_hal_gpio_edge_t edge, int from,
-                                       int to) {
-  switch (edge) {
-  case NODE_HAL_GPIO_EDGE_RISING:
-    return from == 0 && to == 1;
-  case NODE_HAL_GPIO_EDGE_FALLING:
-    return from == 1 && to == 0;
-  default:
-    return from != to;
-  }
 }
 
 void node_hal_gpio_mock_set_input(int pin, int level) {

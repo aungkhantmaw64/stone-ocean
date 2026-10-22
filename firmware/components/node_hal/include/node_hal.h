@@ -13,12 +13,20 @@
  * safe to call from an ISR.
  */
 
+/* ==========================================================================
+ * INCLUDES
+ * ========================================================================== */
+
 #include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* ==========================================================================
+ * TYPES
+ * ========================================================================== */
 
 /** @brief Result of a HAL call. */
 typedef enum {
@@ -58,6 +66,16 @@ typedef enum {
  * @param ctx Context pointer given to node_hal_gpio_set_isr().
  */
 typedef void (*node_hal_gpio_isr_cb)(int pin, void *ctx);
+
+/** @brief Handle to an initialised I2C bus. */
+typedef struct node_hal_i2c_bus *node_hal_i2c_bus_t;
+
+/** @brief Handle to a device on an I2C bus. */
+typedef struct node_hal_i2c_dev *node_hal_i2c_dev_t;
+
+/* ==========================================================================
+ * PUBLIC FUNCTIONS
+ * ========================================================================== */
 
 /**
  * @brief Configure a GPIO pin's direction and pull resistor.
@@ -110,12 +128,6 @@ int node_hal_gpio_read(int pin);
  */
 node_hal_err_t node_hal_gpio_set_isr(int pin, node_hal_gpio_edge_t edge,
                                      node_hal_gpio_isr_cb cb, void *ctx);
-
-/** @brief Handle to an initialised I2C bus. */
-typedef struct node_hal_i2c_bus *node_hal_i2c_bus_t;
-
-/** @brief Handle to a device on an I2C bus. */
-typedef struct node_hal_i2c_dev *node_hal_i2c_dev_t;
 
 /**
  * @brief Initialise an I2C master bus.

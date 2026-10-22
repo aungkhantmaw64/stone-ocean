@@ -1,15 +1,45 @@
+/* ==========================================================================
+ * INCLUDES
+ * ========================================================================== */
+
 #include "node_hal_mock.h"
 #include "unity.h"
 
+/* ==========================================================================
+ * MACROS
+ * ========================================================================== */
+
+/** @brief Input pin the tests watch for edges. */
 #define BUTTON_PIN 4
+
+/** @brief Output pin the tests drive. */
 #define LED_PIN 5
+
+/** @brief Lowest GPIO number the mock rejects. */
 #define FIRST_INVALID_PIN 40
+
+/** @brief Logic low level. */
 #define LOW 0
+
+/** @brief Logic high level. */
 #define HIGH 1
 
+/* ==========================================================================
+ * GLOBAL VARIABLES
+ * ========================================================================== */
+
+/** @brief Number of times record_callback() has run since setUp(). */
 static int g_callback_count = 0;
+
+/** @brief Pin of the last record_callback() call; -1 if none since setUp(). */
 static int g_callback_pin = 0;
+
+/** @brief Context passed to the last record_callback() call. */
 static void *g_callback_ctx = NULL;
+
+/* ==========================================================================
+ * PRIVATE FUNCTIONS
+ * ========================================================================== */
 
 static void record_callback(int pin, void *ctx) {
   g_callback_count++;
@@ -25,6 +55,10 @@ static void watch_button(node_hal_gpio_edge_t edge) {
       NODE_HAL_OK,
       node_hal_gpio_set_isr(BUTTON_PIN, edge, record_callback, NULL));
 }
+
+/* ==========================================================================
+ * PUBLIC FUNCTIONS
+ * ========================================================================== */
 
 void setUp(void) {
   node_hal_mock_reset();

@@ -1,3 +1,7 @@
+/* ==========================================================================
+ * INCLUDES
+ * ========================================================================== */
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -12,20 +16,65 @@
 
 #if CONFIG_NODE_HAL_SELFTEST
 
+/* ==========================================================================
+ * MACROS
+ * ========================================================================== */
+
+/** @brief I2C controller used for the bus scan. */
 #define I2C_PORT 0
+
+/** @brief Bus clock for the scan, in Hz. */
 #define I2C_FREQ_HZ 100000
+
+/** @brief Time to wait for each address to acknowledge, in ms. */
 #define I2C_PROBE_TIMEOUT_MS 50
+
+/** @brief First address scanned; 0x00–0x07 are reserved by the I2C
+ *         specification. */
 #define I2C_SCAN_FIRST_ADDR 0x08
+
+/** @brief Last address scanned; 0x78–0x7F are reserved by the I2C
+ *         specification. */
 #define I2C_SCAN_LAST_ADDR 0x77
+
+/** @brief 7-bit address of the SHTC3 temperature and humidity sensor. */
 #define SHTC3_ADDR7 0x70
+
+/** @brief Value of CONFIG_NODE_HAL_SELFTEST_OUTPUT_GPIO meaning "do not
+ *         toggle an output". */
 #define NO_OUTPUT_GPIO (-1)
+
+/** @brief Time between output toggles, and the longest wait for a button
+ *         edge, in ms. */
 #define TOGGLE_PERIOD_MS 500
+
+/** @brief Button edges buffered between the ISR and the self-test task. */
 #define EDGE_QUEUE_LENGTH 8
+
+/** @brief Stack size of the self-test task, in bytes. */
 #define TASK_STACK_BYTES 3072
+
+/** @brief FreeRTOS priority of the self-test task. */
 #define TASK_PRIORITY 5
 
+/* ==========================================================================
+ * GLOBAL VARIABLES
+ * ========================================================================== */
+
+/** @brief Log tag for self-test output and name of the self-test task. */
 static const char *TAG = "node_hal_selftest";
+
+/**
+ * @brief Pin numbers of button edges.
+ *
+ * Sent from ISR context by node_hal_selftest_on_button_edge() and received by
+ * the self-test task.
+ */
 static QueueHandle_t g_edge_queue = NULL;
+
+/* ==========================================================================
+ * PRIVATE FUNCTIONS
+ * ========================================================================== */
 
 static void node_hal_selftest_scan_i2c(void) {
   node_hal_i2c_bus_t bus = NULL;
@@ -119,6 +168,10 @@ static void node_hal_selftest_task(void *arg) {
     }
   }
 }
+
+/* ==========================================================================
+ * PUBLIC FUNCTIONS
+ * ========================================================================== */
 
 void node_hal_selftest_start(void) {
   g_edge_queue = xQueueCreate(EDGE_QUEUE_LENGTH, sizeof(int));

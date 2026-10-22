@@ -1,29 +1,71 @@
+/* ==========================================================================
+ * INCLUDES
+ * ========================================================================== */
+
 #include <stdint.h>
 
 #include "node_hal_mock.h"
 #include "unity.h"
 
+/* ==========================================================================
+ * MACROS
+ * ========================================================================== */
+
+/** @brief I2C controller of the test bus. */
 #define I2C_PORT 0
+
+/** @brief Data pin of the test bus. */
 #define SDA_PIN 32
+
+/** @brief Clock pin of the test bus. */
 #define SCL_PIN 33
+
+/** @brief Clock of the test bus, in Hz. */
 #define BUS_FREQ_HZ 100000
+
+/** @brief Timeout passed to every transfer and probe, in ms. */
 #define TIMEOUT_MS 50
+
+/** @brief Address of the scripted sensor. */
 #define SENSOR_ADDR 0x70
+
+/** @brief Address of a second device, distinct from SENSOR_ADDR. */
 #define OTHER_ADDR 0x44
+
+/** @brief Lowest address that does not fit in 7 bits. */
 #define FIRST_INVALID_ADDR 0x80
+
+/** @brief Number of devices the HAL can register at once. */
 #define DEVICE_POOL_SIZE 8
 
-/* A sensor command and a 3-byte answer; the values only need to be distinct. */
+/* ==========================================================================
+ * GLOBAL VARIABLES
+ * ========================================================================== */
+
+/** @brief A sensor command; the values only need to differ from
+ *         sensor_answer. */
 static const uint8_t measure_command[] = {0x78, 0x66};
+
+/** @brief A 3-byte sensor answer; the values only need to differ from
+ *         measure_command. */
 static const uint8_t sensor_answer[] = {0x66, 0x66, 0x93};
 
+/** @brief Bus that setUp() initialises for every test. */
 static node_hal_i2c_bus_t g_bus = NULL;
+
+/* ==========================================================================
+ * PRIVATE FUNCTIONS
+ * ========================================================================== */
 
 static node_hal_i2c_dev_t add_device(uint8_t addr7) {
   node_hal_i2c_dev_t dev = NULL;
   TEST_ASSERT_EQUAL_INT(NODE_HAL_OK, node_hal_i2c_dev_add(g_bus, addr7, &dev));
   return dev;
 }
+
+/* ==========================================================================
+ * PUBLIC FUNCTIONS
+ * ========================================================================== */
 
 void setUp(void) {
   node_hal_mock_reset();
