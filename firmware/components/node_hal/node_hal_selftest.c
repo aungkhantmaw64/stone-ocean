@@ -25,7 +25,7 @@
 #define TASK_PRIORITY 5
 
 static const char *TAG = "node_hal_selftest";
-static QueueHandle_t g_edge_queue;
+static QueueHandle_t g_edge_queue = NULL;
 
 static void node_hal_selftest_scan_i2c(void) {
   node_hal_i2c_bus_t bus = NULL;

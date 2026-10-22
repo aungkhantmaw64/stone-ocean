@@ -7,9 +7,9 @@
 #define LOW 0
 #define HIGH 1
 
-static int g_callback_count;
-static int g_callback_pin;
-static void *g_callback_ctx;
+static int g_callback_count = 0;
+static int g_callback_pin = 0;
+static void *g_callback_ctx = NULL;
 
 static void record_callback(int pin, void *ctx) {
   g_callback_count++;

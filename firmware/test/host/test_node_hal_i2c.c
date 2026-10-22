@@ -17,7 +17,7 @@
 static const uint8_t measure_command[] = {0x78, 0x66};
 static const uint8_t sensor_answer[] = {0x66, 0x66, 0x93};
 
-static node_hal_i2c_bus_t g_bus;
+static node_hal_i2c_bus_t g_bus = NULL;
 
 static node_hal_i2c_dev_t add_device(uint8_t addr7) {
   node_hal_i2c_dev_t dev = NULL;

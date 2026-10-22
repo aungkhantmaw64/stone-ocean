@@ -32,16 +32,16 @@ struct node_hal_i2c_dev {
   uint8_t addr7;
 };
 
-static struct node_hal_i2c_bus g_buses[I2C_PORT_COUNT];
-static struct node_hal_i2c_dev g_devices[I2C_MAX_DEVICES];
-static bool g_present[I2C_ADDR7_MAX + 1];
+static struct node_hal_i2c_bus g_buses[I2C_PORT_COUNT] = {0};
+static struct node_hal_i2c_dev g_devices[I2C_MAX_DEVICES] = {0};
+static bool g_present[I2C_ADDR7_MAX + 1] = {0};
 
-static node_hal_i2c_mock_step_t g_steps[NODE_HAL_MOCK_I2C_MAX_STEPS];
-static size_t g_steps_queued;
-static size_t g_steps_consumed;
+static node_hal_i2c_mock_step_t g_steps[NODE_HAL_MOCK_I2C_MAX_STEPS] = {0};
+static size_t g_steps_queued = 0;
+static size_t g_steps_consumed = 0;
 
-static char g_failure[FAILURE_MESSAGE_SIZE];
-static bool g_failed;
+static char g_failure[FAILURE_MESSAGE_SIZE] = {0};
+static bool g_failed = false;
 
 void node_hal_i2c_mock_reset(void) {
   memset(g_buses, 0, sizeof g_buses);

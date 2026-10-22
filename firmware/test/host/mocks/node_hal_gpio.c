@@ -11,7 +11,7 @@ typedef struct {
   node_hal_gpio_edge_t edge;
 } node_hal_gpio_mock_pin_t;
 
-static node_hal_gpio_mock_pin_t g_pins[NODE_HAL_MOCK_GPIO_COUNT];
+static node_hal_gpio_mock_pin_t g_pins[NODE_HAL_MOCK_GPIO_COUNT] = {0};
 
 static bool node_hal_gpio_pin_in_range(int pin) {
   return pin >= 0 && pin < NODE_HAL_MOCK_GPIO_COUNT;

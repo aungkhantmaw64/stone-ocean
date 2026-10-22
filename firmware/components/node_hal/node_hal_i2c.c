@@ -24,8 +24,8 @@ struct node_hal_i2c_dev {
   i2c_master_dev_handle_t handle;
 };
 
-static struct node_hal_i2c_bus g_buses[SOC_I2C_NUM];
-static struct node_hal_i2c_dev g_devices[I2C_MAX_DEVICES];
+static struct node_hal_i2c_bus g_buses[SOC_I2C_NUM] = {0};
+static struct node_hal_i2c_dev g_devices[I2C_MAX_DEVICES] = {0};
 
 static bool node_hal_i2c_bus_is_valid(node_hal_i2c_bus_t bus) {
   for (size_t i = 0; i < SOC_I2C_NUM; i++) {

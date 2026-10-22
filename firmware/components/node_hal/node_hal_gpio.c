@@ -13,8 +13,8 @@ typedef struct {
   void *ctx;
 } isr_slot_t;
 
-static isr_slot_t g_isr_slots[GPIO_NUM_MAX];
-static bool g_isr_service_installed;
+static isr_slot_t g_isr_slots[GPIO_NUM_MAX] = {0};
+static bool g_isr_service_installed = false;
 
 /* Flash and PSRAM claim their pins at startup, and drivers such as I2C claim
  * theirs when created, so the reservation set describes this board without a
