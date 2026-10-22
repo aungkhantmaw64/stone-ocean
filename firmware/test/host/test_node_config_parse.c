@@ -88,9 +88,39 @@ static node_config_err_t g_err = {0};
  * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
 
+/**
+ * @brief Parse a NUL-terminated config into g_config and g_err.
+ *
+ * @param json Config text.
+ * @return The result of node_config_parse().
+ */
 static node_config_err_code_t parse_text(const char *json);
+
+/**
+ * @brief Parse g_example_config into g_config and g_err.
+ *
+ * @return The result of node_config_parse().
+ */
 static node_config_err_code_t parse_example(void);
+
+/**
+ * @brief Parse g_example_config padded with spaces to @p len bytes.
+ *
+ * @param len Length of the input; at least the size of g_example_config and
+ *            at most NODE_CONFIG_MAX_RAW_LEN + 1.
+ * @return The result of node_config_parse().
+ */
 static node_config_err_code_t parse_padded_to(size_t len);
+
+/**
+ * @brief Check that a parse failed with @p expected_code and that g_err names
+ *        @p expected_path, with a non-empty message starting with it.
+ *
+ * @param code          Result of the parse.
+ * @param expected_code Expected error code.
+ * @param expected_path Expected JSON path; "" for errors about the whole
+ *                      input.
+ */
 static void assert_rejected(node_config_err_code_t code,
                             node_config_err_code_t expected_code,
                             const char *expected_path);

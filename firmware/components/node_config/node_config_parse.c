@@ -115,76 +115,353 @@ static const node_config_parse_pull_name_t g_pull_names[] = {
  * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
 
+/**
+ * @brief Whether @p text holds only JSON whitespace from @p from to @p len.
+ *
+ * @param text Input text; must not be NULL.
+ * @param len  Length of @p text in bytes.
+ * @param from Offset to start checking at.
+ * @return True if every byte from @p from is whitespace, up to @p len or the
+ *         first NUL.
+ */
 static bool node_config_parse_is_blank(const char *text, size_t len,
                                        size_t from);
+
+/**
+ * @brief Fill @p out from the top-level JSON object.
+ *
+ * @param root Parsed JSON document; must not be NULL.
+ * @param out  Config to fill; must not be NULL and zeroed.
+ * @param err  Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, or the code of the first error found.
+ */
 static node_config_err_code_t node_config_parse_root(const cJSON *root,
                                                      node_config_t *out,
                                                      node_config_err_t *err);
+
+/**
+ * @brief Parse the optional "i2c_buses" array into @p out.
+ *
+ * @param root Top-level JSON object; must not be NULL.
+ * @param out  Receives the buses and their count; must not be NULL.
+ * @param err  Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, or the code of the first error found.
+ */
 static node_config_err_code_t node_config_parse_i2c_buses(
     const cJSON *root, node_config_t *out, node_config_err_t *err);
+
+/**
+ * @brief Parse one "i2c_buses" entry.
+ *
+ * @param item JSON value of the entry; may be any JSON type.
+ * @param path JSON path of the entry, for example "i2c_buses[0]".
+ * @param bus  Receives the bus; must not be NULL.
+ * @param err  Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, or the code of the first error found.
+ */
 static node_config_err_code_t node_config_parse_i2c_bus(
     const cJSON *item, const char *path, node_config_i2c_bus_t *bus,
     node_config_err_t *err);
+
+/**
+ * @brief Parse the required "devices" array into @p out.
+ *
+ * @param root Top-level JSON object; must not be NULL.
+ * @param out  Receives the devices and their count; its buses must already
+ *             be parsed. Must not be NULL.
+ * @param err  Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, or the code of the first error found.
+ */
 static node_config_err_code_t node_config_parse_devices(const cJSON *root,
                                                         node_config_t *out,
                                                         node_config_err_t *err);
+
+/**
+ * @brief Parse one "devices" entry of any supported type.
+ *
+ * @param item JSON value of the entry; may be any JSON type.
+ * @param path JSON path of the entry, for example "devices[1]".
+ * @param cfg  Config whose buses are already parsed, to resolve "bus"; must
+ *             not be NULL.
+ * @param dev  Receives the device; must not be NULL.
+ * @param err  Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, or the code of the first error found.
+ */
 static node_config_err_code_t node_config_parse_device(const cJSON *item,
                                                        const char *path,
                                                        const node_config_t *cfg,
                                                        node_config_dev_t *dev,
                                                        node_config_err_t *err);
+
+/**
+ * @brief Look up the device kind named by the entry's "type".
+ *
+ * @param item JSON object of the device entry; must not be NULL.
+ * @param path JSON path of the entry.
+ * @param kind Receives the matching entry of g_dev_kinds; must not be NULL.
+ * @param err  Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, or NODE_CONFIG_ERR_MISSING, NODE_CONFIG_ERR_TYPE or
+ *         NODE_CONFIG_ERR_DEVICE_TYPE.
+ */
 static node_config_err_code_t node_config_parse_get_dev_kind(
     const cJSON *item, const char *path,
     const node_config_parse_dev_kind_t **kind, node_config_err_t *err);
+
+/**
+ * @brief Parse the fields of an "shtc3" device entry.
+ *
+ * @param item  JSON object of the device entry; must not be NULL.
+ * @param path  JSON path of the entry.
+ * @param cfg   Config whose buses are already parsed; must not be NULL.
+ * @param shtc3 Receives the sensor settings; must not be NULL.
+ * @param err   Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, or the code of the first error found.
+ */
 static node_config_err_code_t node_config_parse_shtc3(
     const cJSON *item, const char *path, const node_config_t *cfg,
     node_config_shtc3_t *shtc3, node_config_err_t *err);
+
+/**
+ * @brief Parse the optional "report" object of an SHTC3 entry.
+ *
+ * Fields left out, or the whole object left out, take their defaults.
+ *
+ * @param item   JSON object of the device entry; must not be NULL.
+ * @param path   JSON path of the entry.
+ * @param report Receives the report settings; must not be NULL.
+ * @param err    Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, or the code of the first error found.
+ */
 static node_config_err_code_t node_config_parse_report(
     const cJSON *item, const char *path, node_config_report_t *report,
     node_config_err_t *err);
+
+/**
+ * @brief Parse the fields of a "pir" device entry.
+ *
+ * @param item JSON object of the device entry; must not be NULL.
+ * @param path JSON path of the entry.
+ * @param pir  Receives the sensor settings; must not be NULL.
+ * @param err  Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, or the code of the first error found.
+ */
 static node_config_err_code_t node_config_parse_pir(const cJSON *item,
                                                     const char *path,
                                                     node_config_pir_t *pir,
                                                     node_config_err_t *err);
+
+/**
+ * @brief Parse the fields of a "led" device entry.
+ *
+ * @param item JSON object of the device entry; must not be NULL.
+ * @param path JSON path of the entry.
+ * @param led  Receives the LED settings; must not be NULL.
+ * @param err  Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, or the code of the first error found.
+ */
 static node_config_err_code_t node_config_parse_led(const cJSON *item,
                                                     const char *path,
                                                     node_config_led_t *led,
                                                     node_config_err_t *err);
+
+/**
+ * @brief Resolve the entry's "bus" id to an index into @p cfg's buses.
+ *
+ * @param item      JSON object of the device entry; must not be NULL.
+ * @param path      JSON path of the entry.
+ * @param cfg       Config whose buses are already parsed; must not be NULL.
+ * @param bus_index Receives the index; must not be NULL.
+ * @param err       Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, NODE_CONFIG_ERR_BUS_REF if no bus has that id, or
+ *         the error from reading the string.
+ */
 static node_config_err_code_t node_config_parse_get_bus_index(
     const cJSON *item, const char *path, const node_config_t *cfg,
     int *bus_index, node_config_err_t *err);
+
+/**
+ * @brief Read the optional PIR "pull" value.
+ *
+ * @param item JSON object of the device entry; must not be NULL.
+ * @param path JSON path of the entry.
+ * @param pull Receives the pull resistor; left unchanged if "pull" is
+ *             absent. Must not be NULL.
+ * @param err  Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, NODE_CONFIG_ERR_TYPE or NODE_CONFIG_ERR_RANGE.
+ */
 static node_config_err_code_t node_config_parse_get_pull(
     const cJSON *item, const char *path, node_hal_gpio_pull_t *pull,
     node_config_err_t *err);
+
+/**
+ * @brief Log a warning for each key of @p object not in @p known.
+ *
+ * @param object  JSON object to check; NULL is ignored.
+ * @param path    JSON path of @p object; "" for the top level.
+ * @param known   Accepted keys.
+ * @param n_known Number of entries in @p known.
+ */
 static void node_config_parse_warn_unknown_keys(const cJSON *object,
                                                 const char *path,
                                                 const char *const *known,
                                                 size_t n_known);
+
+/**
+ * @brief Whether @p key is one of @p known.
+ *
+ * @param key     Key to look up; NULL is never known.
+ * @param known   Accepted keys; NULL accepts none.
+ * @param n_known Number of entries in @p known.
+ * @return True if @p key matches an entry exactly.
+ */
 static bool node_config_parse_key_is_known(const char *key,
                                            const char *const *known,
                                            size_t n_known);
+
+/**
+ * @brief Build the JSON path "<parent>.<key>", or just "<key>" at the top.
+ *
+ * @param dst    Receives the NUL-terminated path, truncated to fit; must not
+ *               be NULL.
+ * @param size   Size of @p dst in bytes.
+ * @param parent JSON path of the parent; NULL or "" for the top level.
+ * @param key    Key to append; must not be NULL.
+ */
 static void node_config_parse_join_key(char *dst, size_t size,
                                        const char *parent, const char *key);
+
+/**
+ * @brief Build the JSON path "<parent>[<index>]".
+ *
+ * @param dst    Receives the NUL-terminated path, truncated to fit; must not
+ *               be NULL.
+ * @param size   Size of @p dst in bytes.
+ * @param parent JSON path of the array; must not be NULL.
+ * @param index  Index of the element.
+ */
 static void node_config_parse_join_index(char *dst, size_t size,
                                          const char *parent, int index);
+
+/**
+ * @brief Read the array at @p key of @p object.
+ *
+ * @param object    JSON object holding the key; must not be NULL.
+ * @param parent    JSON path of @p object.
+ * @param key       Key of the array.
+ * @param required  Whether a missing key is an error.
+ * @param max_count Most elements allowed.
+ * @param array     Receives the array, or NULL if it is absent; must not be
+ *                  NULL.
+ * @param count     Receives the number of elements, 0 if absent; must not be
+ *                  NULL.
+ * @param err       Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, NODE_CONFIG_ERR_MISSING, NODE_CONFIG_ERR_TYPE or
+ *         NODE_CONFIG_ERR_TOO_MANY.
+ */
 static node_config_err_code_t node_config_parse_get_array(
     const cJSON *object, const char *parent, const char *key, bool required,
     int max_count, const cJSON **array, int *count, node_config_err_t *err);
+
+/**
+ * @brief Read a whole number in [@p min, @p max] at @p key of @p object.
+ *
+ * @param object   JSON object holding the key; must not be NULL.
+ * @param parent   JSON path of @p object.
+ * @param key      Key of the number.
+ * @param required Whether a missing key is an error.
+ * @param min      Smallest value allowed.
+ * @param max      Largest value allowed; INT_MAX or UINT32_MAX means no
+ *                 upper limit in the error message.
+ * @param value    Receives the number; left unchanged if the key is absent
+ *                 and not required. Must not be NULL.
+ * @param err      Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, NODE_CONFIG_ERR_MISSING, NODE_CONFIG_ERR_TYPE or
+ *         NODE_CONFIG_ERR_RANGE.
+ */
 static node_config_err_code_t node_config_parse_get_integer(
     const cJSON *object, const char *parent, const char *key, bool required,
     int64_t min, int64_t max, int64_t *value, node_config_err_t *err);
+
+/**
+ * @brief node_config_parse_get_integer() for an int.
+ *
+ * @param object   JSON object holding the key; must not be NULL.
+ * @param parent   JSON path of @p object.
+ * @param key      Key of the number.
+ * @param required Whether a missing key is an error.
+ * @param min      Smallest value allowed.
+ * @param max      Largest value allowed.
+ * @param value    Receives the number; left unchanged if the key is absent
+ *                 and not required. Must not be NULL.
+ * @param err      Receives the error details; may be NULL.
+ * @return As for node_config_parse_get_integer().
+ */
 static node_config_err_code_t node_config_parse_get_int(
     const cJSON *object, const char *parent, const char *key, bool required,
     int min, int max, int *value, node_config_err_t *err);
+
+/**
+ * @brief node_config_parse_get_integer() for a uint32_t.
+ *
+ * @param object   JSON object holding the key; must not be NULL.
+ * @param parent   JSON path of @p object.
+ * @param key      Key of the number.
+ * @param required Whether a missing key is an error.
+ * @param min      Smallest value allowed.
+ * @param max      Largest value allowed.
+ * @param value    Receives the number; left unchanged if the key is absent
+ *                 and not required. Must not be NULL.
+ * @param err      Receives the error details; may be NULL.
+ * @return As for node_config_parse_get_integer().
+ */
 static node_config_err_code_t node_config_parse_get_u32(
     const cJSON *object, const char *parent, const char *key, bool required,
     uint32_t min, uint32_t max, uint32_t *value, node_config_err_t *err);
+
+/**
+ * @brief Read the optional number at @p key of @p object as a float.
+ *
+ * @param object JSON object holding the key; must not be NULL.
+ * @param parent JSON path of @p object.
+ * @param key    Key of the number.
+ * @param value  Receives the number; left unchanged if the key is absent.
+ *               Must not be NULL.
+ * @param err    Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, NODE_CONFIG_ERR_TYPE, or NODE_CONFIG_ERR_RANGE if
+ *         the number does not fit a float.
+ */
 static node_config_err_code_t node_config_parse_get_float(
     const cJSON *object, const char *parent, const char *key, float *value,
     node_config_err_t *err);
+
+/**
+ * @brief Read the boolean at @p key of @p object.
+ *
+ * @param object   JSON object holding the key; must not be NULL.
+ * @param parent   JSON path of @p object.
+ * @param key      Key of the boolean.
+ * @param required Whether a missing key is an error.
+ * @param value    Receives the boolean; left unchanged if the key is absent
+ *                 and not required. Must not be NULL.
+ * @param err      Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, NODE_CONFIG_ERR_MISSING or NODE_CONFIG_ERR_TYPE.
+ */
 static node_config_err_code_t node_config_parse_get_bool(
     const cJSON *object, const char *parent, const char *key, bool required,
     bool *value, node_config_err_t *err);
+
+/**
+ * @brief Copy the required, non-empty string at @p key of @p object.
+ *
+ * @param object JSON object holding the key; must not be NULL.
+ * @param parent JSON path of @p object.
+ * @param key    Key of the string.
+ * @param dst    Receives the NUL-terminated string; must not be NULL.
+ * @param size   Size of @p dst in bytes; the string must be shorter.
+ * @param err    Receives the error details; may be NULL.
+ * @return NODE_CONFIG_OK, NODE_CONFIG_ERR_MISSING, NODE_CONFIG_ERR_TYPE, or
+ *         NODE_CONFIG_ERR_RANGE if the string is empty or too long.
+ */
 static node_config_err_code_t node_config_parse_get_string(
     const cJSON *object, const char *parent, const char *key, char *dst,
     size_t size, node_config_err_t *err);

@@ -37,51 +37,45 @@ static isr_slot_t g_isr_slots[GPIO_NUM_MAX] = {0};
 static bool g_isr_service_installed = false;
 
 /* ==========================================================================
- * PRIVATE FUNCTIONS
+ * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
 
+/**
+ * @brief Enable the internal pull resistor @p pull selects on @p pin.
+ *
+ * @param pin  GPIO number.
+ * @param pull Pull resistor; NODE_HAL_GPIO_PULL_NONE enables nothing.
+ * @return NODE_HAL_OK, or the error from ESP-IDF, for example for an
+ *         input-only pin that has no pull resistors.
+ */
 static node_hal_err_t node_hal_gpio_enable_pull(int pin,
-                                                node_hal_gpio_pull_t pull) {
-  switch (pull) {
-    case NODE_HAL_GPIO_PULL_UP:
-      return node_hal_err_from_esp(gpio_pullup_en(pin));
-    case NODE_HAL_GPIO_PULL_DOWN:
-      return node_hal_err_from_esp(gpio_pulldown_en(pin));
-    default:
-      return NODE_HAL_OK;
-  }
-}
+                                                node_hal_gpio_pull_t pull);
 
-static void node_hal_gpio_isr_trampoline(void *arg) {
-  const isr_slot_t *slot = arg;
-  if (slot == NULL || slot->cb == NULL) {
-    return;
-  }
-  slot->cb(slot->pin, slot->ctx);
-}
+/**
+ * @brief GPIO ISR handler that calls the callback registered for a pin.
+ *
+ * Runs in ISR context.
+ *
+ * @param arg The pin's entry in g_isr_slots; NULL or an empty slot is ignored.
+ */
+static void node_hal_gpio_isr_trampoline(void *arg);
 
-static gpio_int_type_t node_hal_gpio_intr_type_for(node_hal_gpio_edge_t edge) {
-  switch (edge) {
-    case NODE_HAL_GPIO_EDGE_RISING:
-      return GPIO_INTR_POSEDGE;
-    case NODE_HAL_GPIO_EDGE_FALLING:
-      return GPIO_INTR_NEGEDGE;
-    default:
-      return GPIO_INTR_ANYEDGE;
-  }
-}
+/**
+ * @brief ESP-IDF interrupt type for @p edge.
+ *
+ * @param edge Edge to trigger on.
+ * @return The matching interrupt type; any edge for an unknown value.
+ */
+static gpio_int_type_t node_hal_gpio_intr_type_for(node_hal_gpio_edge_t edge);
 
-static node_hal_err_t node_hal_gpio_install_isr_service_once(void) {
-  if (g_isr_service_installed) {
-    return NODE_HAL_OK;
-  }
-  esp_err_t err = gpio_install_isr_service(0);
-  if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-    return node_hal_err_from_esp(err);
-  }
-  g_isr_service_installed = true;
-  return NODE_HAL_OK;
-}
+/**
+ * @brief Install the ESP-IDF GPIO interrupt service on first use.
+ *
+ * A service already installed by other code is accepted.
+ *
+ * @return NODE_HAL_OK, or the error from ESP-IDF.
+ */
+static node_hal_err_t node_hal_gpio_install_isr_service_once(void);
 
 /* ==========================================================================
  * PUBLIC FUNCTIONS
@@ -164,4 +158,51 @@ node_hal_err_t node_hal_gpio_set_isr(int pin, node_hal_gpio_edge_t edge,
   }
   return node_hal_err_from_esp(gpio_isr_handler_add(
       pin, node_hal_gpio_isr_trampoline, &g_isr_slots[pin]));
+}
+
+/* ==========================================================================
+ * PRIVATE FUNCTIONS
+ * ========================================================================== */
+
+static node_hal_err_t node_hal_gpio_enable_pull(int pin,
+                                                node_hal_gpio_pull_t pull) {
+  switch (pull) {
+    case NODE_HAL_GPIO_PULL_UP:
+      return node_hal_err_from_esp(gpio_pullup_en(pin));
+    case NODE_HAL_GPIO_PULL_DOWN:
+      return node_hal_err_from_esp(gpio_pulldown_en(pin));
+    default:
+      return NODE_HAL_OK;
+  }
+}
+
+static void node_hal_gpio_isr_trampoline(void *arg) {
+  const isr_slot_t *slot = arg;
+  if (slot == NULL || slot->cb == NULL) {
+    return;
+  }
+  slot->cb(slot->pin, slot->ctx);
+}
+
+static gpio_int_type_t node_hal_gpio_intr_type_for(node_hal_gpio_edge_t edge) {
+  switch (edge) {
+    case NODE_HAL_GPIO_EDGE_RISING:
+      return GPIO_INTR_POSEDGE;
+    case NODE_HAL_GPIO_EDGE_FALLING:
+      return GPIO_INTR_NEGEDGE;
+    default:
+      return GPIO_INTR_ANYEDGE;
+  }
+}
+
+static node_hal_err_t node_hal_gpio_install_isr_service_once(void) {
+  if (g_isr_service_installed) {
+    return NODE_HAL_OK;
+  }
+  esp_err_t err = gpio_install_isr_service(0);
+  if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+    return node_hal_err_from_esp(err);
+  }
+  g_isr_service_installed = true;
+  return NODE_HAL_OK;
 }

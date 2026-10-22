@@ -20,6 +20,13 @@
  * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
 
+/**
+ * @brief Fold one byte into a 32-bit FNV-1a hash.
+ *
+ * @param hash Hash so far.
+ * @param byte Byte to add.
+ * @return The updated hash.
+ */
 static uint32_t node_config_composition_mix(uint32_t hash, uint8_t byte);
 
 /* ==========================================================================
