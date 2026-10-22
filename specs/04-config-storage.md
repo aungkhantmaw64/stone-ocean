@@ -1,6 +1,6 @@
 # 04 — Config storage
 
-**Status:** in-progress
+**Status:** done
 **Depends on:** 03
 **Target:** ESP32 · ESP-IDF v5.x · LittleFS (`joltwallet/littlefs` 1.22.3) · `firmware/components/config_store`, `firmware/main`
 
@@ -75,7 +75,7 @@ Keep the filesystem access behind a small file interface, `config_store_fs.h` (`
 - [x] Save, load and erase work with CRC verification (host tests).
 - [x] Boot with no config, a corrupt config or an invalid config enters safe mode with the correct reason logged once.
 - [x] Boot with a valid config enters normal mode, and `config_store_mode_active_config()` returns the parsed struct.
-- [ ] Config persists across reset in QEMU and on hardware. *(QEMU verified with `scripts/qemu.sh --config` then `--reuse`; hardware power-cycle check pending.)*
+- [x] Config persists across reset in QEMU and on hardware.
 - [x] Config storage uses its own LittleFS partition and does not touch NVS (mesh keys).
 
 ## Open questions

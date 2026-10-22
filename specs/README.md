@@ -84,7 +84,7 @@ tools/
 | 01 | [Project skeleton](01-project-skeleton.md) | none | in-progress |
 | 02 | [HAL abstraction](02-hal.md) | 01 | done |
 | 03 | [Config schema & parser](03-config-parser.md) | 01 | done |
-| 04 | [Config storage](04-config-storage.md) | 03 | in-progress |
+| 04 | [Config storage](04-config-storage.md) | 03 | done |
 | 05 | [Serial CLI & PC upload tool](05-serial-cli.md) | 04 | todo |
 | 06 | [Driver framework](06-driver-framework.md) | 02, 03 | todo |
 | 07 | [GPIO drivers: PIR & LED](07-gpio-drivers.md) | 06 | todo |
