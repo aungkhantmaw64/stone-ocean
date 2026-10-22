@@ -71,6 +71,50 @@ docker run --rm -it -u $(id -u):$(id -g) -e HOME=/tmp -e PORT=$PORT \
 
 `--group-add` gives the container user access to the serial port.
 
+## Writing a config to a node
+
+The node has no command interface. `tools/config_flash.py` writes the JSON
+config straight into the node's `config` flash partition over USB serial with
+esptool, and the node loads it at the reset that follows. Before writing, the
+config is checked against the JSON Schema and against the firmware's own
+parser, built for the PC from `tools/node_config_check/` (needs cmake and gcc
+the first time). Only the `config` partition is touched, so mesh state in
+`nvs` survives.
+
+One-time setup:
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -r tools/requirements.txt
+```
+
+Then, from the repository root:
+
+```sh
+.venv/bin/python tools/config_flash.py check configs/example-shtc3-pir-led.json
+.venv/bin/python tools/config_flash.py --port /dev/ttyUSB0 write configs/example-shtc3-pir-led.json
+.venv/bin/python tools/config_flash.py --port /dev/ttyUSB0 read     # prints the stored JSON
+.venv/bin/python tools/config_flash.py --port /dev/ttyUSB0 erase    # next boot: safe mode
+```
+
+Exit codes: 0 success, 1 invalid config (the message names the JSON path),
+2 usage error, 3 the node or image could not be read or written, 4 no config
+stored or the stored config is corrupt. A bad config is never written. If one
+is stored anyway, the node logs `SAFE MODE: <reason>` at boot and starts no
+drivers.
+
+In QEMU, the same subcommands work on the flash image while QEMU is stopped:
+
+```sh
+scripts/qemu.sh                           # fresh image, no config: safe mode; quit with Ctrl+]
+.venv/bin/python tools/config_flash.py \
+  --flash-image firmware/build-qemu/qemu_flash_persistent.bin write configs/example-shtc3-pir-led.json
+scripts/qemu.sh --reuse                   # boots the same image: normal mode
+```
+
+`scripts/qemu.sh --config FILE` is a shortcut that boots a fresh image with
+FILE already stored.
+
 ## Host unit tests
 
 Pure-logic components are unit-tested on the PC with CMake, Unity and the host
