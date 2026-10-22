@@ -168,6 +168,9 @@ target_link_libraries(test_node_ao PRIVATE node_ao)
 add_host_test(test_node_ao_time test_node_ao_time.c)
 target_link_libraries(test_node_ao_time PRIVATE node_ao)
 
+add_host_test(test_node_ao_pubsub test_node_ao_pubsub.c)
+target_link_libraries(test_node_ao_pubsub PRIVATE node_ao)
+
 add_host_test(test_node_config_parse test_node_config_parse.c)
 target_link_libraries(test_node_config_parse PRIVATE node_config
                       node_config_example)
