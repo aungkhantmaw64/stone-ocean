@@ -191,6 +191,10 @@ target_link_libraries(test_node_ao_time PRIVATE node_ao)
 add_host_test(test_node_ao_pubsub test_node_ao_pubsub.c)
 target_link_libraries(test_node_ao_pubsub PRIVATE node_ao)
 
+add_host_test(test_node_dev_report test_node_dev_report.c)
+target_include_directories(test_node_dev_report PRIVATE ${NODE_DEV_DIR})
+target_link_libraries(test_node_dev_report PRIVATE node_dev)
+
 add_host_test(test_node_config_parse test_node_config_parse.c)
 target_link_libraries(test_node_config_parse PRIVATE node_config
                       node_config_example)
