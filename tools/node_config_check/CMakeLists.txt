@@ -3,16 +3,19 @@ project(node_config_check C)
 
 # Same cJSON version as ESP-IDF v5.4.4's json component and the host tests.
 # SOURCE_SUBDIR points at a directory that does not exist so only the sources
-# are downloaded; cJSON's own CMake project is not used.
-include(FetchContent)
-FetchContent_Declare(cjson
-  URL https://github.com/DaveGamble/cJSON/archive/refs/tags/v1.7.19.tar.gz
-  URL_HASH SHA256=7fa616e3046edfa7a28a32d5f9eacfd23f92900fe1f8ccd988c1662f30454562
-  SOURCE_SUBDIR do-not-configure)
-FetchContent_MakeAvailable(cjson)
+# are downloaded; cJSON's own CMake project is not used. When the host test
+# build includes this directory, it already has a cjson target to reuse.
+if(NOT TARGET cjson)
+  include(FetchContent)
+  FetchContent_Declare(cjson
+    URL https://github.com/DaveGamble/cJSON/archive/refs/tags/v1.7.19.tar.gz
+    URL_HASH SHA256=7fa616e3046edfa7a28a32d5f9eacfd23f92900fe1f8ccd988c1662f30454562
+    SOURCE_SUBDIR do-not-configure)
+  FetchContent_MakeAvailable(cjson)
 
-add_library(cjson STATIC ${cjson_SOURCE_DIR}/cJSON.c)
-target_include_directories(cjson SYSTEM PUBLIC ${cjson_SOURCE_DIR})
+  add_library(cjson STATIC ${cjson_SOURCE_DIR}/cJSON.c)
+  target_include_directories(cjson SYSTEM PUBLIC ${cjson_SOURCE_DIR})
+endif()
 
 # The firmware's parser sources, with node_config_log.c from this directory
 # in place of the ESP-IDF one, so warnings go to stderr.

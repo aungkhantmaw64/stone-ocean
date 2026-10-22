@@ -164,3 +164,32 @@ target_link_libraries(test_config_store PRIVATE config_store)
 add_host_test(test_config_store_mode test_config_store_mode.c)
 target_link_libraries(test_config_store_mode PRIVATE config_store
                       node_config_example)
+
+# The PC config checker (spec 05), built from the same parser sources and run
+# on config files. Each test runs it once and checks its exit code and stderr.
+add_subdirectory(${FIRMWARE_DIR}/../tools/node_config_check
+                 ${CMAKE_CURRENT_BINARY_DIR}/node_config_check)
+
+function(add_config_checker_test name config expected_exit expected_stderr)
+  add_test(NAME ${name}
+           COMMAND ${CMAKE_COMMAND}
+                   -DCHECKER=$<TARGET_FILE:node_config_check>
+                   -DCONFIG=${config}
+                   -DEXPECTED_EXIT=${expected_exit}
+                   -DEXPECTED_STDERR=${expected_stderr}
+                   -P ${CMAKE_CURRENT_SOURCE_DIR}/run_node_config_check.cmake)
+  if(HOST_SANITIZE)
+    set_tests_properties(${name} PROPERTIES ENVIRONMENT
+      "ASAN_OPTIONS=detect_leaks=1;UBSAN_OPTIONS=print_stacktrace=1")
+  endif()
+endfunction()
+
+# AC: specs/05-config-flash-tool.md #6
+add_config_checker_test(test_example_config_is_accepted_by_the_pc_config_checker
+  ${EXAMPLE_CONFIG} 0 "^$")
+
+# AC: specs/05-config-flash-tool.md #6
+add_config_checker_test(
+  test_config_using_a_flash_pin_is_rejected_by_the_pc_config_checker_with_its_path
+  ${CMAKE_CURRENT_SOURCE_DIR}/configs/config_with_a_flash_pin.json 1
+  "devices\\[0\\]\\.gpio: GPIO 7 is used by the flash")
