@@ -12,8 +12,8 @@ from config_flash import (EXIT_INVALID, EXIT_NO_CONFIG, EXIT_OK, EXIT_TARGET, EX
                           SerialTarget)
 from config_format import pack_config
 from config_partition import extract_config, littlefs_for
-from flash_layout import (CONFIG_OFFSET, CONFIG_SIZE, TABLE_LEN, TABLE_OFFSET, node_flash_image,
-                          partition_table)
+from flash_layout import (CONFIG_OFFSET, CONFIG_SIZE, NODE_PARTITIONS, NVS_OFFSET, NVS_SIZE,
+                          TABLE_LEN, TABLE_OFFSET, node_flash_image, partition_table)
 
 REPO_DIR = Path(__file__).resolve().parents[2]
 EXAMPLE_CONFIG = REPO_DIR / "configs/example-shtc3-pir-led.json"
@@ -70,6 +70,18 @@ def outside_config_partition(image_file: Path) -> bytes:
     """Return every byte of a flash image file except the config partition."""
     image = image_file.read_bytes()
     return image[:CONFIG_OFFSET] + image[CONFIG_OFFSET + CONFIG_SIZE:]
+
+
+def nvs_partition_of(image_file: Path) -> bytes:
+    """Return the nvs partition's bytes from a flash image file."""
+    return image_file.read_bytes()[NVS_OFFSET:NVS_OFFSET + NVS_SIZE]
+
+
+def outside_config_and_nvs_partitions(image_file: Path) -> bytes:
+    """Return every byte of a flash image file except the config and nvs partitions."""
+    image = image_file.read_bytes()
+    return (image[:NVS_OFFSET] + image[NVS_OFFSET + NVS_SIZE:CONFIG_OFFSET]
+            + image[CONFIG_OFFSET + CONFIG_SIZE:])
 
 
 def store_config_file(image_file: Path, contents: bytes) -> None:
@@ -343,6 +355,62 @@ class TestErasingTheConfig:
         config_flash.main(["--flash-image", str(flash_image), "erase"])
 
         assert outside_config_partition(flash_image) == before
+
+
+class TestFactoryResettingTheNode:
+    # AC: specs/09-health-factory-reset.md #4
+    def test_factory_reset_erases_the_config_and_the_mesh_state_on_a_flash_image(
+            self, flash_image):
+        store_config_file(flash_image, pack_config(EXAMPLE_CONFIG.read_bytes()))
+
+        exit_code = config_flash.main(["--flash-image", str(flash_image), "factory-reset"])
+
+        assert exit_code == EXIT_OK
+        assert config_partition_of(flash_image) == b"\xFF" * CONFIG_SIZE
+        assert nvs_partition_of(flash_image) == b"\xFF" * NVS_SIZE
+
+    # AC: specs/09-health-factory-reset.md #4
+    def test_factory_reset_leaves_the_firmware_and_the_partition_table_untouched(
+            self, flash_image):
+        store_config_file(flash_image, pack_config(EXAMPLE_CONFIG.read_bytes()))
+        before = outside_config_and_nvs_partitions(flash_image)
+
+        config_flash.main(["--flash-image", str(flash_image), "factory-reset"])
+
+        assert outside_config_and_nvs_partitions(flash_image) == before
+
+    # AC: specs/09-health-factory-reset.md #4
+    def test_factory_reset_over_a_serial_port_erases_both_partitions_with_esptool(
+            self, esptool):
+        exit_code = config_flash.main(["--port", "/dev/ttyUSB0", "factory-reset"])
+
+        assert exit_code == EXIT_OK
+        erases = [command for command in esptool.commands if command[0] == "erase_region"]
+        assert erases == [["erase_region", hex(CONFIG_OFFSET), hex(CONFIG_SIZE)],
+                          ["erase_region", hex(NVS_OFFSET), hex(NVS_SIZE)]]
+
+    # AC: specs/09-health-factory-reset.md #4
+    def test_factory_reset_erases_nothing_when_the_partition_table_has_no_nvs_partition(
+            self, flash_image, capsys):
+        image = bytearray(flash_image.read_bytes())
+        image[TABLE_OFFSET:TABLE_OFFSET + TABLE_LEN] = partition_table(
+            [row for row in NODE_PARTITIONS if row[0] != "nvs"])
+        flash_image.write_bytes(image)
+        store_config_file(flash_image, pack_config(EXAMPLE_CONFIG.read_bytes()))
+        before = flash_image.read_bytes()
+
+        exit_code = config_flash.main(["--flash-image", str(flash_image), "factory-reset"])
+
+        assert exit_code == EXIT_TARGET
+        assert "no 'nvs' partition" in capsys.readouterr().err
+        assert flash_image.read_bytes() == before
+
+    # AC: specs/09-health-factory-reset.md #4
+    def test_factory_reset_needs_a_serial_port_or_a_flash_image(self, capsys):
+        exit_code = config_flash.main(["factory-reset"])
+
+        assert exit_code == EXIT_USAGE
+        assert "needs --port or --flash-image" in capsys.readouterr().err
 
 
 class TestTalkingToANodeOverSerial:

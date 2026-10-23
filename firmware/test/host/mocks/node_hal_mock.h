@@ -55,6 +55,17 @@ void node_hal_gpio_mock_reset(void);
 void node_hal_gpio_mock_set_input(int pin, int level);
 
 /**
+ * @brief Set the level seen on an input pin without running its callback,
+ *        as if the interrupt for the edge was missed.
+ *
+ * Out-of-range pins are ignored.
+ *
+ * @param pin   GPIO number.
+ * @param level 0 for low, any other value for high.
+ */
+void node_hal_gpio_mock_set_input_without_edge(int pin, int level);
+
+/**
  * @brief Number of successful node_hal_gpio_write() calls to a pin since the
  *        last reset.
  *

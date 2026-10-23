@@ -1,0 +1,13 @@
+menu "Node health"
+
+    config NODE_HEALTH_DEBUG_HANG
+        bool "Hang the health AO 15 s after boot (debug)"
+        default n
+        help
+            For testing the task watchdog only. 15 s after boot the health
+            AO's dispatch never returns, so its thread stops feeding the
+            task watchdog, which resets the node; the next boot logs
+            reset_reason=task_wdt. Never enable it in sdkconfig.defaults or
+            sdkconfig.qemu.
+
+endmenu

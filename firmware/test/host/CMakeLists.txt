@@ -131,6 +131,28 @@ target_include_directories(node_status PUBLIC mocks PRIVATE ${NODE_STATUS_DIR})
 target_compile_options(node_status PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(node_status PUBLIC node_status_api node_ao)
 
+add_library(node_health_api INTERFACE)
+target_include_directories(node_health_api INTERFACE
+  ${FIRMWARE_DIR}/components/node_health/include)
+
+add_library(node_health_header_check OBJECT node_health_header_check.c)
+target_compile_options(node_health_header_check PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_health_header_check PRIVATE node_health_api)
+
+# The real node_health logic, with the in-memory fake in place of
+# node_health_port.c, the host log mock in place of node_health_log.c, and
+# the real config_store on its in-memory file fake. The health AO runs on the
+# host node_ao port and the mock HAL.
+set(NODE_HEALTH_DIR ${FIRMWARE_DIR}/components/node_health)
+add_library(node_health STATIC
+  ${NODE_HEALTH_DIR}/node_health.c
+  ${NODE_HEALTH_DIR}/node_health_ao.c
+  mocks/node_health_port.c
+  mocks/node_health_log.c)
+target_include_directories(node_health PUBLIC mocks ${NODE_HEALTH_DIR})
+target_compile_options(node_health PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_health PUBLIC node_health_api config_store node_ao)
+
 add_library(config_store_api INTERFACE)
 target_include_directories(config_store_api INTERFACE
   ${FIRMWARE_DIR}/components/config_store/include)
@@ -236,6 +258,12 @@ add_host_test(test_node_status test_node_status.c)
 target_include_directories(test_node_status PRIVATE ${NODE_STATUS_DIR})
 target_link_libraries(test_node_status PRIVATE node_status)
 
+add_host_test(test_node_health test_node_health.c)
+target_link_libraries(test_node_health PRIVATE node_health)
+
+add_host_test(test_node_health_ao test_node_health_ao.c)
+target_link_libraries(test_node_health_ao PRIVATE node_health)
+
 add_host_test(test_node_config_parse test_node_config_parse.c)
 target_link_libraries(test_node_config_parse PRIVATE node_config
                       node_config_example)
@@ -293,3 +321,8 @@ add_config_checker_test(
   test_config_using_the_status_led_pin_is_rejected_by_the_pc_config_checker
   ${CMAKE_CURRENT_SOURCE_DIR}/configs/config_with_the_status_led_pin.json 1
   "devices\\[0\\]\\.gpio: GPIO 0 is used by the status LED")
+
+# AC: specs/09-health-factory-reset.md #6
+add_test(NAME test_debug_hang_option_is_never_enabled_in_the_hardware_or_qemu_defaults
+         COMMAND ${CMAKE_COMMAND} -DFIRMWARE_DIR=${FIRMWARE_DIR}
+                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_debug_hang_is_off.cmake)

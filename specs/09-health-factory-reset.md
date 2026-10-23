@@ -1,6 +1,6 @@
 # 09 — Watchdog, reset reason & factory reset
 
-**Status:** todo
+**Status:** done
 **Depends on:** 02, 04, 05
 **Target:** custom ESP32 WROVER board · ESP-IDF v5.x · `firmware/components/node_health`
 
@@ -10,37 +10,45 @@ Make the node recover from hangs, record why it reset, and give the developer a 
 ## Context
 - Runs in both normal and safe mode.
 - Factory reset erases the config (spec 04) and, once spec 10 exists, the mesh state, through a hook that spec 10 registers.
+- The reset button and the debug hang are handled by a small **health AO** (spec 14), started by `node_health_init()`. The reset button's edge ISR only posts to it.
 - Reports through the boot log; the node has no command interface. Adds a `factory-reset` subcommand to the PC flashing tool (spec 05).
 
 ## Hardware details
-- **Reset button:** GPIO34 (`NODE_HAL_BOARD_RESET_BUTTON_GPIO`, spec 16). GPIO34 is input-only and has no internal pull resistor, so the board needs an external one. Only presses after boot count.
+- **Reset button:** GPIO34 (`NODE_HAL_BOARD_RESET_BUTTON_GPIO`, spec 16), active low. GPIO34 is input-only and has no internal pull resistor, so the board pulls it up externally; a press pulls it low. Only presses after boot count.
 - GPIO0 is the status LED (spec 16), not a button.
-- **Watchdog:** uses the ESP-IDF Task Watchdog (TWDT). Reset reason comes from `esp_reset_reason()`.
+- **Watchdog:** uses the ESP-IDF Task Watchdog (TWDT), configured in `sdkconfig.defaults` (`CONFIG_ESP_TASK_WDT_TIMEOUT_S=10`, `CONFIG_ESP_TASK_WDT_PANIC=y`). Reset reason comes from `esp_reset_reason()`.
 
 ## Scope
 - In scope:
-  - TWDT enabled with a 10 s timeout. The devices AO (06) and the main loop subscribe to it.
+  - TWDT enabled with a 10 s timeout that panics and resets the node. Every AO thread subscribes to it: the FreeRTOS port of `node_ao` (spec 14) adds each AO's thread to the TWDT when it starts and feeds it on every turn of the AO loop, which waits at most `NODE_AO_MAX_WAIT_MS` (1 s). An AO whose dispatch hangs therefore trips the TWDT. `app_main` returns after the boot sequence, so there is no main loop to subscribe.
   - Initialise NVS at boot (`nvs_flash_init`). If it reports no free pages or a newer format version, log at ERROR, erase the `nvs` partition and retry. This wipes the mesh state too, but happens only after a partition layout or ESP-IDF version change.
   - On boot, log the reset reason as text. Increment a crash counter in NVS (namespace `health`) when the reason is panic, task WDT, interrupt WDT or brownout. Log `reset_reason=<reason> crash_count=<n>` once per boot. Factory reset clears the counter.
   - Factory reset triggers:
     - holding the reset button for ≥ 5 s after boot;
     - from the PC, `tools/config_flash.py factory-reset`, which erases the `config` and `nvs` partitions with esptool. This clears the config, the mesh state and the crash counter without running the hooks, and the node then boots unprovisioned in safe mode. `--flash-image` works for QEMU, as in spec 05.
   - A factory-reset hook registry, so other modules (mesh) can register erase callbacks.
-  - Debug Kconfig option `NODE_HEALTH_DEBUG_HANG` (default off, never set in `sdkconfig.defaults` or `sdkconfig.qemu`): 15 s after boot, a subscribed task stops feeding the watchdog, to test the TWDT.
+  - Debug Kconfig option `NODE_HEALTH_DEBUG_HANG` (default off, never set in `sdkconfig.defaults` or `sdkconfig.qemu`): 15 s after boot, the health AO's dispatch never returns, so its thread stops feeding the watchdog, to test the TWDT.
   - Status LED feedback is **not** required. Log lines only.
 - Out of scope: boot-loop protection (future), remote health reporting via the mesh Health Server fault codes (future).
 
 ## Interface
 ```c
-typedef void (*factory_reset_hook_t)(void);
-void health_init(void);                       /* call early in boot */
-int  health_register_reset_hook(factory_reset_hook_t hook);
-void health_factory_reset(void);              /* runs hooks, erases config, reboots; does not return */
-int  health_wdt_subscribe_current_task(void);
-void health_wdt_feed(void);
-const char *health_reset_reason_str(void);
-uint32_t    health_crash_count(void);
-void        health_crash_count_clear(void);
+typedef enum {
+  NODE_HEALTH_OK = 0,
+  NODE_HEALTH_ERR_ARG,    /* NULL hook */
+  NODE_HEALTH_ERR_FULL,   /* hook table full */
+  NODE_HEALTH_ERR_STATE,  /* not initialised, or already initialised */
+  NODE_HEALTH_ERR_IO,     /* NVS failure */
+} node_health_err_t;
+
+typedef void (*node_health_reset_hook_t)(void);
+
+void              node_health_init(void);     /* call first in the boot sequence; starts the health AO */
+node_health_err_t node_health_register_reset_hook(node_health_reset_hook_t hook);
+void              node_health_factory_reset(void); /* runs hooks, erases config, reboots; does not return */
+const char       *node_health_reset_reason_str(void);
+uint32_t          node_health_crash_count(void);
+node_health_err_t node_health_crash_count_clear(void);
 ```
 Boot log line: `reset_reason=<reason> crash_count=<n>`. PC tool addition: `config_flash.py factory-reset`.
 
@@ -60,12 +68,11 @@ Boot log line: `reset_reason=<reason> crash_count=<n>`. PC tool addition: `confi
   - A short press does nothing.
 
 ## Acceptance criteria
-- [ ] TWDT resets a hung subscribed task within ~10 s, and the next boot logs the reason and increments the crash counter.
-- [ ] The boot log shows the reset reason and crash count. Factory reset clears the count.
-- [ ] A 5 s BOOT press erases the config, runs the hooks and reboots into safe mode.
-- [ ] `config_flash.py factory-reset` erases the `config` and `nvs` partitions, and the node boots unprovisioned in safe mode.
-- [ ] Long-press logic is host-tested with virtual time.
-- [ ] `NODE_HEALTH_DEBUG_HANG` is off in the hardware and QEMU builds.
+- [x] TWDT resets a hung subscribed task within ~10 s, and the next boot logs the reason and increments the crash counter.
+- [x] The boot log shows the reset reason and crash count. Factory reset clears the count.
+- [x] A 5 s reset-button press erases the config, runs the hooks and reboots into safe mode.
+- [x] `config_flash.py factory-reset` erases the `config` and `nvs` partitions, and the node boots unprovisioned in safe mode.
+- [x] Long-press logic is host-tested with virtual time.
+- [x] `NODE_HEALTH_DEBUG_HANG` is off in the hardware and QEMU builds.
 
-## Open questions
-- Reset button polarity and its external pull resistor (up or down) on the custom board.
+Host tests: `test_node_health` (25 tests: reset reasons, crash counter, NVS recovery, factory reset and hooks), `test_node_health_ao` (8 tests: 4.9 s vs 5 s hold, bounce, a press held at boot, a missed release edge, clock wrap-around) and a CTest that the debug hang is off in `sdkconfig.defaults`, `sdkconfig.qemu` and the Kconfig default all pass under ASan, LSan and UBSan; `pytest tools` adds 8 tests for `factory-reset` and the `nvs` partition lookup (58 in all). In QEMU, a fresh image logs `reset_reason=poweron crash_count=0`; a `NODE_HEALTH_DEBUG_HANG` build hangs the health AO 15 s after boot, the TWDT names `node_health` about 10 s later, and the next boot logs `reset_reason=task_wdt crash_count=1`; `config_flash.py --flash-image … factory-reset` on that image, then a `--reuse` boot, gives `crash_count=0` and `SAFE MODE: no config stored`. On the custom board, the boot line, a short press (no reset), a press held through boot (ignored), a 5 s press (`FACTORY RESET`, safe mode, `crash_count=0`), the debug-hang build (`task_wdt`, count kept across a reflash) and `config_flash.py --port … factory-reset` all behaved as specified (2026-10-23).

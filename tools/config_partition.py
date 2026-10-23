@@ -1,4 +1,5 @@
-"""Find the `config` partition and convert between its image and config.bin.
+"""Find the `config` and `nvs` partitions, and convert between the config
+partition's image and config.bin.
 
 The partition table is the binary one ESP-IDF writes at 0x8000
 (components/partition_table/gen_esp32part.py): 32-byte entries, then an MD5
@@ -21,6 +22,7 @@ from config_format import CONFIG_FILE_NAME, pack_config, unpack_config
 PARTITION_TABLE_OFFSET = 0x8000  # CONFIG_PARTITION_TABLE_OFFSET
 PARTITION_TABLE_LEN = 0xC00  # gen_esp32part.py MAX_PARTITION_LENGTH
 CONFIG_PARTITION = "config"
+NVS_PARTITION = "nvs"  # mesh state (spec 10) and the crash counter (spec 09)
 
 ENTRY_FORMAT = "<2sBBII16sI"  # magic, type, subtype, offset, size, name, flags
 ENTRY_LEN = struct.calcsize(ENTRY_FORMAT)
@@ -29,6 +31,8 @@ MD5_MAGIC = b"\xEB\xEB"
 MD5_OFFSET = 16  # the digest is the last 16 bytes of the MD5 entry
 END_ENTRY = b"\xFF" * ENTRY_LEN
 DATA_PARTITION_TYPE = 0x01
+NVS_PARTITION_SUBTYPE = 0x02
+FLASH_SECTOR_SIZE = 4096  # esptool erase_region works in whole sectors
 
 LITTLEFS_BLOCK_SIZE = 4096  # what esp_littlefs uses for a flash partition
 LITTLEFS_NAME_MAX = 64  # CONFIG_LITTLEFS_OBJ_NAME_LEN; the firmware keeps the default
@@ -87,6 +91,21 @@ def find_config_partition(table: bytes) -> Partition:
                                       f"is not a multiple of {LITTLEFS_BLOCK_SIZE}")
         return partition
     raise PartitionTableError(f"partition table has no '{CONFIG_PARTITION}' partition")
+
+
+def find_nvs_partition(table: bytes) -> Partition:
+    """Return the `nvs` partition of a binary partition table."""
+    for partition in parse_partition_table(table):
+        if partition.name != NVS_PARTITION:
+            continue
+        if partition.type != DATA_PARTITION_TYPE or partition.subtype != NVS_PARTITION_SUBTYPE:
+            raise PartitionTableError(f"partition '{NVS_PARTITION}' is not an NVS data partition")
+        if (partition.size == 0 or partition.offset % FLASH_SECTOR_SIZE != 0
+                or partition.size % FLASH_SECTOR_SIZE != 0):
+            raise PartitionTableError(f"partition '{NVS_PARTITION}' is not aligned to "
+                                      f"{FLASH_SECTOR_SIZE}-byte flash sectors")
+        return partition
+    raise PartitionTableError(f"partition table has no '{NVS_PARTITION}' partition")
 
 
 def build_config_image(raw_json: bytes, partition_size: int) -> bytes:
