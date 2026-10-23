@@ -55,6 +55,13 @@ void node_status_log_steady(bool on);
 void node_status_log_blink(uint16_t on_ms, uint16_t off_ms);
 
 /**
+ * @brief Log at DEBUG level that a blink phase switched the LED on or off.
+ *
+ * @param lit True for the on phase.
+ */
+void node_status_log_phase(bool lit);
+
+/**
  * @brief Log at WARNING level that writes to the LED's pin started failing.
  *
  * @param gpio GPIO number of the LED.

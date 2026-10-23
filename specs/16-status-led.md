@@ -73,7 +73,7 @@ node_status_err_t node_status_led_blink(uint16_t on_ms, uint16_t off_ms); /* any
   - A phase may run late by the AO's dispatch latency (a few ms). Drift over many periods is acceptable for an indicator.
 - **Polarity:** the AO drives the level given by `NODE_HAL_BOARD_STATUS_LED_ACTIVE_HIGH`, so callers only say on or off.
 - **Errors:** a failed pin write is logged once when writes start failing and once when they recover, not on every phase.
-- **Logging:** each command is logged at INFO when it changes the mode, for example `status led: blink 500/500` or `status led: on`. Individual toggles are not logged.
+- **Logging:** each command is logged at INFO when it changes the mode, for example `status led: blink 500/500` or `status led: on`. Individual blink toggles are logged only at DEBUG (`status led: blink on` / `status led: blink off`), which the default log level compiles out.
 - **Isolation:** the status LED publishes no event and is not in `node_dev`'s device table, so the mesh mapping (spec 11) never sees it.
 - **Config validation:**
   - A config that uses GPIO0 or GPIO34 for any pin (I2C, PIR, LED) is rejected with `NODE_CONFIG_ERR_PIN`, with messages `GPIO 0 is used by the status LED` and `GPIO 34 is used by the reset button`. The node then boots in safe mode, as for any invalid config (spec 04).
@@ -82,7 +82,7 @@ node_status_err_t node_status_led_blink(uint16_t on_ms, uint16_t off_ms); /* any
 
 ## Verification
 - **Simulation/host:** Unity tests on the mock HAL and the host AO port with virtual time:
-  - `test_node_status`: the pin is configured as an output and driven off at start; on and off with active-low levels; pin levels over several periods with unequal on and off times; a new blink restarts with the on phase; on or off ends blinking; argument checks, start twice, commands before start and a full queue; pin setup failure ignores later commands; write failures are logged once per failure streak; mode changes are logged and toggles are not.
+  - `test_node_status`: the pin is configured as an output and driven off at start; on and off with active-low levels; pin levels over several periods with unequal on and off times; a new blink restarts with the on phase; on or off ends blinking; argument checks, start twice, commands before start and a full queue; pin setup failure ignores later commands; write failures are logged once per failure streak; mode changes are logged and toggles only at DEBUG.
   - `test_node_config_validate`: GPIO0 and GPIO34 are rejected for every pin field with the messages above. The strapping-pin test drops GPIO0 and the input-only test drops GPIO34.
   - `tools/tests`: the schema rejects GPIO0 and GPIO34.
 - **QEMU:** a boot logs the status AO starting and `status led: blink 1000/1000`, in normal mode and in safe mode, and a config that uses GPIO0 boots in safe mode with the validation error.

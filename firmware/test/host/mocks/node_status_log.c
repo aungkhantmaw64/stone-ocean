@@ -34,6 +34,12 @@ static uint16_t g_last_blink_on_ms = 0;
 /** @brief Off time of the last blink mode change logged, in ms. */
 static uint16_t g_last_blink_off_ms = 0;
 
+/** @brief Blink phases logged since the last reset. */
+static size_t g_phase_count = 0;
+
+/** @brief Last blink phase logged: true for on. */
+static bool g_last_phase_lit = false;
+
 /** @brief "Writes start failing" lines logged since the last reset. */
 static size_t g_write_failed_count = 0;
 
@@ -66,6 +72,11 @@ void node_status_log_blink(uint16_t on_ms, uint16_t off_ms) {
   g_last_blink_off_ms = off_ms;
 }
 
+void node_status_log_phase(bool lit) {
+  g_phase_count++;
+  g_last_phase_lit = lit;
+}
+
 void node_status_log_write_failed(int gpio, node_hal_err_t err) {
   (void)gpio;
   (void)err;
@@ -85,6 +96,8 @@ void node_status_log_mock_reset(void) {
   g_blink_count = 0;
   g_last_blink_on_ms = 0;
   g_last_blink_off_ms = 0;
+  g_phase_count = 0;
+  g_last_phase_lit = false;
   g_write_failed_count = 0;
   g_write_recovered_count = 0;
 }
@@ -108,6 +121,10 @@ uint16_t node_status_log_mock_last_blink_on_ms(void) {
 uint16_t node_status_log_mock_last_blink_off_ms(void) {
   return g_last_blink_off_ms;
 }
+
+size_t node_status_log_mock_phase_count(void) { return g_phase_count; }
+
+bool node_status_log_mock_last_phase_lit(void) { return g_last_phase_lit; }
 
 size_t node_status_log_mock_write_failed_count(void) {
   return g_write_failed_count;

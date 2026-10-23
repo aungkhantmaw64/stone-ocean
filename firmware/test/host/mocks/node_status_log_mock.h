@@ -75,6 +75,20 @@ uint16_t node_status_log_mock_last_blink_on_ms(void);
 uint16_t node_status_log_mock_last_blink_off_ms(void);
 
 /**
+ * @brief Number of blink phases logged since the last reset.
+ *
+ * @return The count.
+ */
+size_t node_status_log_mock_phase_count(void);
+
+/**
+ * @brief The last blink phase logged.
+ *
+ * @return True for on; false for off or if none was logged.
+ */
+bool node_status_log_mock_last_phase_lit(void);
+
+/**
  * @brief Number of "writes start failing" lines logged since the last reset.
  *
  * @return The count.

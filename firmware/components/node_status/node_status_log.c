@@ -39,6 +39,10 @@ void node_status_log_blink(uint16_t on_ms, uint16_t off_ms) {
            (unsigned)off_ms);
 }
 
+void node_status_log_phase(bool lit) {
+  ESP_LOGD(NODE_STATUS_LOG_TAG, "status led: blink %s", lit ? "on" : "off");
+}
+
 void node_status_log_write_failed(int gpio, node_hal_err_t err) {
   ESP_LOGW(NODE_STATUS_LOG_TAG, "status led: writes to GPIO %d fail (%d)", gpio,
            (int)err);

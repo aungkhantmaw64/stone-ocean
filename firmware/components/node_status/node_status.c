@@ -151,8 +151,8 @@ static void node_status_start_blink(node_status_ao_t *me, uint16_t on_ms,
 static void node_status_end_phase(node_status_ao_t *me);
 
 /**
- * @brief Light or darken the LED for a blink phase and arm the phase timer
- *        to its end.
+ * @brief Light or darken the LED for a blink phase, log it at DEBUG, and arm
+ *        the phase timer to its end.
  *
  * @param me  The status AO.
  * @param lit True for the on phase.
@@ -318,6 +318,7 @@ static void node_status_end_phase(node_status_ao_t *me) {
 
 static void node_status_begin_phase(node_status_ao_t *me, bool lit) {
   me->lit = lit;
+  node_status_log_phase(lit);
   node_status_drive(me, lit);
   /* Phase times are uint16_t, far below the arm limit of INT32_MAX, and the
    * timer is initialised at start, so arming cannot fail. */

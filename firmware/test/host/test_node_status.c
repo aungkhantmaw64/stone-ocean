@@ -367,13 +367,22 @@ void test_repeating_the_current_status_led_command_is_not_logged(void) {
 }
 
 /* AC: specs/16-status-led.md #1 */
-void test_individual_blink_toggles_are_not_logged(void) {
+void test_individual_blink_toggles_are_logged_only_at_debug(void) {
   start_status_led();
   TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_blink(ON_MS, OFF_MS));
   run_until_idle();
+  TEST_ASSERT_EQUAL_size_t(1, node_status_log_mock_phase_count());
+  TEST_ASSERT_TRUE(node_status_log_mock_last_phase_lit());
 
-  wait_ms(PERIODS * (ON_MS + OFF_MS));
+  for (size_t i = 0; i < PERIODS; i++) {
+    wait_ms(ON_MS);
+    TEST_ASSERT_FALSE(node_status_log_mock_last_phase_lit());
+    wait_ms(OFF_MS);
+    TEST_ASSERT_TRUE(node_status_log_mock_last_phase_lit());
+  }
 
+  TEST_ASSERT_EQUAL_size_t(1 + (2 * PERIODS),
+                           node_status_log_mock_phase_count());
   TEST_ASSERT_EQUAL_size_t(1, node_status_log_mock_blink_count());
   TEST_ASSERT_EQUAL_size_t(0, node_status_log_mock_steady_count());
 }
@@ -456,7 +465,7 @@ int main(void) {
   RUN_TEST(test_switching_the_status_led_off_ends_blinking);
   RUN_TEST(test_change_of_status_led_mode_is_logged);
   RUN_TEST(test_repeating_the_current_status_led_command_is_not_logged);
-  RUN_TEST(test_individual_blink_toggles_are_not_logged);
+  RUN_TEST(test_individual_blink_toggles_are_logged_only_at_debug);
   RUN_TEST(
       test_failing_status_led_pin_writes_are_logged_once_per_failure_streak);
   RUN_TEST(test_status_led_pin_working_again_after_failed_writes_is_logged);
