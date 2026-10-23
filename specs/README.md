@@ -2,7 +2,7 @@
 
 Generic, config-driven BLE mesh node firmware for the ESP32. A JSON config stored in flash says which sensors and actuators are attached. At boot the firmware loads it, starts the matching drivers and exposes each device on the mesh using standard Bluetooth SIG models.
 
-Each spec below is one implementation chunk. Implement them in order and respect `Depends on`. Specs 14 and 15 were added after the others were numbered; implement them, in that order, before 06. Update the **Status** column (and the `Status:` line inside the spec) as work progresses: `todo` → `in-progress` → `done`.
+Each spec below is one implementation chunk. Implement them in order and respect `Depends on`. Specs 14 and 15 were added after the others were numbered; implement them, in that order, before 06. Spec 16 was added later too; implement it after 14 and before 09. Update the **Status** column (and the `Status:` line inside the spec) as work progresses: `todo` → `in-progress` → `done`.
 
 ## Requirements summary
 
@@ -11,13 +11,15 @@ Each spec below is one implementation chunk. Implement them in order and respect
 2. **Config-driven boot:** at boot the firmware loads the config and starts drivers for the configured devices (SHTC3, PIR, LED). If the config is missing or invalid, it logs the error and starts no drivers. A new config can be flashed from the PC at any time.
 3. **Mesh provisioning:** a Python script on a Linux PC, using BlueZ `bluetooth-meshd`, provisions the node and configures its app keys and publish/subscribe addresses. The script stands in for the future embedded Linux gateway.
 4. **Read and control:** the script receives SHTC3 temperature/humidity readings and PIR motion events, and switches the LED on and off. This also works when a second node relays the messages.
-5. **Maintenance:** factory reset (BOOT-button long press, or erasing the config and mesh partitions from the PC) wipes the config and mesh membership. A task watchdog restarts a hung node, and the reset reason and a crash counter are logged.
+5. **Maintenance:** factory reset (reset-button long press, or erasing the config and mesh partitions from the PC) wipes the config and mesh membership. A task watchdog restarts a hung node, and the reset reason and a crash counter are logged.
 
 ### Hardware
-- 2+ **ESP32-DevKitC** (classic ESP32, BLE 4.2) with a **WROVER** module (16 MB flash, 8 MB PSRAM), programmed and logged over USB serial only. No JTAG. PSRAM occupies GPIO 16/17.
+- 2+ **custom ESP32 boards** (classic ESP32, BLE 4.2) with a **WROVER** module (16 MB flash, 8 MB PSRAM), programmed and logged over USB serial only. No JTAG. PSRAM occupies GPIO 16/17. Early specs were brought up on an ESP32-DevKitC with the same module.
+- **Status LED** on GPIO0, active low, fixed on the board (spec 16). Not a config device and not on the mesh.
+- **Reset button** on GPIO34, fixed on the board (spec 09).
 - **SHTC3** temperature/humidity sensor (I2C).
 - **PIR** motion sensor (digital GPIO input). The exact module is not yet chosen.
-- **LED** (GPIO output, external).
+- **LED** (GPIO output, external), configured in the JSON config and switched over the mesh.
 - Gateway stand-in: a **Linux PC** with a Bluetooth adapter dedicated to `bluetooth-meshd`.
 - Power: USB/mains. No sleep modes. The node acts as a mesh relay.
 
@@ -99,6 +101,7 @@ tools/
 | 13 | [System tests](13-system-tests.md) | all | todo |
 | 14 | [Active object framework](14-active-objects.md) | 02 | in-progress |
 | 15 | [AO publish-subscribe](15-ao-publish-subscribe.md) | 14 | done |
+| 16 | [Status LED](16-status-led.md) | 02, 03, 14 | todo |
 
 ```
 01 ──► 02 ──────────────┐
@@ -106,6 +109,7 @@ tools/
         │      │     │  ▼
         │      └─────┴► 09 ──► 10 ──┐
         └──► 06 ◄── 15 ◄── 14 ◄── 02▼
+              │            └──► 16 ◄── 03
               ├──► 07 ──────────►  11 ──► 12 ──► 13
               └──► 08 ──────────►
 ```

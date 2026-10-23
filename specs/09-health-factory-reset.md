@@ -2,7 +2,7 @@
 
 **Status:** todo
 **Depends on:** 02, 04, 05
-**Target:** ESP32-DevKitC · ESP-IDF v5.x · `firmware/components/node_health`
+**Target:** custom ESP32 WROVER board · ESP-IDF v5.x · `firmware/components/node_health`
 
 ## Goal
 Make the node recover from hangs, record why it reset, and give the developer a way to wipe it back to factory state (no config, not provisioned).
@@ -13,7 +13,8 @@ Make the node recover from hangs, record why it reset, and give the developer a 
 - Reports through the boot log; the node has no command interface. Adds a `factory-reset` subcommand to the PC flashing tool (spec 05).
 
 ## Hardware details
-- **BOOT button:** GPIO0 on the ESP32-DevKitC, active low with an on-board pull-up. GPIO0 is a strapping pin. Holding it during reset enters download mode, so only presses after boot count.
+- **Reset button:** GPIO34 (`NODE_HAL_BOARD_RESET_BUTTON_GPIO`, spec 16). GPIO34 is input-only and has no internal pull resistor, so the board needs an external one. Only presses after boot count.
+- GPIO0 is the status LED (spec 16), not a button.
 - **Watchdog:** uses the ESP-IDF Task Watchdog (TWDT). Reset reason comes from `esp_reset_reason()`.
 
 ## Scope
@@ -22,7 +23,7 @@ Make the node recover from hangs, record why it reset, and give the developer a 
   - Initialise NVS at boot (`nvs_flash_init`). If it reports no free pages or a newer format version, log at ERROR, erase the `nvs` partition and retry. This wipes the mesh state too, but happens only after a partition layout or ESP-IDF version change.
   - On boot, log the reset reason as text. Increment a crash counter in NVS (namespace `health`) when the reason is panic, task WDT, interrupt WDT or brownout. Log `reset_reason=<reason> crash_count=<n>` once per boot. Factory reset clears the counter.
   - Factory reset triggers:
-    - holding the BOOT button for ≥ 5 s after boot;
+    - holding the reset button for ≥ 5 s after boot;
     - from the PC, `tools/config_flash.py factory-reset`, which erases the `config` and `nvs` partitions with esptool. This clears the config, the mesh state and the crash counter without running the hooks, and the node then boots unprovisioned in safe mode. `--flash-image` works for QEMU, as in spec 05.
   - A factory-reset hook registry, so other modules (mesh) can register erase callbacks.
   - Debug Kconfig option `NODE_HEALTH_DEBUG_HANG` (default off, never set in `sdkconfig.defaults` or `sdkconfig.qemu`): 15 s after boot, a subscribed task stops feeding the watchdog, to test the TWDT.
@@ -45,7 +46,7 @@ Boot log line: `reset_reason=<reason> crash_count=<n>`. PC tool addition: `confi
 
 ## Behavior & constraints
 - Factory reset order: log `FACTORY RESET`, run registered hooks, then `config_store_erase()`, erase the `health` namespace, then `esp_restart()`.
-- BOOT long-press detection uses a GPIO edge + timer through the HAL, not polling in a busy loop. Releasing before 5 s cancels it.
+- Reset-button long-press detection uses a GPIO edge + timer through the HAL, not polling in a busy loop. Releasing before 5 s cancels it.
 - The crash counter write happens once per boot, before the drivers start.
 
 ## Verification
@@ -55,7 +56,7 @@ Boot log line: `reset_reason=<reason> crash_count=<n>`. PC tool addition: `confi
   - A build with `NODE_HEALTH_DEBUG_HANG` resets via TWDT, and the next boot logs `reset_reason=task_wdt crash_count=1`.
 - **On hardware:**
   - Same as QEMU.
-  - Hold the BOOT button for 5 s after boot: the node factory-resets.
+  - Hold the reset button for 5 s after boot: the node factory-resets.
   - A short press does nothing.
 
 ## Acceptance criteria
@@ -67,4 +68,4 @@ Boot log line: `reset_reason=<reason> crash_count=<n>`. PC tool addition: `confi
 - [ ] `NODE_HEALTH_DEBUG_HANG` is off in the hardware and QEMU builds.
 
 ## Open questions
-- None.
+- Reset button polarity and its external pull resistor (up or down) on the custom board.
