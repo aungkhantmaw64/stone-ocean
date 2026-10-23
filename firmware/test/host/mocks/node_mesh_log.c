@@ -20,14 +20,8 @@ static size_t g_prov_complete_count = 0;
 /** @brief Arguments of the last provisioning-complete line; zero if none. */
 static node_mesh_log_mock_prov_t g_last_prov = {0};
 
-/** @brief "Composition hash not stored" lines logged since the last reset. */
-static size_t g_hash_store_failed_count = 0;
-
 /** @brief "Node reset by the gateway" lines logged since the last reset. */
 static size_t g_node_reset_count = 0;
-
-/** @brief "Mesh metadata erase failed" lines logged since the last reset. */
-static size_t g_meta_erase_failed_count = 0;
 
 /** @brief "Mesh event lost" lines logged since the last reset. */
 static size_t g_post_failed_count = 0;
@@ -41,6 +35,35 @@ static node_mesh_ao_notice_t g_last_notice = NODE_MESH_AO_NOTICE_LINK_OPEN;
 /** @brief Error code of the last provisioning notice; 0 if none. */
 static int32_t g_last_notice_err = 0;
 
+/** @brief "No such device" lines logged since the last reset. */
+static size_t g_unknown_device_count = 0;
+
+/** @brief FAULT lines logged since the last reset. */
+static size_t g_fault_count = 0;
+
+/** @brief True if the last FAULT line was for entering FAULT. */
+static bool g_last_fault = false;
+
+/** @brief "Device status not published" lines logged since the last reset. */
+static size_t g_publish_failed_count = 0;
+
+/** @brief Error of the last "device status not published" line. */
+static node_mesh_err_t g_last_publish_err = NODE_MESH_OK;
+
+/** @brief "Request dropped" lines logged since the last reset. */
+static size_t g_request_dropped_count = 0;
+
+/** @brief Reason of the last "request dropped" line. */
+static node_mesh_models_drop_t g_last_drop_reason =
+    NODE_MESH_MODELS_DROP_TOO_LONG;
+
+/** @brief "Reply not sent" lines logged since the last reset. */
+static size_t g_send_failed_count = 0;
+
+/** @brief "On/off not passed to the devices" lines logged since the last
+ *         reset. */
+static size_t g_onoff_not_queued_count = 0;
+
 /* ==========================================================================
  * PUBLIC FUNCTIONS
  * ========================================================================== */
@@ -48,13 +71,20 @@ static int32_t g_last_notice_err = 0;
 void node_mesh_log_mock_reset(void) {
   g_prov_complete_count = 0;
   g_last_prov = (node_mesh_log_mock_prov_t){0};
-  g_hash_store_failed_count = 0;
   g_node_reset_count = 0;
-  g_meta_erase_failed_count = 0;
   g_post_failed_count = 0;
   g_notice_count = 0;
   g_last_notice = NODE_MESH_AO_NOTICE_LINK_OPEN;
   g_last_notice_err = 0;
+  g_unknown_device_count = 0;
+  g_fault_count = 0;
+  g_last_fault = false;
+  g_publish_failed_count = 0;
+  g_last_publish_err = NODE_MESH_OK;
+  g_request_dropped_count = 0;
+  g_last_drop_reason = NODE_MESH_MODELS_DROP_TOO_LONG;
+  g_send_failed_count = 0;
+  g_onoff_not_queued_count = 0;
 }
 
 size_t node_mesh_log_mock_prov_complete_count(void) {
@@ -65,15 +95,7 @@ node_mesh_log_mock_prov_t node_mesh_log_mock_last_prov_complete(void) {
   return g_last_prov;
 }
 
-size_t node_mesh_log_mock_hash_store_failed_count(void) {
-  return g_hash_store_failed_count;
-}
-
 size_t node_mesh_log_mock_node_reset_count(void) { return g_node_reset_count; }
-
-size_t node_mesh_log_mock_meta_erase_failed_count(void) {
-  return g_meta_erase_failed_count;
-}
 
 size_t node_mesh_log_mock_post_failed_count(void) {
   return g_post_failed_count;
@@ -86,6 +108,38 @@ node_mesh_ao_notice_t node_mesh_log_mock_last_notice(void) {
 }
 
 int32_t node_mesh_log_mock_last_notice_err(void) { return g_last_notice_err; }
+
+size_t node_mesh_log_mock_unknown_device_count(void) {
+  return g_unknown_device_count;
+}
+
+size_t node_mesh_log_mock_fault_count(void) { return g_fault_count; }
+
+bool node_mesh_log_mock_last_fault(void) { return g_last_fault; }
+
+size_t node_mesh_log_mock_publish_failed_count(void) {
+  return g_publish_failed_count;
+}
+
+node_mesh_err_t node_mesh_log_mock_last_publish_err(void) {
+  return g_last_publish_err;
+}
+
+size_t node_mesh_log_mock_request_dropped_count(void) {
+  return g_request_dropped_count;
+}
+
+node_mesh_models_drop_t node_mesh_log_mock_last_drop_reason(void) {
+  return g_last_drop_reason;
+}
+
+size_t node_mesh_log_mock_send_failed_count(void) {
+  return g_send_failed_count;
+}
+
+size_t node_mesh_log_mock_onoff_not_queued_count(void) {
+  return g_onoff_not_queued_count;
+}
 
 void node_mesh_log_prov_complete(uint16_t addr, uint8_t element_count,
                                  bool relay, uint16_t net_idx,
@@ -100,11 +154,7 @@ void node_mesh_log_prov_complete(uint16_t addr, uint8_t element_count,
   };
 }
 
-void node_mesh_log_hash_store_failed(void) { g_hash_store_failed_count++; }
-
 void node_mesh_log_node_reset(void) { g_node_reset_count++; }
-
-void node_mesh_log_meta_erase_failed(void) { g_meta_erase_failed_count++; }
 
 void node_mesh_log_post_failed(const char *what) {
   (void)what;
@@ -115,4 +165,43 @@ void node_mesh_log_notice(node_mesh_ao_notice_t notice, int32_t err) {
   g_notice_count++;
   g_last_notice = notice;
   g_last_notice_err = err;
+}
+
+void node_mesh_log_models_unknown_device(int dev_index) {
+  (void)dev_index;
+  g_unknown_device_count++;
+}
+
+void node_mesh_log_models_fault(int dev_index, bool fault) {
+  (void)dev_index;
+  g_fault_count++;
+  g_last_fault = fault;
+}
+
+void node_mesh_log_models_publish_failed(int dev_index, node_mesh_err_t err) {
+  (void)dev_index;
+  g_publish_failed_count++;
+  g_last_publish_err = err;
+}
+
+void node_mesh_log_models_request_dropped(uint8_t op, uint16_t addr,
+                                          node_mesh_models_drop_t why) {
+  (void)op;
+  (void)addr;
+  g_request_dropped_count++;
+  g_last_drop_reason = why;
+}
+
+void node_mesh_log_models_send_failed(uint8_t op, uint16_t addr,
+                                      node_mesh_err_t err) {
+  (void)op;
+  (void)addr;
+  (void)err;
+  g_send_failed_count++;
+}
+
+void node_mesh_log_models_onoff_not_queued(int dev_index, int err) {
+  (void)dev_index;
+  (void)err;
+  g_onoff_not_queued_count++;
 }

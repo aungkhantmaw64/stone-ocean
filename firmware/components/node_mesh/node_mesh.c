@@ -20,14 +20,13 @@
 #include "esp_bt.h"
 #include "esp_bt_main.h"
 #include "esp_err.h"
-#include "node_config.h"
 #include "node_hal.h"
 #include "node_health.h"
-#include "node_mesh_comp.h"
 #include "node_mesh_err.h"
 #include "node_mesh_internal.h"
 #include "node_mesh_log.h"
 #include "node_mesh_port.h"
+#include "node_mesh_uuid.h"
 
 /* ESP-BLE-MESH internal header. No public API gives the IV index or lists the
  * key indexes, which spec 10 logs at boot, so they are read from the stack's
@@ -63,7 +62,10 @@
  *         in all. */
 #define NODE_MESH_RESET_POLLS 40
 
-/** @brief Number of models on the primary element. */
+/** @brief Elements of the composition: the primary one only (spec 10). */
+#define NODE_MESH_ELEMENT_COUNT 1
+
+/** @brief Number of SIG models on the primary element. */
 #define NODE_MESH_ROOT_MODEL_COUNT \
   (sizeof(g_root_models) / sizeof(g_root_models[0]))
 
@@ -86,16 +88,16 @@ static bool g_start_called = false;
  *         task, and read from other tasks after that. */
 static bool g_mesh_ready = false;
 
-/** @brief Models builder of spec 11, or NULL; written from the boot task
- *         before the start. */
-static node_mesh_models_builder_t g_builder = NULL;
+/** @brief Vendor models of the primary element from spec 11, or NULL;
+ *         written from the boot task before the start. */
+static esp_ble_mesh_model_t *g_vendor_models = NULL;
 
-/** @brief Composition registered this boot; written by node_mesh_start(). */
-static node_mesh_comp_plan_t g_plan = {0};
+/** @brief Number of models in g_vendor_models; written with it. */
+static uint8_t g_vendor_count = 0;
 
 /** @brief Device UUID, "stoneocean" and the Bluetooth MAC; written by
  *         node_mesh_start() before the stack reads it. */
-static uint8_t g_uuid[NODE_MESH_COMP_UUID_LEN] = {0};
+static uint8_t g_uuid[NODE_MESH_UUID_LEN] = {0};
 
 /** @brief State of the Config Server. Relay is on: the node is mains powered
  *         (spec 10). Written by the mesh stack in Bluedroid's task. */
@@ -134,14 +136,14 @@ static esp_ble_mesh_model_t g_root_models[] = {
     ESP_BLE_MESH_MODEL_HEALTH_SRV(&g_health_server, &g_health_pub),
 };
 
-/** @brief Elements of the composition: the primary one, then one per device
- *         in config order. The first g_plan.element_count are registered.
- *         Filled by node_mesh_start(); the stack writes element_addr. */
-static esp_ble_mesh_elem_t g_elements[NODE_MESH_COMP_MAX_ELEMENTS] = {0};
+/** @brief Elements of the composition. Filled by node_mesh_start(); the
+ *         stack writes element_addr. */
+static esp_ble_mesh_elem_t g_elements[NODE_MESH_ELEMENT_COUNT] = {0};
 
-/** @brief Composition data; element_count is set by node_mesh_start(). */
+/** @brief Composition data. */
 static esp_ble_mesh_comp_t g_comp = {
     .cid = NODE_MESH_CID_ESPRESSIF,
+    .element_count = NODE_MESH_ELEMENT_COUNT,
     .elements = g_elements,
 };
 
@@ -165,47 +167,10 @@ static atomic_bool g_factory_reset_done = false;
  * ========================================================================== */
 
 /**
- * @brief Read the stored composition hash. A read failure is logged and
- *        counts as no hash stored.
- *
- * @param stored Receives true if a hash is stored.
- * @param hash   Receives the hash; 0 if none is stored.
+ * @brief Fill the primary element with its SIG models and the vendor models
+ *        registered by spec 11.
  */
-static void node_mesh_load_hash(bool *stored, uint32_t *hash);
-
-/**
- * @brief Fill g_elements from the plan: the primary element, then one per
- *        device with the models the builder gives.
- *
- * @param cfg  Active config, or NULL in safe mode.
- * @param plan Composition to register.
- */
-static void node_mesh_build_elements(const node_config_t *cfg,
-                                     const node_mesh_comp_plan_t *plan);
-
-/**
- * @brief Ask the builder for one device's models. A failure is logged and
- *        gives no models.
- *
- * @param dev_index Index of the device in the config.
- * @param dev       The device's config entry.
- * @param models    Receives the model array, or NULL.
- * @param count     Receives the number of models.
- */
-static void node_mesh_build_device_models(int dev_index,
-                                          const node_config_dev_t *dev,
-                                          esp_ble_mesh_model_t **models,
-                                          uint8_t *count);
-
-/**
- * @brief Set one entry of g_elements.
- *
- * @param index  Element number; below NODE_MESH_COMP_MAX_ELEMENTS.
- * @param models SIG model array, or NULL if @p count is 0.
- * @param count  Number of models in @p models.
- */
-static void node_mesh_set_element(size_t index, esp_ble_mesh_model_t *models,
-                                  uint8_t count);
+static void node_mesh_build_elements(void);
 
 /**
  * @brief Start the Bluetooth controller in BLE-only mode and the Bluedroid
@@ -224,23 +189,12 @@ static node_mesh_err_t node_mesh_bt_start(void);
 static node_mesh_err_t node_mesh_stack_init(void);
 
 /**
- * @brief Bring the stored hash in line with the mesh's own provisioning
- *        state: store the hash in use if it is missing, or erase a stale
- *        one.
- *
- * @param provisioned True if the mesh restored a provisioned node.
- * @param hash_stored True if a hash was stored at boot.
- */
-static void node_mesh_reconcile_hash(bool provisioned, bool hash_stored);
-
-/**
  * @brief Log the UUID, the mesh state, the keys of a provisioned node and
  *        the composition.
  *
- * @param cfg         Active config, or NULL in safe mode.
  * @param provisioned True if the node is provisioned.
  */
-static void node_mesh_report_boot(const node_config_t *cfg, bool provisioned);
+static void node_mesh_report_boot(bool provisioned);
 
 /**
  * @brief Log the IV index and the key indexes, read from the mesh stack's
@@ -275,8 +229,8 @@ static void node_mesh_prov_cb(esp_ble_mesh_prov_cb_event_t event,
 
 /**
  * @brief Factory-reset hook (spec 09): reset the mesh node, which erases
- *        its stored mesh state, then erase `meshmeta`. Runs in the task that
- *        factory-resets and waits up to 2 s for the mesh reset.
+ *        its stored mesh state. Runs in the task that factory-resets and
+ *        waits up to 2 s for the mesh reset.
  */
 static void node_mesh_factory_reset_hook(void);
 
@@ -284,38 +238,24 @@ static void node_mesh_factory_reset_hook(void);
  * PUBLIC FUNCTIONS
  * ========================================================================== */
 
-node_mesh_err_t node_mesh_start(const node_config_t *cfg) {
+node_mesh_err_t node_mesh_start(void) {
   if (g_start_called) {
     return NODE_MESH_ERR_STATE;
   }
   const uint32_t start_ms = node_hal_time_ms();
-
-  bool hash_stored = false;
-  uint32_t stored_hash = 0;
-  node_mesh_load_hash(&hash_stored, &stored_hash);
-  node_mesh_comp_plan_t plan = {0};
-  node_mesh_err_t err =
-      node_mesh_comp_plan(cfg, hash_stored, stored_hash, &plan);
-  if (err != NODE_MESH_OK) {
-    return err;
-  }
   g_start_called = true;
-  g_plan = plan;
-  if (plan.outcome == NODE_MESH_COMP_MISMATCH) {
-    node_mesh_log_mismatch(stored_hash, plan.config_hash);
-  }
-  node_mesh_build_elements(cfg, &plan);
+  node_mesh_build_elements();
 
-  uint8_t mac[NODE_MESH_COMP_MAC_LEN] = {0};
+  uint8_t mac[NODE_MESH_UUID_MAC_LEN] = {0};
   if ((node_mesh_port_bt_mac(mac) != NODE_MESH_PORT_OK) ||
-      (node_mesh_comp_uuid(mac, g_uuid) != NODE_MESH_OK)) {
+      (node_mesh_uuid_build(mac, g_uuid) != NODE_MESH_OK)) {
     return NODE_MESH_ERR_BT;
   }
   if (node_health_register_reset_hook(node_mesh_factory_reset_hook) !=
       NODE_HEALTH_OK) {
     node_mesh_log_hook_failed();
   }
-  err = node_mesh_ao_start(plan.hash_in_use, plan.element_count);
+  node_mesh_err_t err = node_mesh_ao_start(NODE_MESH_ELEMENT_COUNT);
   if (err != NODE_MESH_OK) {
     return err;
   }
@@ -330,7 +270,6 @@ node_mesh_err_t node_mesh_start(const node_config_t *cfg) {
   g_mesh_ready = true;
 
   const bool provisioned = esp_ble_mesh_node_is_provisioned();
-  node_mesh_reconcile_hash(provisioned, hash_stored);
   if (!provisioned) {
     const esp_err_t esp_err =
         esp_ble_mesh_node_prov_enable(ESP_BLE_MESH_PROV_ADV);
@@ -339,7 +278,7 @@ node_mesh_err_t node_mesh_start(const node_config_t *cfg) {
       return NODE_MESH_ERR_MESH;
     }
   }
-  node_mesh_report_boot(cfg, provisioned);
+  node_mesh_report_boot(provisioned);
   node_mesh_report_resources(start_ms);
   return NODE_MESH_OK;
 }
@@ -358,23 +297,16 @@ uint16_t node_mesh_primary_addr(void) {
   return esp_ble_mesh_get_primary_element_address();
 }
 
-esp_ble_mesh_elem_t *node_mesh_device_element(int dev_index) {
-  if (!g_mesh_ready || (dev_index < 0) ||
-      (dev_index >= (int)g_plan.device_count)) {
-    return NULL;
-  }
-  return &g_elements[1 + dev_index];
-}
-
-node_mesh_err_t node_mesh_set_models_builder(
-    node_mesh_models_builder_t builder) {
-  if (builder == NULL) {
+node_mesh_err_t node_mesh_set_vendor_models(esp_ble_mesh_model_t *models,
+                                            uint8_t count) {
+  if ((models == NULL) || (count == 0u)) {
     return NODE_MESH_ERR_ARG;
   }
   if (g_start_called) {
     return NODE_MESH_ERR_STATE;
   }
-  g_builder = builder;
+  g_vendor_models = models;
+  g_vendor_count = count;
   return NODE_MESH_OK;
 }
 
@@ -382,74 +314,18 @@ node_mesh_err_t node_mesh_set_models_builder(
  * PRIVATE FUNCTIONS
  * ========================================================================== */
 
-static void node_mesh_load_hash(bool *stored, uint32_t *hash) {
-  *stored = false;
-  *hash = 0;
-  const node_mesh_port_err_t err = node_mesh_port_hash_load(hash);
-  if (err == NODE_MESH_PORT_OK) {
-    *stored = true;
-    return;
-  }
-  *hash = 0;
-  if (err != NODE_MESH_PORT_NOT_FOUND) {
-    node_mesh_log_hash_load_failed();
-  }
-}
-
-static void node_mesh_build_elements(const node_config_t *cfg,
-                                     const node_mesh_comp_plan_t *plan) {
-  node_mesh_set_element(0, g_root_models, (uint8_t)NODE_MESH_ROOT_MODEL_COUNT);
-  for (size_t i = 0; (i < plan->device_count) && (cfg != NULL) &&
-                     ((i + 1u) < NODE_MESH_COMP_MAX_ELEMENTS);
-       i++) {
-    esp_ble_mesh_model_t *models = NULL;
-    uint8_t count = 0;
-    node_mesh_build_device_models((int)i, &cfg->dev[i], &models, &count);
-    node_mesh_set_element(i + 1u, models, count);
-  }
-  g_comp.element_count = plan->element_count;
-}
-
-static void node_mesh_build_device_models(int dev_index,
-                                          const node_config_dev_t *dev,
-                                          esp_ble_mesh_model_t **models,
-                                          uint8_t *count) {
-  *models = NULL;
-  *count = 0;
-  if (g_builder == NULL) {
-    return;
-  }
-  esp_ble_mesh_model_t *built = NULL;
-  uint8_t built_count = 0;
-  const node_mesh_err_t err = g_builder(dev_index, dev, &built, &built_count);
-  if (err != NODE_MESH_OK) {
-    node_mesh_log_builder_failed(dev_index, err);
-    return;
-  }
-  if ((built == NULL) && (built_count > 0u)) {
-    node_mesh_log_builder_failed(dev_index, NODE_MESH_ERR_ARG);
-    return;
-  }
-  *models = built;
-  *count = built_count;
-}
-
-static void node_mesh_set_element(size_t index, esp_ble_mesh_model_t *models,
-                                  uint8_t count) {
-  if (index >= NODE_MESH_COMP_MAX_ELEMENTS) {
-    return;
-  }
+static void node_mesh_build_elements(void) {
   /* esp_ble_mesh_elem_t has const members, so it cannot be assigned. The
-   * composition is only known at run time, so each element is built as an
+   * vendor models are only known at run time, so the element is built as an
    * initialised local and copied into place before the stack reads it. */
   const esp_ble_mesh_elem_t element = {
       .location = 0,
-      .sig_model_count = count,
-      .vnd_model_count = 0,
-      .sig_models = models,
-      .vnd_models = NULL,
+      .sig_model_count = (uint8_t)NODE_MESH_ROOT_MODEL_COUNT,
+      .vnd_model_count = g_vendor_count,
+      .sig_models = g_root_models,
+      .vnd_models = g_vendor_models,
   };
-  (void)memcpy(&g_elements[index], &element, sizeof(element));
+  (void)memcpy(&g_elements[0], &element, sizeof(element));
 }
 
 static node_mesh_err_t node_mesh_bt_start(void) {
@@ -498,38 +374,15 @@ static node_mesh_err_t node_mesh_stack_init(void) {
   return NODE_MESH_OK;
 }
 
-/* Runs before provisioning is enabled, so the mesh AO cannot be storing a
- * hash at the same time; it is the only write to meshmeta outside the AO. */
-static void node_mesh_reconcile_hash(bool provisioned, bool hash_stored) {
-  if (provisioned && !hash_stored) {
-    node_mesh_log_hash_missing();
-    if (node_mesh_port_hash_store(g_plan.hash_in_use) != NODE_MESH_PORT_OK) {
-      node_mesh_log_hash_store_failed();
-    }
-    return;
-  }
-  if (!provisioned && hash_stored) {
-    node_mesh_log_hash_stale();
-    if (node_mesh_port_meta_erase() != NODE_MESH_PORT_OK) {
-      node_mesh_log_meta_erase_failed();
-    }
-  }
-}
-
-static void node_mesh_report_boot(const node_config_t *cfg, bool provisioned) {
+static void node_mesh_report_boot(bool provisioned) {
   node_mesh_log_uuid(g_uuid, sizeof(g_uuid));
   node_mesh_log_state(provisioned, node_mesh_primary_addr(),
-                      g_plan.element_count, node_mesh_relay_enabled());
+                      NODE_MESH_ELEMENT_COUNT, node_mesh_relay_enabled());
   if (provisioned) {
     node_mesh_report_keys();
   }
-  node_mesh_log_primary_element(g_elements[0].sig_model_count);
-  for (size_t i = 0; (i < g_plan.device_count) && (cfg != NULL) &&
-                     ((i + 1u) < NODE_MESH_COMP_MAX_ELEMENTS);
-       i++) {
-    node_mesh_log_device_element((uint8_t)(i + 1u), &cfg->dev[i],
-                                 g_elements[i + 1u].sig_model_count);
-  }
+  node_mesh_log_primary_element(g_elements[0].sig_model_count,
+                                g_elements[0].vnd_model_count);
 }
 
 static void node_mesh_report_keys(void) {
@@ -623,8 +476,5 @@ static void node_mesh_factory_reset_hook(void) {
         node_mesh_log_reset_timeout();
       }
     }
-  }
-  if (node_mesh_port_meta_erase() != NODE_MESH_PORT_OK) {
-    node_mesh_log_meta_erase_failed();
   }
 }

@@ -1,0 +1,492 @@
+{
+  "_comment": [
+    "Known-answer vectors of the Stone Ocean Node Server messages (spec 11),",
+    "checked by the firmware host tests and the gateway tool's tests (spec 12).",
+    "device_status and device_list: firmware input -> payload hex -> protobuf fields.",
+    "device_get and onoff_set: payload hex -> protobuf fields. Payloads exclude the opcode.",
+    "An absent optional field means 'unknown'; \"nan\" stands for a value that is not a number."
+  ],
+  "version": 1,
+  "device_status": [
+    {
+      "name": "shtc3_typical",
+      "note": "23.45 °C and 45.67 % in tenths: 235 and 457",
+      "input": {
+        "device": 0,
+        "type": "shtc3",
+        "fault": false,
+        "value": {
+          "temp_c": 23.45,
+          "rh_pct": 45.67
+        }
+      },
+      "hex": "10d60318c903",
+      "fields": {
+        "device": 0,
+        "temperature_dc": 235,
+        "humidity_dpct": 457
+      }
+    },
+    {
+      "name": "shtc3_negative_temperature",
+      "note": "-12.34 °C is -123 tenths, sent as sint32",
+      "input": {
+        "device": 0,
+        "type": "shtc3",
+        "fault": false,
+        "value": {
+          "temp_c": -12.34,
+          "rh_pct": 45.67
+        }
+      },
+      "hex": "10f50118c903",
+      "fields": {
+        "device": 0,
+        "temperature_dc": -123,
+        "humidity_dpct": 457
+      }
+    },
+    {
+      "name": "shtc3_halfway_rounds_away_from_zero",
+      "note": "-0.25 °C and 50.25 % sit halfway between tenths: -3 and 503",
+      "input": {
+        "device": 1,
+        "type": "shtc3",
+        "fault": false,
+        "value": {
+          "temp_c": -0.25,
+          "rh_pct": 50.25
+        }
+      },
+      "hex": "0801100518f703",
+      "fields": {
+        "device": 1,
+        "temperature_dc": -3,
+        "humidity_dpct": 503
+      }
+    },
+    {
+      "name": "shtc3_dry",
+      "note": "0 % humidity is sent, as 0",
+      "input": {
+        "device": 0,
+        "type": "shtc3",
+        "fault": false,
+        "value": {
+          "temp_c": 20.0,
+          "rh_pct": 0.0
+        }
+      },
+      "hex": "1090031800",
+      "fields": {
+        "device": 0,
+        "temperature_dc": 200,
+        "humidity_dpct": 0
+      }
+    },
+    {
+      "name": "shtc3_saturated",
+      "note": "100 % humidity is 1000 tenths",
+      "input": {
+        "device": 0,
+        "type": "shtc3",
+        "fault": false,
+        "value": {
+          "temp_c": 20.0,
+          "rh_pct": 100.0
+        }
+      },
+      "hex": "10900318e807",
+      "fields": {
+        "device": 0,
+        "temperature_dc": 200,
+        "humidity_dpct": 1000
+      }
+    },
+    {
+      "name": "shtc3_clamped_hot",
+      "note": "500 °C and -3 % are clamped to 130 °C and 0 %",
+      "input": {
+        "device": 0,
+        "type": "shtc3",
+        "fault": false,
+        "value": {
+          "temp_c": 500.0,
+          "rh_pct": -3.0
+        }
+      },
+      "hex": "10a8141800",
+      "fields": {
+        "device": 0,
+        "temperature_dc": 1300,
+        "humidity_dpct": 0
+      }
+    },
+    {
+      "name": "shtc3_clamped_cold",
+      "note": "-60 °C and 120 % are clamped to -45 °C and 100 %",
+      "input": {
+        "device": 0,
+        "type": "shtc3",
+        "fault": false,
+        "value": {
+          "temp_c": -60.0,
+          "rh_pct": 120.0
+        }
+      },
+      "hex": "10830718e807",
+      "fields": {
+        "device": 0,
+        "temperature_dc": -450,
+        "humidity_dpct": 1000
+      }
+    },
+    {
+      "name": "shtc3_largest_status",
+      "note": "the longest status: device 7 at -45 °C and 100 %, 8 bytes",
+      "input": {
+        "device": 7,
+        "type": "shtc3",
+        "fault": false,
+        "value": {
+          "temp_c": -45.0,
+          "rh_pct": 100.0
+        }
+      },
+      "hex": "080710830718e807",
+      "fields": {
+        "device": 7,
+        "temperature_dc": -450,
+        "humidity_dpct": 1000
+      }
+    },
+    {
+      "name": "shtc3_temperature_not_a_number",
+      "note": "a temperature that is not a number is left out",
+      "input": {
+        "device": 0,
+        "type": "shtc3",
+        "fault": false,
+        "value": {
+          "temp_c": "nan",
+          "rh_pct": 45.67
+        }
+      },
+      "hex": "18c903",
+      "fields": {
+        "device": 0,
+        "humidity_dpct": 457
+      }
+    },
+    {
+      "name": "shtc3_fault",
+      "note": "a device in FAULT sends the fault flag and no values",
+      "input": {
+        "device": 1,
+        "type": "shtc3",
+        "fault": true,
+        "value": {
+          "temp_c": 23.45,
+          "rh_pct": 45.67
+        }
+      },
+      "hex": "08013001",
+      "fields": {
+        "device": 1,
+        "fault": true
+      }
+    },
+    {
+      "name": "shtc3_no_value_yet",
+      "note": "a device with no value yet sends no values",
+      "input": {
+        "device": 1,
+        "type": "shtc3",
+        "fault": false
+      },
+      "hex": "0801",
+      "fields": {
+        "device": 1
+      }
+    },
+    {
+      "name": "pir_motion",
+      "note": "motion sensed",
+      "input": {
+        "device": 2,
+        "type": "pir",
+        "fault": false,
+        "value": {
+          "motion": true
+        }
+      },
+      "hex": "08022001",
+      "fields": {
+        "device": 2,
+        "motion": true
+      }
+    },
+    {
+      "name": "pir_no_motion",
+      "note": "no motion is sent explicitly, not left out",
+      "input": {
+        "device": 2,
+        "type": "pir",
+        "fault": false,
+        "value": {
+          "motion": false
+        }
+      },
+      "hex": "08022000",
+      "fields": {
+        "device": 2,
+        "motion": false
+      }
+    },
+    {
+      "name": "pir_ignores_climate_values",
+      "note": "a motion sensor sends only motion",
+      "input": {
+        "device": 2,
+        "type": "pir",
+        "fault": false,
+        "value": {
+          "motion": true,
+          "temp_c": 21.0,
+          "rh_pct": 40.0
+        }
+      },
+      "hex": "08022001",
+      "fields": {
+        "device": 2,
+        "motion": true
+      }
+    },
+    {
+      "name": "led_on",
+      "note": "LED switched on",
+      "input": {
+        "device": 2,
+        "type": "led",
+        "fault": false,
+        "value": {
+          "on": true
+        }
+      },
+      "hex": "08022801",
+      "fields": {
+        "device": 2,
+        "on": true
+      }
+    },
+    {
+      "name": "led_off",
+      "note": "LED off is sent explicitly, not left out",
+      "input": {
+        "device": 2,
+        "type": "led",
+        "fault": false,
+        "value": {
+          "on": false
+        }
+      },
+      "hex": "08022800",
+      "fields": {
+        "device": 2,
+        "on": false
+      }
+    },
+    {
+      "name": "led_device_0_no_value_yet",
+      "note": "device 0 with no value: every field at its default, an empty payload",
+      "input": {
+        "device": 0,
+        "type": "led",
+        "fault": false
+      },
+      "hex": "",
+      "fields": {
+        "device": 0
+      }
+    }
+  ],
+  "device_list": [
+    {
+      "name": "three_devices",
+      "note": "a sensor, a motion sensor and an LED, in config order",
+      "input": {
+        "devices": [
+          {
+            "type": "shtc3",
+            "id": "env1"
+          },
+          {
+            "type": "pir",
+            "id": "pir1"
+          },
+          {
+            "type": "led",
+            "id": "led1"
+          }
+        ]
+      },
+      "hex": "0a0808011204656e76310a0808021204706972310a08080312046c656431",
+      "fields": {
+        "devices": [
+          {
+            "type": "DEVICE_TYPE_SHTC3",
+            "id": "env1"
+          },
+          {
+            "type": "DEVICE_TYPE_PIR",
+            "id": "pir1"
+          },
+          {
+            "type": "DEVICE_TYPE_LED",
+            "id": "led1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "safe_mode",
+      "note": "no config: an empty list, an empty payload",
+      "input": {
+        "devices": []
+      },
+      "hex": "",
+      "fields": {
+        "devices": []
+      }
+    },
+    {
+      "name": "eight_longest_ids",
+      "note": "the most devices allowed, each with a 15-byte id: 168 bytes",
+      "input": {
+        "devices": [
+          {
+            "type": "shtc3",
+            "id": "sensor-number-0"
+          },
+          {
+            "type": "pir",
+            "id": "sensor-number-1"
+          },
+          {
+            "type": "led",
+            "id": "sensor-number-2"
+          },
+          {
+            "type": "shtc3",
+            "id": "sensor-number-3"
+          },
+          {
+            "type": "pir",
+            "id": "sensor-number-4"
+          },
+          {
+            "type": "led",
+            "id": "sensor-number-5"
+          },
+          {
+            "type": "shtc3",
+            "id": "sensor-number-6"
+          },
+          {
+            "type": "pir",
+            "id": "sensor-number-7"
+          }
+        ]
+      },
+      "hex": "0a130801120f73656e736f722d6e756d6265722d300a130802120f73656e736f722d6e756d6265722d310a130803120f73656e736f722d6e756d6265722d320a130801120f73656e736f722d6e756d6265722d330a130802120f73656e736f722d6e756d6265722d340a130803120f73656e736f722d6e756d6265722d350a130801120f73656e736f722d6e756d6265722d360a130802120f73656e736f722d6e756d6265722d37",
+      "fields": {
+        "devices": [
+          {
+            "type": "DEVICE_TYPE_SHTC3",
+            "id": "sensor-number-0"
+          },
+          {
+            "type": "DEVICE_TYPE_PIR",
+            "id": "sensor-number-1"
+          },
+          {
+            "type": "DEVICE_TYPE_LED",
+            "id": "sensor-number-2"
+          },
+          {
+            "type": "DEVICE_TYPE_SHTC3",
+            "id": "sensor-number-3"
+          },
+          {
+            "type": "DEVICE_TYPE_PIR",
+            "id": "sensor-number-4"
+          },
+          {
+            "type": "DEVICE_TYPE_LED",
+            "id": "sensor-number-5"
+          },
+          {
+            "type": "DEVICE_TYPE_SHTC3",
+            "id": "sensor-number-6"
+          },
+          {
+            "type": "DEVICE_TYPE_PIR",
+            "id": "sensor-number-7"
+          }
+        ]
+      }
+    }
+  ],
+  "device_get": [
+    {
+      "name": "every_device",
+      "note": "no device field: every device",
+      "hex": "",
+      "fields": {}
+    },
+    {
+      "name": "device_0",
+      "note": "an explicit device 0, not every device",
+      "hex": "0800",
+      "fields": {
+        "device": 0
+      }
+    },
+    {
+      "name": "device_3",
+      "note": "device 3",
+      "hex": "0803",
+      "fields": {
+        "device": 3
+      }
+    },
+    {
+      "name": "unknown_field",
+      "note": "field 10 is unknown to this firmware and skipped",
+      "hex": "08025001",
+      "fields": {
+        "device": 2
+      }
+    }
+  ],
+  "onoff_set": [
+    {
+      "name": "led_2_on",
+      "note": "switch device 2 on",
+      "hex": "08021001",
+      "fields": {
+        "device": 2,
+        "on": true
+      }
+    },
+    {
+      "name": "device_0_off",
+      "note": "device 0 off: every field at its default, an empty payload",
+      "hex": "",
+      "fields": {
+        "device": 0,
+        "on": false
+      }
+    }
+  ]
+}

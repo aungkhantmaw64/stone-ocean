@@ -26,8 +26,7 @@ add_executable(node_config_check
   node_config_log.c
   ${NODE_CONFIG_DIR}/node_config_err.c
   ${NODE_CONFIG_DIR}/node_config_parse.c
-  ${NODE_CONFIG_DIR}/node_config_validate.c
-  ${NODE_CONFIG_DIR}/node_config_composition.c)
+  ${NODE_CONFIG_DIR}/node_config_validate.c)
 target_include_directories(node_config_check PRIVATE
   ${NODE_CONFIG_DIR}
   ${NODE_CONFIG_DIR}/include

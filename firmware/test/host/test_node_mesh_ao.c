@@ -18,15 +18,8 @@
  * MACROS
  * ========================================================================== */
 
-/** @brief Composition hash the mesh AO is started with; any value works, as
- *         the AO stores whatever it was given. */
-#define HASH_IN_USE 0xc3c4b1b5u
-
-/** @brief A hash stored on an earlier boot. */
-#define EARLIER_HASH 0x0badf00du
-
-/** @brief Elements registered this boot: primary plus three devices. */
-#define ELEMENT_COUNT 4
+/** @brief Elements registered: the primary element only (spec 10). */
+#define ELEMENT_COUNT 1
 
 /** @brief Unicast address the gateway gives the primary element. */
 #define PRIMARY_ADDR 0x0005
@@ -46,7 +39,7 @@
  * ========================================================================== */
 
 /**
- * @brief Start the mesh AO with HASH_IN_USE and ELEMENT_COUNT and run its
+ * @brief Start the mesh AO with ELEMENT_COUNT and run its
  *        init event. Fails the test if it does not start.
  */
 static void start_mesh_task(void);
@@ -79,16 +72,6 @@ void tearDown(void) {}
 
 /* ---- Provisioning complete ---- */
 
-/* AC: specs/10-mesh-node-core.md #5 */
-void test_completing_provisioning_stores_the_composition_hash_in_use(void) {
-  start_mesh_task();
-
-  provisioning_completes();
-
-  TEST_ASSERT_TRUE(node_mesh_port_mock_hash_is_stored());
-  TEST_ASSERT_EQUAL_HEX32(HASH_IN_USE, node_mesh_port_mock_hash());
-}
-
 /* AC: specs/10-mesh-node-core.md #2 */
 void test_completing_provisioning_logs_the_address_element_count_and_relay_state(
     void) {
@@ -106,48 +89,17 @@ void test_completing_provisioning_logs_the_address_element_count_and_relay_state
   TEST_ASSERT_EQUAL_UINT32(IV_INDEX, logged.iv_index);
 }
 
-/* AC: specs/10-mesh-node-core.md #2 */
-void test_completing_provisioning_is_still_logged_when_the_hash_cannot_be_stored(
-    void) {
-  start_mesh_task();
-  node_mesh_port_mock_fail_hash_store();
-
-  provisioning_completes();
-
-  TEST_ASSERT_FALSE(node_mesh_port_mock_hash_is_stored());
-  TEST_ASSERT_EQUAL_size_t(1, node_mesh_log_mock_hash_store_failed_count());
-  TEST_ASSERT_EQUAL_size_t(1, node_mesh_log_mock_prov_complete_count());
-}
-
 /* ---- Reset by the gateway ---- */
 
 /* AC: specs/10-mesh-node-core.md #3 */
-void test_reset_by_the_gateway_erases_the_mesh_metadata_and_restarts_the_node(
-    void) {
-  node_mesh_port_mock_set_hash(EARLIER_HASH);
+void test_reset_by_the_gateway_restarts_the_node(void) {
   start_mesh_task();
 
   TEST_ASSERT_EQUAL_INT(NODE_MESH_OK, node_mesh_ao_post_node_reset());
   run_until_idle();
 
-  TEST_ASSERT_FALSE(node_mesh_port_mock_hash_is_stored());
   TEST_ASSERT_EQUAL_size_t(1, node_mesh_port_mock_restart_count());
   TEST_ASSERT_EQUAL_size_t(1, node_mesh_log_mock_node_reset_count());
-}
-
-/* AC: specs/10-mesh-node-core.md #3 */
-void test_reset_by_the_gateway_still_restarts_the_node_when_the_metadata_cannot_be_erased(
-    void) {
-  node_mesh_port_mock_set_hash(EARLIER_HASH);
-  node_mesh_port_mock_fail_meta_erase();
-  start_mesh_task();
-
-  TEST_ASSERT_EQUAL_INT(NODE_MESH_OK, node_mesh_ao_post_node_reset());
-  run_until_idle();
-
-  TEST_ASSERT_EQUAL_size_t(1, node_mesh_port_mock_meta_erase_count());
-  TEST_ASSERT_EQUAL_size_t(1, node_mesh_log_mock_meta_erase_failed_count());
-  TEST_ASSERT_EQUAL_size_t(1, node_mesh_port_mock_restart_count());
 }
 
 /* ---- Provisioning progress ---- */
@@ -203,7 +155,7 @@ void test_mesh_events_sent_before_the_mesh_task_starts_are_reported_as_lost(
 
   TEST_ASSERT_EQUAL_INT(NODE_MESH_ERR_STATE, err);
   TEST_ASSERT_EQUAL_size_t(1, node_mesh_log_mock_post_failed_count());
-  TEST_ASSERT_FALSE(node_mesh_port_mock_hash_is_stored());
+  TEST_ASSERT_EQUAL_size_t(0, node_mesh_log_mock_prov_complete_count());
 }
 
 void test_mesh_events_are_reported_as_lost_when_the_mesh_task_queue_is_full(
@@ -227,22 +179,16 @@ void test_mesh_events_are_reported_as_lost_when_the_mesh_task_queue_is_full(
 void test_mesh_task_cannot_be_started_twice(void) {
   start_mesh_task();
 
-  node_mesh_err_t err = node_mesh_ao_start(HASH_IN_USE, ELEMENT_COUNT);
+  node_mesh_err_t err = node_mesh_ao_start(ELEMENT_COUNT);
 
   TEST_ASSERT_EQUAL_INT(NODE_MESH_ERR_STATE, err);
 }
 
 int main(void) {
   UNITY_BEGIN();
-  RUN_TEST(test_completing_provisioning_stores_the_composition_hash_in_use);
   RUN_TEST(
       test_completing_provisioning_logs_the_address_element_count_and_relay_state);
-  RUN_TEST(
-      test_completing_provisioning_is_still_logged_when_the_hash_cannot_be_stored);
-  RUN_TEST(
-      test_reset_by_the_gateway_erases_the_mesh_metadata_and_restarts_the_node);
-  RUN_TEST(
-      test_reset_by_the_gateway_still_restarts_the_node_when_the_metadata_cannot_be_erased);
+  RUN_TEST(test_reset_by_the_gateway_restarts_the_node);
   RUN_TEST(test_opening_a_provisioning_link_is_logged);
   RUN_TEST(test_closing_a_provisioning_link_is_logged);
   RUN_TEST(
@@ -260,8 +206,7 @@ int main(void) {
  * ========================================================================== */
 
 static void start_mesh_task(void) {
-  TEST_ASSERT_EQUAL_INT(NODE_MESH_OK,
-                        node_mesh_ao_start(HASH_IN_USE, ELEMENT_COUNT));
+  TEST_ASSERT_EQUAL_INT(NODE_MESH_OK, node_mesh_ao_start(ELEMENT_COUNT));
   run_until_idle();
 }
 

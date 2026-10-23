@@ -56,10 +56,7 @@ extern "C" {
  * ========================================================================== */
 
 /**
- * @brief Kind of device attached to the node.
- *
- * The values feed node_config_composition_hash(), which is stored in flash, so
- * never renumber or reorder them; add new types at the end.
+ * @brief Kind of device attached to the node. Add new types at the end.
  */
 typedef enum {
   NODE_CONFIG_DEV_SHTC3, /**< SHTC3 temperature/humidity sensor on I2C. */
@@ -186,19 +183,6 @@ typedef struct {
 node_config_err_code_t node_config_parse(const char *json, size_t len,
                                          node_config_t *out,
                                          node_config_err_t *err);
-
-/**
- * @brief Hash of the node's device composition.
- *
- * Depends only on the number of devices and their types, in order. Ids,
- * pins, buses and intervals do not change it. Spec 10 stores it at
- * provisioning to detect a config that changes the mesh composition.
- *
- * @param cfg Parsed config; must not be NULL.
- * @return The 32-bit FNV-1a hash of the device count and types, or 0 if
- *         @p cfg is NULL or its device count is out of range.
- */
-uint32_t node_config_composition_hash(const node_config_t *cfg);
 
 #ifdef __cplusplus
 }

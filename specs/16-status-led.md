@@ -12,7 +12,7 @@ Give the node a status LED that blinks a heartbeat on its own, to show locally t
   - the **status LED** on GPIO0, active low;
   - the **reset button** on GPIO34, used for factory reset in spec 09.
 - These pins live in one board header, `node_hal_board.h`. The firmware and the PC config checker (`tools/node_config_check`, which already includes `node_hal/include`) both read it, so a config can never claim them.
-- Config LEDs (`"type": "led"`, specs 07 and 11) are separate. They stay steady on/off actuators in the devices AO, and the gateway switches them over the mesh with Generic OnOff. They do not blink.
+- Config LEDs (`"type": "led"`, specs 07 and 11) are separate. They stay steady on/off actuators in the devices AO, and the gateway switches them over the mesh with `OnOffSet` (spec 11). They do not blink.
 - The status LED is owned by its own small active object, the **status AO** (spec 14), with its own time event. It is not part of the devices AO: it does not come from the config, it publishes nothing, and nothing subscribes to it. Other code switches it with commands posted to the status AO.
 - The status AO starts before the config is loaded, so it works in both normal and safe mode (spec 04).
 - The LED shows one fixed heartbeat: 1 s on, 1 s off, from boot for as long as the app runs, in normal and safe mode. No node state changes it.

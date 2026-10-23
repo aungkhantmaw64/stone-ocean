@@ -5,7 +5,7 @@
  * @brief Test controls for the host implementation of node_mesh_log.c.
  *
  * The mock records the log lines of the node_mesh sources built on the host
- * (the composition plan and the mesh AO) instead of logging them. Lines only
+ * (the mesh AO) instead of logging them. Lines only
  * node_mesh.c logs are not implemented, as node_mesh.c needs ESP-BLE-MESH
  * and is not built on the host. Call node_mesh_log_mock_reset() from every
  * test's setUp() so tests stay independent.
@@ -19,6 +19,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "node_mesh_err.h"
 #include "node_mesh_internal.h"
 
 /* ==========================================================================
@@ -56,28 +57,12 @@ size_t node_mesh_log_mock_prov_complete_count(void);
 node_mesh_log_mock_prov_t node_mesh_log_mock_last_prov_complete(void);
 
 /**
- * @brief Number of "composition hash not stored" lines logged since the
- *        last reset.
- *
- * @return The count.
- */
-size_t node_mesh_log_mock_hash_store_failed_count(void);
-
-/**
  * @brief Number of "node reset by the gateway" lines logged since the last
  *        reset.
  *
  * @return The count.
  */
 size_t node_mesh_log_mock_node_reset_count(void);
-
-/**
- * @brief Number of "mesh metadata erase failed" lines logged since the last
- *        reset.
- *
- * @return The count.
- */
-size_t node_mesh_log_mock_meta_erase_failed_count(void);
 
 /**
  * @brief Number of "mesh event lost" lines logged since the last reset.
@@ -106,3 +91,70 @@ node_mesh_ao_notice_t node_mesh_log_mock_last_notice(void);
  * @return The error; 0 if none was logged.
  */
 int32_t node_mesh_log_mock_last_notice_err(void);
+
+/**
+ * @brief Number of "device event ignored: no such device" lines logged
+ *        since the last reset.
+ *
+ * @return The count.
+ */
+size_t node_mesh_log_mock_unknown_device_count(void);
+
+/**
+ * @brief Number of "in FAULT" and "left FAULT" lines logged since the last
+ *        reset.
+ *
+ * @return The count.
+ */
+size_t node_mesh_log_mock_fault_count(void);
+
+/**
+ * @brief Whether the last FAULT line logged was for entering FAULT.
+ *
+ * @return True if it was; false if it was for leaving, or none was logged.
+ */
+bool node_mesh_log_mock_last_fault(void);
+
+/**
+ * @brief Number of "device status not published" lines logged since the
+ *        last reset.
+ *
+ * @return The count.
+ */
+size_t node_mesh_log_mock_publish_failed_count(void);
+
+/**
+ * @brief Error of the last "device status not published" line.
+ *
+ * @return The error; NODE_MESH_OK if none was logged.
+ */
+node_mesh_err_t node_mesh_log_mock_last_publish_err(void);
+
+/**
+ * @brief Number of "request dropped" lines logged since the last reset.
+ *
+ * @return The count.
+ */
+size_t node_mesh_log_mock_request_dropped_count(void);
+
+/**
+ * @brief Reason of the last "request dropped" line.
+ *
+ * @return The reason; NODE_MESH_MODELS_DROP_TOO_LONG if none was logged.
+ */
+node_mesh_models_drop_t node_mesh_log_mock_last_drop_reason(void);
+
+/**
+ * @brief Number of "reply not sent" lines logged since the last reset.
+ *
+ * @return The count.
+ */
+size_t node_mesh_log_mock_send_failed_count(void);
+
+/**
+ * @brief Number of "on/off not passed to the devices" lines logged since the
+ *        last reset.
+ *
+ * @return The count.
+ */
+size_t node_mesh_log_mock_onoff_not_queued_count(void);

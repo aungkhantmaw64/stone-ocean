@@ -1,6 +1,6 @@
 # 07 — GPIO drivers: PIR & LED
 
-**Status:** in-progress
+**Status:** done
 **Depends on:** 06
 **Target:** ESP32-DevKitC · ESP-IDF v5.x · `firmware/components/node_dev/node_dev_pir.c`, `node_dev_led.c`
 
@@ -10,7 +10,7 @@ Implement the PIR motion-input and LED output drivers as `node_dev_driver_t` plu
 ## Context
 - PIR: event-driven. GPIO edge ISR → `node_dev_post_from_isr` → `on_isr` returns `debounce_ms` → the framework samples after the delay → `NODE_DEV_SIG_MOTION` published with `motion=true/false` when it changes.
 - LED: actuator. `node_dev_set_onoff` → `set_onoff` → GPIO write, then the framework publishes `NODE_DEV_SIG_ONOFF_CHANGED`.
-- The mesh mapping (11) turns these into Sensor Server (Motion Sensed) and Generic OnOff Server.
+- The mesh mapping (11) carries these as `DeviceStatus` (`motion`, `on`) and `OnOffSet` messages of the Stone Ocean vendor model.
 
 ## Hardware details
 - **PIR:** the exact module is not yet chosen. Common modules such as the HC-SR501 output a digital level that stays high for a module-set hold time after motion. Confirm the module's supply voltage and output level against its datasheet. The ESP32 GPIO is 3.3 V and **not 5 V tolerant**. Polarity comes from `active_high`, and pull from `pull`.
@@ -50,7 +50,7 @@ node_dev_err_t node_dev_led_register(void);   /* registers the LED driver (NODE_
 - [x] PIR debounce and polarity behave as specified (host tests).
 - [x] The PIR ISR does no work beyond posting an event.
 - [x] LED honours `default_on` and `active_high`, and emits events only on change (host tests).
-- [ ] On hardware, motion events are logged and the LED's boot state follows `default_on` and `active_high`.
+- [x] On hardware, motion events are logged and the LED's boot state follows `default_on` and `active_high`.
 
 Host tests: `test_node_dev_pir` (14 tests) and `test_node_dev_led` (12 tests) run the real drivers on the framework and mock HAL, and pass under ASan, LSan and UBSan (commit 21adf40). Mutation checks confirmed the tests catch a missing debounce, ignored PIR or LED polarity, a same-state switch that rewrites the pin, and a failed switch recorded as done.
 

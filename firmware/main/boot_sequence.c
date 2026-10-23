@@ -18,6 +18,7 @@
 
 #if CONFIG_NODE_MESH_ENABLE
 #include "node_mesh.h"
+#include "node_mesh_models.h"
 #endif
 
 /* ==========================================================================
@@ -49,6 +50,15 @@ static const char *const TAG = "boot_sequence";
 static void boot_sequence_start_status(void);
 
 /**
+ * @brief Start the mesh models AO, when the build has Bluetooth, in normal
+ *        and safe mode. It goes before the devices AO, so it receives each
+ *        device's first value, and before the mesh, so the vendor model is
+ *        part of the composition (spec 11). In safe mode it has no devices.
+ *        A failure is logged; the boot goes on.
+ */
+static void boot_sequence_start_mesh_models(void);
+
+/**
  * @brief Start the devices AO with the active config, in normal mode only.
  *
  * In safe mode no drivers start. A failure to start is logged.
@@ -78,6 +88,7 @@ void boot_sequence_run(void) {
   node_health_init();
   boot_sequence_start_status();
   config_store_mode_boot();
+  boot_sequence_start_mesh_models();
   boot_sequence_start_devices();
   boot_sequence_start_mesh();
   node_hal_selftest_start();
@@ -98,6 +109,16 @@ static void boot_sequence_start_status(void) {
   if (err != NODE_STATUS_OK) {
     ESP_LOGE(TAG, "could not start the status LED heartbeat: %d", (int)err);
   }
+}
+
+static void boot_sequence_start_mesh_models(void) {
+#if CONFIG_NODE_MESH_ENABLE
+  const node_mesh_err_t err =
+      node_mesh_models_start(config_store_mode_active_config());
+  if (err != NODE_MESH_OK) {
+    ESP_LOGE(TAG, "could not start the mesh models: %d", (int)err);
+  }
+#endif
 }
 
 static void boot_sequence_start_devices(void) {
@@ -128,8 +149,7 @@ static void boot_sequence_register_drivers(void) {
 
 static void boot_sequence_start_mesh(void) {
 #if CONFIG_NODE_MESH_ENABLE
-  const node_mesh_err_t err =
-      node_mesh_start(config_store_mode_active_config());
+  const node_mesh_err_t err = node_mesh_start();
   if (err != NODE_MESH_OK) {
     ESP_LOGE(TAG, "could not start the mesh: %d", (int)err);
   }

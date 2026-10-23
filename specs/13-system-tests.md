@@ -31,7 +31,7 @@ Exercises everything:
     5. `NODE_HEALTH_DEBUG_HANG` build → TWDT reset → `crash_count=1` in the log.
   - **HIL tests:**
     1. Factory-reset A and B, then write their configs with the flashing tool.
-    2. Provision A and B via the gateway. Check composition element counts.
+    2. Provision A and B via the gateway. Check each node's composition (element 0 with the Stone Ocean Node Server) and that its device list matches its config.
     3. SHTC3 `get` on A matches the reading in A's log within tolerance.
     4. `set` LED on/off on A. The Status matches. A's log shows the state.
     5. `listen` receives a periodic SHTC3 report within `max_interval_ms` + 5 s.

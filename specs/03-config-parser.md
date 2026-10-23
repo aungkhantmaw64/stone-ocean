@@ -9,7 +9,7 @@ Define the JSON config format and implement a parser/validator that turns raw JS
 
 ## Context
 - Raw JSON is written into flash by the PC flashing tool (spec 05), which also runs this parser on the PC before writing. Config storage (spec 04) reads it and parses it at boot. In the future it will also arrive over the mesh, so the parser must be transport-agnostic.
-- The driver framework (spec 06) and mesh composition (specs 10, 11) consume `node_config_t`.
+- The driver framework (spec 06) and the mesh models (spec 11) consume `node_config_t`.
 - The parser is pure logic and must build and test on the host.
 
 ## Hardware details
@@ -118,7 +118,7 @@ typedef enum {
 typedef struct { node_config_err_code_t code; char path[NODE_CONFIG_ERR_PATH_LEN]; char msg[NODE_CONFIG_ERR_MSG_LEN]; } node_config_err_t;  /* path e.g. "devices[1].gpio" */
 
 node_config_err_code_t node_config_parse(const char *json, size_t len, node_config_t *out, node_config_err_t *err);
-uint32_t node_config_composition_hash(const node_config_t *cfg); /* hash of device types+order, used by spec 10 */
+/* node_config_composition_hash() was removed by spec 11: the mesh composition no longer depends on the config. */
 ```
 
 ## Behavior & constraints
@@ -149,7 +149,7 @@ uint32_t node_config_composition_hash(const node_config_t *cfg); /* hash of devi
   - Defaults are applied.
   - Oversize input is rejected.
   - Malformed JSON is rejected.
-  - The composition hash changes when device order or type changes, and not when intervals change.
+  - ~~The composition hash changes when device order or type changes, and not when intervals change.~~ Removed with the hash (spec 11).
   
   The PC side runs `python -m jsonschema` (or `check-jsonschema`) against the example.
 - **On hardware:** none needed. Covered via spec 05.
@@ -160,7 +160,7 @@ uint32_t node_config_composition_hash(const node_config_t *cfg); /* hash of devi
 - [x] Every validation rule above has a host test producing the correct error path.
 - [x] Parser builds and runs in the host test build (cJSON vendored or fetched for host).
 - [x] No memory leaks in host tests (run under AddressSanitizer/LeakSanitizer).
-- [x] `node_config_composition_hash` behaves as specified.
+- [x] ~~`node_config_composition_hash` behaves as specified.~~ Superseded by spec 11, which removed the hash.
 
 Verified on the host: `scripts/host_test.sh` runs 80 node_config tests (`test_node_config_parse`, `test_node_config_validate`, `test_node_config_composition`) under ASan, LSan and UBSan, all passing. The example config is embedded in the tests at build time and validated by the `config-schema` CI job, which has not yet run on GitHub (see spec 01).
 

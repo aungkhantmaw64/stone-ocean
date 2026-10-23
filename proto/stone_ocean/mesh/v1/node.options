@@ -1,0 +1,8 @@
+# nanopb options for node.proto: bound every string and repeated field so the
+# generated C structs are fixed-size and need no heap.
+
+# NODE_CONFIG_ID_LEN: 15 bytes of id and the terminating NUL.
+stoneocean.mesh.v1.DeviceInfo.id max_size:16
+
+# NODE_CONFIG_MAX_DEVICES.
+stoneocean.mesh.v1.DeviceList.devices max_count:8
