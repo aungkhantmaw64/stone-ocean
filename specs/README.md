@@ -101,7 +101,7 @@ tools/
 | 13 | [System tests](13-system-tests.md) | all | todo |
 | 14 | [Active object framework](14-active-objects.md) | 02 | in-progress |
 | 15 | [AO publish-subscribe](15-ao-publish-subscribe.md) | 14 | done |
-| 16 | [Status LED](16-status-led.md) | 02, 03, 14 | todo |
+| 16 | [Status LED](16-status-led.md) | 02, 03, 14 | in-progress |
 
 ```
 01 ──► 02 ──────────────┐

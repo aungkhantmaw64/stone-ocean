@@ -1,6 +1,6 @@
 # 16 — Status LED
 
-**Status:** todo
+**Status:** in-progress
 **Depends on:** 02, 03, 14
 **Target:** custom ESP32 WROVER board · ESP-IDF v5.x · `firmware/components/node_status`, `node_hal/include/node_hal_board.h`, `node_config/node_config_validate.c`
 
@@ -21,7 +21,7 @@ Give the node a status LED it can blink on its own, to show its state locally. T
 - **Status LED:** LED and series resistor from 3.3 V to GPIO0. Driving GPIO0 low lights it.
 - GPIO0 is a strapping pin: low at reset enters download mode. The active-low wiring never pulls GPIO0 low, and the pin is an input with a pull-up until the status AO configures it, so the LED is off from reset until then.
 - Size the resistor so the pin's sink current stays well within the ESP32 GPIO drive limits (datasheet).
-- **Reset button:** GPIO34. It is listed here only so the config validator can reserve it; spec 09 uses it.
+- **Reset button:** GPIO34, input-only, with an external pull-up on the board; a press pulls it low. It is listed here only so the config validator can reserve it; spec 09 uses it.
 
 ## Scope
 - In scope:
