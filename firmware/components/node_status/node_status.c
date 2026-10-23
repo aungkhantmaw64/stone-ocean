@@ -26,8 +26,10 @@
  *         an indicator can wait. */
 #define NODE_STATUS_AO_PRIORITY 4
 
-/** @brief Stack size of the status AO's thread, in bytes (spec 16). */
-#define NODE_STATUS_AO_STACK_BYTES 2048
+/** @brief Stack size of the status AO's thread, in bytes (spec 16). Measured
+ *         peak on the ESP32 is about 2.1 KB, nearly all of it ESP_LOG's
+ *         formatting. */
+#define NODE_STATUS_AO_STACK_BYTES 3072
 
 /** @brief Events the status AO's queue holds (spec 16). */
 #define NODE_STATUS_AO_QUEUE_LEN 4

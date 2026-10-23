@@ -77,7 +77,7 @@ node_status_err_t node_status_led_blink(uint16_t on_ms, uint16_t off_ms); /* any
 - **Config validation:**
   - A config that uses GPIO0 or GPIO34 for any pin (I2C, PIR, LED) is rejected with `NODE_CONFIG_ERR_PIN`, with messages `GPIO 0 is used by the status LED` and `GPIO 34 is used by the reset button`. The node then boots in safe mode, as for any invalid config (spec 04).
   - The JSON schema's `gpio_input` excludes 0 and 34, and its description says why.
-- **Resources:** one AO with a 2 KB stack, a queue of 4 events and one time event. Its priority is below the devices AO. No dynamic allocation.
+- **Resources:** one AO with a 3 KB stack (measured peak on the ESP32 about 2.1 KB, nearly all of it logging), a queue of 4 events and one time event. Its priority is below the devices AO. No dynamic allocation.
 
 ## Verification
 - **Simulation/host:** Unity tests on the mock HAL and the host AO port with virtual time:
