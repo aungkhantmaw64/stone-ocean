@@ -15,7 +15,7 @@ Each spec below is one implementation chunk. Implement them in order and respect
 
 ### Hardware
 - 2+ **custom ESP32 boards** (classic ESP32, BLE 4.2) with a **WROVER** module (16 MB flash, 8 MB PSRAM), programmed and logged over USB serial only. No JTAG. PSRAM occupies GPIO 16/17. Early specs were brought up on an ESP32-DevKitC with the same module.
-- **Status LED** on GPIO0, active low, fixed on the board (spec 16). Not a config device and not on the mesh.
+- **Status LED** on GPIO0, active low, fixed on the board (spec 16). Blinks a 1 s on / 1 s off heartbeat while the app runs. Not a config device and not on the mesh.
 - **Reset button** on GPIO34, fixed on the board (spec 09).
 - **SHTC3** temperature/humidity sensor (I2C).
 - **PIR** motion sensor (digital GPIO input). The exact module is not yet chosen.

@@ -5,7 +5,7 @@
 **Target:** custom ESP32 WROVER board · ESP-IDF v5.x · `firmware/components/node_status`, `node_hal/include/node_hal_board.h`, `node_config/node_config_validate.c`
 
 ## Goal
-Give the node a status LED it can blink on its own, to show its state locally. The LED is part of the board, not of the config: it is always on GPIO0, it is never a configured device and it is never exposed to the mesh.
+Give the node a status LED that blinks a heartbeat on its own, to show locally that the app is running. The LED is part of the board, not of the config: it is always on GPIO0, it is never a configured device and it is never exposed to the mesh.
 
 ## Context
 - The node runs on a custom board with a classic ESP32 WROVER module. The board has two fixed parts the firmware must know about without a config:
@@ -15,7 +15,7 @@ Give the node a status LED it can blink on its own, to show its state locally. T
 - Config LEDs (`"type": "led"`, specs 07 and 11) are separate. They stay steady on/off actuators in the devices AO, and the gateway switches them over the mesh with Generic OnOff. They do not blink.
 - The status LED is owned by its own small active object, the **status AO** (spec 14), with its own time event. It is not part of the devices AO: it does not come from the config, it publishes nothing, and nothing subscribes to it. Other code switches it with commands posted to the status AO.
 - The status AO starts before the config is loaded, so it works in both normal and safe mode (spec 04).
-- Callers are later specs, for example safe mode, factory reset (09) and provisioning (10). Which state shows which pattern is decided there.
+- The LED shows one fixed heartbeat: 1 s on, 1 s off, from boot for as long as the app runs, in normal and safe mode. No node state changes it.
 
 ## Hardware details
 - **Status LED:** LED and series resistor from 3.3 V to GPIO0. Driving GPIO0 low lights it.
@@ -28,10 +28,11 @@ Give the node a status LED it can blink on its own, to show its state locally. T
   - `node_hal_board.h`: the board's fixed pins and their polarity.
   - The status AO in a new `node_status` component: steady on, steady off, and blinking with separate on and off times.
   - Starting the status AO from `boot_sequence_run()`, before `config_store_mode_boot()`.
+  - Starting the heartbeat (`node_status_led_blink(1000, 1000)`) from `boot_sequence_run()` right after `node_status_start()`.
   - The config validator and the JSON schema reject GPIO0 and GPIO34.
   - The HAL self-test's default button pin (`CONFIG_NODE_HAL_SELFTEST_BUTTON_GPIO`) moves from 0 to 34, as GPIO0 is now an output.
 - Out of scope:
-  - Which node states show which pattern (later specs).
+  - Showing node states on the LED; the heartbeat never changes.
   - Patterns beyond on and off times (double flashes, counted blinks), PWM fading.
   - Any change to the devices AO, config LEDs or the mesh mapping.
 
@@ -84,18 +85,15 @@ node_status_err_t node_status_led_blink(uint16_t on_ms, uint16_t off_ms); /* any
   - `test_node_status`: the pin is configured as an output and driven off at start; on and off with active-low levels; pin levels over several periods with unequal on and off times; a new blink restarts with the on phase; on or off ends blinking; argument checks, start twice, commands before start and a full queue; pin setup failure ignores later commands; write failures are logged once per failure streak; mode changes are logged and toggles are not.
   - `test_node_config_validate`: GPIO0 and GPIO34 are rejected for every pin field with the messages above. The strapping-pin test drops GPIO0 and the input-only test drops GPIO34.
   - `tools/tests`: the schema rejects GPIO0 and GPIO34.
-- **QEMU:** a boot logs the status AO starting, and a config that uses GPIO0 boots in safe mode with the validation error.
-- **On hardware:** call `node_status_led_blink(500, 500)` from a temporary call in `boot_sequence.c` (not committed). The LED blinks at about 1 Hz. Power-cycle the board several times: it always boots normally, never into download mode.
+- **QEMU:** a boot logs the status AO starting and `status led: blink 1000/1000`, in normal mode and in safe mode, and a config that uses GPIO0 boots in safe mode with the validation error.
+- **On hardware:** after every boot the LED blinks 1 s on, 1 s off. Power-cycle the board several times: it always boots normally, never into download mode.
 
 ## Acceptance criteria
 - [x] The status AO drives GPIO0 active low: on, off and blinking with the requested times (host tests).
 - [x] The status commands are safe from any task, never block and reject bad arguments.
-- [x] The status AO starts before the config is loaded, and works in normal and safe mode.
+- [x] The status AO starts before the config is loaded, and blinks the heartbeat in normal and safe mode.
 - [x] A config that uses GPIO0 or GPIO34 is rejected by the firmware, the PC checker and the schema.
 - [x] The status LED publishes no events and is invisible to the devices AO and the mesh.
-- [ ] On hardware, the LED blinks visibly and the board always boots normally.
+- [ ] On hardware, the LED blinks 1 s on, 1 s off from boot, and the board always boots normally.
 
-Host tests: `test_node_status` (23 tests), the board-pin tests in `test_node_config_validate`, a PC-checker CTest and two schema tests in `tools/tests` pass under ASan, LSan and UBSan. QEMU boots log the status AO starting in normal mode, in safe mode with no config, and in safe mode for a config with the PIR on GPIO 0 (`devices[1].gpio: GPIO 0 is used by the status LED`). The hardware criterion is still open.
-
-## Open questions
-- Which node states show which pattern. To be decided by the specs that report them (safe mode, factory reset, provisioning).
+Host tests: `test_node_status` (23 tests), the board-pin tests in `test_node_config_validate`, a PC-checker CTest and two schema tests in `tools/tests` pass under ASan, LSan and UBSan. QEMU boots log the status AO starting and `status led: blink 1000/1000` in normal mode, in safe mode with no config, and in safe mode for a config with the PIR on GPIO 0 (`devices[1].gpio: GPIO 0 is used by the status LED`). The hardware criterion is still open.
