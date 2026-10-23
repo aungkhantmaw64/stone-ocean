@@ -7,8 +7,9 @@
 
 Config-driven BLE mesh node firmware for the ESP32-DevKitC. A JSON config
 stored in flash says which sensors and actuators are attached. See
-[`specs/README.md`](specs/README.md) for requirements, architecture and the
-implementation plan.
+[`docs/README.md`](docs/README.md) for how the system is designed, and
+[`specs/README.md`](specs/README.md) for requirements and the implementation
+plan.
 
 ## Toolchain
 
