@@ -3,10 +3,12 @@
  * ========================================================================== */
 
 #include "node_dev_shtc3.h"
+#include "node_dev_shtc3_internal.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "node_config.h"
 #include "node_dev.h"
@@ -272,6 +274,10 @@ node_dev_err_t node_dev_shtc3_register(void) {
       .on_isr = NULL,
   };
   return node_dev_register_driver(&driver);
+}
+
+void node_dev_shtc3_reset(void) {
+  (void)memset(g_shtc3_states, 0, sizeof(g_shtc3_states));
 }
 
 uint8_t node_dev_shtc3_crc8(const uint8_t *data, size_t len) {
