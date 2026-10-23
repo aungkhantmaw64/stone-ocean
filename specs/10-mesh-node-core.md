@@ -75,6 +75,7 @@ void mesh_node_set_models_builder(mesh_models_builder_t builder);
 - [ ] Composition = primary element + one element per device, in config order (host test + boot log).
 - [ ] Composition-hash mismatch is detected and logged as specified.
 - [ ] Relay is enabled, and free heap after start is ≥ 40 KB (logged).
+- [ ] The hardware build, with the mesh code linked in, fits the factory app partition with ≥ 15% headroom (check with `idf.py size`). Moved here from spec 01, where nothing called the mesh code yet, so the linker dropped it.
 
 ## Open questions
 - Should Mesh 1.1 (Remote Provisioning / Composition Data Page 128 refresh) be adopted later to avoid reprovisioning on config change? This depends on the ESP-IDF and BlueZ versions in use.
