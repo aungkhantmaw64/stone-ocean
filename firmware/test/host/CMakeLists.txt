@@ -282,3 +282,9 @@ add_config_checker_test(
   test_config_using_a_flash_pin_is_rejected_by_the_pc_config_checker_with_its_path
   ${CMAKE_CURRENT_SOURCE_DIR}/configs/config_with_a_flash_pin.json 1
   "devices\\[0\\]\\.gpio: GPIO 7 is used by the flash")
+
+# AC: specs/16-status-led.md #4
+add_config_checker_test(
+  test_config_using_the_status_led_pin_is_rejected_by_the_pc_config_checker
+  ${CMAKE_CURRENT_SOURCE_DIR}/configs/config_with_the_status_led_pin.json 1
+  "devices\\[0\\]\\.gpio: GPIO 0 is used by the status LED")

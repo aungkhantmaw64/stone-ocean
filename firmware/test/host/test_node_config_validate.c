@@ -20,6 +20,12 @@
 /** @brief Number of elements in a fixed-size array. */
 #define COUNT_OF(array) (sizeof(array) / sizeof((array)[0]))
 
+/** @brief GPIO of the board's status LED (spec 16). */
+#define STATUS_LED_PIN 0
+
+/** @brief GPIO of the board's reset button (spec 16). */
+#define RESET_BUTTON_PIN 34
+
 /** @brief A second I2C bus on port 0, which "i2c0" already uses. */
 #define SECOND_BUS_ON_PORT_0 \
   "{\"id\":\"i2c1\",\"port\":0,\"sda\":18,\"scl\":19,\"freq_hz\":100000}"
@@ -127,6 +133,17 @@ static void assert_rejected(node_config_err_code_t code,
  */
 static void assert_led_pins_rejected(const int *pins, size_t n_pins,
                                      const char *reason);
+
+/**
+ * @brief Check that @p pin is rejected in every pin field (LED, motion sensor,
+ *        I2C data and clock) with the message
+ *        "<path>: GPIO <pin> is used by <owner>".
+ *
+ * @param pin   GPIO number the board reserves.
+ * @param owner Board part that uses the pin, for example "the status LED".
+ */
+static void assert_board_pin_rejected_in_every_field(int pin,
+                                                     const char *owner);
 
 /* ==========================================================================
  * PUBLIC FUNCTIONS
@@ -322,6 +339,21 @@ void test_strapping_pin_is_accepted_with_a_warning(void) {
   }
 }
 
+/* ---- Rejecting the board's pins ---- */
+
+/* AC: specs/16-status-led.md #4 */
+void test_config_using_the_status_led_pin_is_rejected_for_every_pin_field(
+    void) {
+  assert_board_pin_rejected_in_every_field(STATUS_LED_PIN, "the status LED");
+}
+
+/* AC: specs/16-status-led.md #4 */
+void test_config_using_the_reset_button_pin_is_rejected_for_every_pin_field(
+    void) {
+  assert_board_pin_rejected_in_every_field(RESET_BUTTON_PIN,
+                                           "the reset button");
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_two_devices_with_the_same_id_are_rejected);
@@ -347,6 +379,10 @@ int main(void) {
       test_motion_sensor_on_an_input_only_gpio_is_rejected_with_a_pull_resistor);
   RUN_TEST(test_every_usable_gpio_is_accepted_for_an_led);
   RUN_TEST(test_strapping_pin_is_accepted_with_a_warning);
+  RUN_TEST(
+      test_config_using_the_status_led_pin_is_rejected_for_every_pin_field);
+  RUN_TEST(
+      test_config_using_the_reset_button_pin_is_rejected_for_every_pin_field);
   return UNITY_END();
 }
 
@@ -416,6 +452,37 @@ static void assert_led_pins_rejected(const int *pins, size_t n_pins,
                    "devices[0].gpio: GPIO %d %s", pins[i], reason);
 
     node_config_err_code_t code = parse_led_on(pins[i]);
+
+    TEST_ASSERT_EQUAL_INT_MESSAGE(NODE_CONFIG_ERR_PIN, code, expected_msg);
+    TEST_ASSERT_EQUAL_STRING(expected_msg, g_err.msg);
+  }
+}
+
+static void assert_board_pin_rejected_in_every_field(int pin,
+                                                     const char *owner) {
+  const char *const paths[] = {"devices[0].gpio", "devices[0].gpio",
+                               "i2c_buses[0].sda", "i2c_buses[0].scl"};
+  for (size_t field = 0; field < COUNT_OF(paths); field++) {
+    char expected_msg[TEXT_LEN] = {0};
+    (void)snprintf(expected_msg, sizeof(expected_msg),
+                   "%s: GPIO %d is used by %s", paths[field], pin, owner);
+
+    /* The other I2C line is on a free pin, so only @p pin can be blamed. */
+    node_config_err_code_t code = NODE_CONFIG_OK;
+    switch (field) {
+      case 0:
+        code = parse_led_on(pin);
+        break;
+      case 1:
+        code = parse_motion_sensor_on(pin, "none");
+        break;
+      case 2:
+        code = parse_bus_on(pin, 22);
+        break;
+      default:
+        code = parse_bus_on(21, pin);
+        break;
+    }
 
     TEST_ASSERT_EQUAL_INT_MESSAGE(NODE_CONFIG_ERR_PIN, code, expected_msg);
     TEST_ASSERT_EQUAL_STRING(expected_msg, g_err.msg);
