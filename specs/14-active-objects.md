@@ -1,6 +1,6 @@
 # 14 — Active object framework
 
-**Status:** in-progress
+**Status:** done
 **Depends on:** 02
 **Target:** ESP32 · ESP-IDF v5.x / FreeRTOS · `firmware/components/node_ao`
 
@@ -95,7 +95,7 @@ Host-only helpers, declared in `node_ao_port_mock.h`:
 - [x] One-shot and periodic time events fire on virtual time, survive the millisecond wrap-around and never burst (host tests).
 - [x] The public header compiles in the ESP-IDF and host builds with no FreeRTOS or ESP-IDF includes.
 - [x] The HAL self-test runs as an AO, and no firmware code creates a plain FreeRTOS task or timer.
-- [ ] On hardware, the self-test log output is unchanged.
+- [x] On hardware, the self-test log output is unchanged.
 
 Host tests: `test_node_ao` (15 tests) and `test_node_ao_time` (16 tests) pass under ASan, LSan and UBSan (commit 33e19fc). The FreeRTOS port is the only `xTaskCreate` in the firmware.
 

@@ -92,14 +92,14 @@ tools/
 | 04 | [Config storage](04-config-storage.md) | 03 | done |
 | 05 | [PC config flashing tool](05-config-flash-tool.md) | 04 | done |
 | 06 | [Driver framework](06-driver-framework.md) | 02, 03, 14, 15 | done |
-| 07 | [GPIO drivers: PIR & LED](07-gpio-drivers.md) | 06 | in-progress |
+| 07 | [GPIO drivers: PIR & LED](07-gpio-drivers.md) | 06 | done |
 | 08 | [SHTC3 driver](08-shtc3-driver.md) | 06 | done |
 | 09 | [Watchdog, reset reason & factory reset](09-health-factory-reset.md) | 02, 04, 05 | done |
-| 10 | [Mesh node core](10-mesh-node-core.md) | 03, 09 | in-progress |
 | 11 | [Mesh model mapping](11-mesh-model-mapping.md) | 06, 07, 08, 10 | todo |
+| 10 | [Mesh node core](10-mesh-node-core.md) | 03, 09 | done |
 | 12 | [PC gateway script (BlueZ)](12-pc-gateway-script.md) | 10, 11 | todo |
 | 13 | [System tests](13-system-tests.md) | all | todo |
-| 14 | [Active object framework](14-active-objects.md) | 02 | in-progress |
+| 14 | [Active object framework](14-active-objects.md) | 02 | done |
 | 15 | [AO publish-subscribe](15-ao-publish-subscribe.md) | 14 | done |
 | 16 | [Status LED](16-status-led.md) | 02, 03, 14 | done |
 

@@ -1,6 +1,6 @@
 # 10 — Mesh node core
 
-**Status:** in-progress
+**Status:** done
 **Depends on:** 03, 09
 **Target:** custom ESP32 WROVER board · ESP-IDF v5.4.4 ESP-BLE-MESH (Bluedroid) · `firmware/components/node_mesh`
 
@@ -85,9 +85,9 @@ node_mesh_err_t node_mesh_set_models_builder(node_mesh_models_builder_t builder)
 ## Acceptance criteria
 - [x] Node beacons unprovisioned with a stable, MAC-derived UUID.
 - [x] BlueZ `bluetooth-meshd` can provision it over PB-ADV, and the log shows it provisioned, with its address.
-- [ ] Provisioning survives reboot. Factory reset (both triggers) clears it.
+- [x] Provisioning survives reboot. Factory reset (both triggers) clears it.
 - [x] Composition = primary element + one element per device, in config order (host test + boot log).
-- [ ] Composition-hash mismatch is detected and logged as specified.
+- [x] Composition-hash mismatch is detected and logged as specified.
 - [x] Relay is enabled, and free internal heap after start is ≥ 40 KB (logged).
 - [x] The hardware build, with the mesh code linked in, fits the factory app partition with ≥ 15% headroom (check with `idf.py size`). Moved here from spec 01, where nothing called the mesh code yet, so the linker dropped it.
 

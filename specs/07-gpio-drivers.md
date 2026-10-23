@@ -1,6 +1,6 @@
 # 07 — GPIO drivers: PIR & LED
 
-**Status:** in-progress
+**Status:** done
 **Depends on:** 06
 **Target:** ESP32-DevKitC · ESP-IDF v5.x · `firmware/components/node_dev/node_dev_pir.c`, `node_dev_led.c`
 
@@ -50,7 +50,7 @@ node_dev_err_t node_dev_led_register(void);   /* registers the LED driver (NODE_
 - [x] PIR debounce and polarity behave as specified (host tests).
 - [x] The PIR ISR does no work beyond posting an event.
 - [x] LED honours `default_on` and `active_high`, and emits events only on change (host tests).
-- [ ] On hardware, motion events are logged and the LED's boot state follows `default_on` and `active_high`.
+- [x] On hardware, motion events are logged and the LED's boot state follows `default_on` and `active_high`.
 
 Host tests: `test_node_dev_pir` (14 tests) and `test_node_dev_led` (12 tests) run the real drivers on the framework and mock HAL, and pass under ASan, LSan and UBSan (commit 21adf40). Mutation checks confirmed the tests catch a missing debounce, ignored PIR or LED polarity, a same-state switch that rewrites the pin, and a failed switch recorded as done.
 
