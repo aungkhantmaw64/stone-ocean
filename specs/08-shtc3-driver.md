@@ -1,6 +1,6 @@
 # 08 — SHTC3 driver
 
-**Status:** todo
+**Status:** in-progress
 **Depends on:** 06
 **Target:** ESP32-DevKitC · ESP-IDF v5.x · `firmware/components/node_dev/node_dev_shtc3.c`
 
@@ -13,7 +13,7 @@ Implement the Sensirion SHTC3 temperature/humidity driver as a `node_dev_driver_
 - The mesh layer (11) exposes the readings as Sensor Server properties.
 
 ## Hardware details
-**All values below must be confirmed against the Sensirion SHTC3 datasheet before implementing.**
+Values below are confirmed against the Sensirion SHTC3 datasheet.
 - I2C 7-bit address **0x70** (fixed). Supports standard (100 kHz) and fast mode (400 kHz).
 - Supply 1.62–3.6 V. Power it from the DevKitC 3V3 pin. Pull-ups on SDA/SCL are required, either on the breakout or external.
 - 16-bit commands, sent MSB first:
@@ -22,14 +22,17 @@ Implement the Sensirion SHTC3 temperature/humidity driver as a `node_dev_driver_
   - Soft reset `0x805D`
   - Read ID `0xEFC8`
   - Measure, normal mode, T first, clock stretching disabled: `0x7866`
-- Each 16-bit data word is followed by a CRC-8 (polynomial 0x31, init 0xFF).
+- Each 16-bit data word is followed by a CRC-8 (polynomial 0x31, init 0xFF). Datasheet example: CRC of `0xBE 0xEF` is `0x92`.
+- A measurement with `0x7866` returns 6 bytes: T MSB, T LSB, CRC, RH MSB, RH LSB, CRC.
+- Read ID returns 3 bytes: the ID word, then its CRC. Bits 11 and 5:0 hold the product code: `(id & 0x083F) == 0x0807` for an SHTC3.
 - Conversion: `T[°C] = -45 + 175 * S_T / 65536`, `RH[%] = 100 * S_RH / 65536`.
-- Timing: wake-up time and max measurement time are in the datasheet. Poll (with no clock stretching) or wait the datasheet's max measurement time before reading.
+- Timing: wake-up time max 240 µs, soft reset time max 240 µs, measurement time in normal mode max 12.1 ms. The driver busy-waits the 240 µs times with `node_hal_time_busy_wait_us()` (spec 02) and waits 13 ms (12.1 ms rounded up) before reading a measurement.
+- While asleep, the sensor accepts only the Wakeup command.
 
 ## Scope
 - In scope:
-  - Init: soft reset, read ID and verify it (log the ID).
-  - Sample, in two non-blocking steps: wakeup → measure, then return `NODE_DEV_PENDING` with `again_ms` set to the datasheet's max measurement time; on the next call read 6 bytes → verify CRCs → convert → sleep.
+  - Init: wakeup → wait → soft reset → wait → read ID, check its CRC and product code, log it → sleep. The I2C device is added once per device index and reused by init retries, since the HAL cannot remove a device.
+  - Sample, in two non-blocking steps: wakeup → wait → measure, then return `NODE_DEV_PENDING` with `again_ms` = 13; on the next call read 6 bytes → verify CRCs → convert → sleep.
   - CRC-8 helper.
 - Out of scope: low-power measurement mode, clock-stretching mode.
 
@@ -69,4 +72,4 @@ float   node_dev_shtc3_raw_to_rh_pct(uint16_t raw);
 - [ ] On hardware, plausible readings appear and the fault/recovery path works.
 
 ## Open questions
-- Verify all command codes, timings and the CRC test vector against the current SHTC3 datasheet revision.
+- None. Resolved: command codes, timings, CRC test vector and the ID product code were confirmed against the datasheet.

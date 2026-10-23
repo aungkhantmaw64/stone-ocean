@@ -25,6 +25,14 @@ extern "C" {
 #endif
 
 /* ==========================================================================
+ * MACROS
+ * ========================================================================== */
+
+/** @brief Longest wait node_hal_time_busy_wait_us() accepts, in µs. Longer
+ *         waits must yield, so they belong in a time event. */
+#define NODE_HAL_TIME_BUSY_WAIT_MAX_US 1000U
+
+/* ==========================================================================
  * TYPES
  * ========================================================================== */
 
@@ -226,6 +234,19 @@ uint32_t node_hal_time_ms(void);
  * @param ms Delay in ms.
  */
 void node_hal_time_delay_ms(uint32_t ms);
+
+/**
+ * @brief Spin for at least @p us microseconds without yielding the CPU.
+ *
+ * For the short waits a device needs between bus transfers, such as a
+ * sensor's wake-up time, where node_hal_time_delay_ms() would block for a
+ * whole tick. Allowed in an active object's dispatch, like a bus transfer.
+ *
+ * @param us Wait in µs, at most NODE_HAL_TIME_BUSY_WAIT_MAX_US.
+ * @return NODE_HAL_OK, or NODE_HAL_ERR_ARG if @p us is too long; nothing is
+ *         waited then.
+ */
+node_hal_err_t node_hal_time_busy_wait_us(uint32_t us);
 
 #ifdef __cplusplus
 }
