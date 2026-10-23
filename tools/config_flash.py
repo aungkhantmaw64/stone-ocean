@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Check, write, read and erase the node config from a PC (specs/05-config-flash-tool.md).
+"""Check, write, read and erase the node config, and factory-reset the node, from a PC
+(specs/05-config-flash-tool.md, specs/09-health-factory-reset.md).
 
 The config is written straight into the node's `config` flash partition, so
 the firmware needs no code to receive it. Before anything is written, the
@@ -10,10 +11,14 @@ parser, built for the PC as tools/node_config_check.
     tools/config_flash.py --port /dev/ttyUSB0 write configs/example-shtc3-pir-led.json
     tools/config_flash.py --port /dev/ttyUSB0 read [--output FILE]
     tools/config_flash.py --port /dev/ttyUSB0 erase
-    tools/config_flash.py --flash-image firmware/build-qemu/qemu_flash_persistent.bin write|read|erase
+    tools/config_flash.py --port /dev/ttyUSB0 factory-reset
+    tools/config_flash.py --flash-image firmware/build-qemu/qemu_flash_persistent.bin write|read|erase|factory-reset
 
-Only the `config` partition is ever written or erased; it is found in the
-partition table on the target itself. With --port, esptool resets the node
+`write` and `erase` touch only the `config` partition. `factory-reset` erases
+the `config` and `nvs` partitions: the config, the mesh state and the crash
+counter. The firmware's factory-reset hooks do not run; the node boots
+unprovisioned in safe mode. Partitions are found in the partition table on
+the target itself. With --port, esptool resets the node
 into its bootloader for each access and resets it again afterwards.
 
 Exit codes: 0 success, 1 invalid config, 2 usage error, 3 the target could
@@ -34,7 +39,7 @@ from jsonschema.exceptions import best_match
 from config_format import CONFIG_MAX_RAW_LEN, ConfigFormatError
 from config_partition import (PARTITION_TABLE_LEN, PARTITION_TABLE_OFFSET, ConfigNotFoundError,
                               Partition, PartitionTableError, build_config_image,
-                              extract_config, find_config_partition)
+                              extract_config, find_config_partition, find_nvs_partition)
 
 EXIT_OK = 0
 EXIT_INVALID = 1
@@ -237,13 +242,18 @@ def make_target(args: argparse.Namespace):
     raise UsageError(f"{args.command} needs --port or --flash-image")
 
 
-def config_partition_of(target) -> Partition:
-    """Return the config partition from the partition table on target."""
+def partition_of(target, find) -> Partition:
+    """Return the partition that find() picks from the partition table on target."""
     table = target.read(PARTITION_TABLE_OFFSET, PARTITION_TABLE_LEN)
     try:
-        return find_config_partition(table)
+        return find(table)
     except PartitionTableError as error:
         raise TargetError(f"{target}: {error}") from error
+
+
+def config_partition_of(target) -> Partition:
+    """Return the config partition from the partition table on target."""
+    return partition_of(target, find_config_partition)
 
 
 def command_check(args: argparse.Namespace) -> int:
@@ -293,6 +303,17 @@ def command_erase(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def command_factory_reset(args: argparse.Namespace) -> int:
+    """`factory-reset`: erase the config and nvs partitions; the node boots unprovisioned."""
+    target = make_target(args)
+    config = config_partition_of(target)
+    nvs = partition_of(target, find_nvs_partition)
+    target.erase(config.offset, config.size)
+    target.erase(nvs.offset, nvs.size)
+    print(f"factory reset on {target}: config and nvs erased")
+    return EXIT_OK
+
+
 def parse_args(argv: list) -> argparse.Namespace:
     """Parse the command line; argparse exits with EXIT_USAGE on a bad one."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -319,6 +340,10 @@ def parse_args(argv: list) -> argparse.Namespace:
 
     erase = commands.add_parser("erase", help="erase the config stored on the target")
     erase.set_defaults(run=command_erase)
+
+    factory_reset = commands.add_parser(
+        "factory-reset", help="erase the config, the mesh state and the crash counter")
+    factory_reset.set_defaults(run=command_factory_reset)
 
     return parser.parse_args(argv)
 
