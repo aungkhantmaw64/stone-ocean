@@ -88,12 +88,14 @@ node_status_err_t node_status_led_blink(uint16_t on_ms, uint16_t off_ms); /* any
 - **On hardware:** call `node_status_led_blink(500, 500)` from a temporary call in `boot_sequence.c` (not committed). The LED blinks at about 1 Hz. Power-cycle the board several times: it always boots normally, never into download mode.
 
 ## Acceptance criteria
-- [ ] The status AO drives GPIO0 active low: on, off and blinking with the requested times (host tests).
-- [ ] The status commands are safe from any task, never block and reject bad arguments.
-- [ ] The status AO starts before the config is loaded, and works in normal and safe mode.
-- [ ] A config that uses GPIO0 or GPIO34 is rejected by the firmware, the PC checker and the schema.
-- [ ] The status LED publishes no events and is invisible to the devices AO and the mesh.
+- [x] The status AO drives GPIO0 active low: on, off and blinking with the requested times (host tests).
+- [x] The status commands are safe from any task, never block and reject bad arguments.
+- [x] The status AO starts before the config is loaded, and works in normal and safe mode.
+- [x] A config that uses GPIO0 or GPIO34 is rejected by the firmware, the PC checker and the schema.
+- [x] The status LED publishes no events and is invisible to the devices AO and the mesh.
 - [ ] On hardware, the LED blinks visibly and the board always boots normally.
+
+Host tests: `test_node_status` (23 tests), the board-pin tests in `test_node_config_validate`, a PC-checker CTest and two schema tests in `tools/tests` pass under ASan, LSan and UBSan. QEMU boots log the status AO starting in normal mode, in safe mode with no config, and in safe mode for a config with the PIR on GPIO 0 (`devices[1].gpio: GPIO 0 is used by the status LED`). The hardware criterion is still open.
 
 ## Open questions
 - Which node states show which pattern. To be decided by the specs that report them (safe mode, factory reset, provisioning).
