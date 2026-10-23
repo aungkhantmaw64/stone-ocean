@@ -1,6 +1,6 @@
 # 08 — SHTC3 driver
 
-**Status:** todo
+**Status:** done
 **Depends on:** 06
 **Target:** ESP32-DevKitC · ESP-IDF v5.x · `firmware/components/node_dev/node_dev_shtc3.c`
 
@@ -13,7 +13,7 @@ Implement the Sensirion SHTC3 temperature/humidity driver as a `node_dev_driver_
 - The mesh layer (11) exposes the readings as Sensor Server properties.
 
 ## Hardware details
-**All values below must be confirmed against the Sensirion SHTC3 datasheet before implementing.**
+Values below are confirmed against the Sensirion SHTC3 datasheet.
 - I2C 7-bit address **0x70** (fixed). Supports standard (100 kHz) and fast mode (400 kHz).
 - Supply 1.62–3.6 V. Power it from the DevKitC 3V3 pin. Pull-ups on SDA/SCL are required, either on the breakout or external.
 - 16-bit commands, sent MSB first:
@@ -22,14 +22,17 @@ Implement the Sensirion SHTC3 temperature/humidity driver as a `node_dev_driver_
   - Soft reset `0x805D`
   - Read ID `0xEFC8`
   - Measure, normal mode, T first, clock stretching disabled: `0x7866`
-- Each 16-bit data word is followed by a CRC-8 (polynomial 0x31, init 0xFF).
+- Each 16-bit data word is followed by a CRC-8 (polynomial 0x31, init 0xFF). Datasheet example: CRC of `0xBE 0xEF` is `0x92`.
+- A measurement with `0x7866` returns 6 bytes: T MSB, T LSB, CRC, RH MSB, RH LSB, CRC.
+- Read ID returns 3 bytes: the ID word, then its CRC. Bits 11 and 5:0 hold the product code: `(id & 0x083F) == 0x0807` for an SHTC3.
 - Conversion: `T[°C] = -45 + 175 * S_T / 65536`, `RH[%] = 100 * S_RH / 65536`.
-- Timing: wake-up time and max measurement time are in the datasheet. Poll (with no clock stretching) or wait the datasheet's max measurement time before reading.
+- Timing: wake-up time max 240 µs, soft reset time max 240 µs, measurement time in normal mode max 12.1 ms. The HAL's delays and the AO time events count whole ms, so the driver gives the sensor 1 ms for each 240 µs time and 13 ms (12.1 ms rounded up) before reading a measurement. Init waits with `node_hal_time_delay_ms()` (spec 06), which on the target is a task delay of up to two 10 ms ticks; sampling waits with `NODE_DEV_PENDING`.
+- While asleep, the sensor accepts only the Wakeup command.
 
 ## Scope
 - In scope:
-  - Init: soft reset, read ID and verify it (log the ID).
-  - Sample, in two non-blocking steps: wakeup → measure, then return `NODE_DEV_PENDING` with `again_ms` set to the datasheet's max measurement time; on the next call read 6 bytes → verify CRCs → convert → sleep.
+  - Init: wakeup → wait → soft reset → wait → read ID, check its CRC and product code, log it → sleep. The I2C device is added once per device index and reused by init retries, since the HAL cannot remove a device.
+  - Sample, in three non-blocking steps: wakeup, then return `NODE_DEV_PENDING` with `again_ms` = 1; measure, then return `NODE_DEV_PENDING` with `again_ms` = 13; read 6 bytes → verify CRCs → convert → sleep.
   - CRC-8 helper.
 - Out of scope: low-power measurement mode, clock-stretching mode.
 
@@ -62,11 +65,15 @@ float   node_dev_shtc3_raw_to_rh_pct(uint16_t raw);
   - Unplugging it leads to a fault after 3 samples. Replugging recovers it within 30 s.
 
 ## Acceptance criteria
-- [ ] CRC-8 and conversion functions pass known-answer tests from the datasheet.
-- [ ] The sample transaction matches the datasheet command sequence (host test with the scripted mock).
-- [ ] Bad CRC and I2C errors never produce a reading.
-- [ ] Driver registers and instantiates from config. The ID is read and logged at init.
-- [ ] On hardware, plausible readings appear and the fault/recovery path works.
+- [x] CRC-8 and conversion functions pass known-answer tests from the datasheet.
+- [x] The sample transaction matches the datasheet command sequence (host test with the scripted mock).
+- [x] Bad CRC and I2C errors never produce a reading.
+- [x] Driver registers and instantiates from config. The ID is read and logged at init.
+- [x] On hardware, plausible readings appear and the fault/recovery path works.
+
+Host tests: `test_node_dev_shtc3` (28 tests) runs the real driver on the framework, the mock HAL and the host AO port, and passes under ASan, LSan and UBSan. Every bus test checks that the scripted transfers ran exactly and in full. Mutation checks confirmed the tests catch a wrong CRC initial value or polynomial, a wrong conversion span or full scale, a missing soft-reset wait, a skipped sleep at init or after a failed read, a missing product-code check, an init retry that adds the I2C device again, a measurement read after 12 ms, a stale measuring step, an ignored failed sleep, an unchecked humidity CRC, humidity taken from the temperature word, a measurement started without the wake-up time, no sleep after a failed measure command, and a first sample timed from before a waiting init.
+
+On the custom WROVER board (SHTC3 on I2C port 0, SDA 32 / SCL 33, 100 kHz), the log showed `SHTC3 id 0x0887` at init, readings of about 27.1 °C and 54.5 % RH, and a report when RH rose by more than 2 %. Unplugging the sensor marked it FAULT after 3 failed samples, and replugging it recovered it. The check was first run on the busy-wait version (commit 72c5e45) and repeated after init moved to task delays and sampling to three pending steps (commit 51a007c), including recovery through an init retry.
 
 ## Open questions
-- Verify all command codes, timings and the CRC test vector against the current SHTC3 datasheet revision.
+- None. Resolved: command codes, timings, CRC test vector and the ID product code were confirmed against the datasheet.

@@ -190,6 +190,22 @@ node_hal_err_t node_hal_i2c_write(node_hal_i2c_dev_t dev, const uint8_t *buf,
                                   size_t len, uint32_t timeout_ms);
 
 /**
+ * @brief Read bytes from a device in one transaction, with no write first.
+ *
+ * Blocks until the transfer finishes or the timeout expires.
+ *
+ * @param dev        Device from node_hal_i2c_dev_add().
+ * @param buf        Buffer for the bytes read; must not be NULL.
+ * @param len        Number of bytes to read; must be non-zero.
+ * @param timeout_ms Maximum time to wait, in ms.
+ * @return NODE_HAL_OK, NODE_HAL_ERR_ARG, NODE_HAL_ERR_TIMEOUT,
+ * NODE_HAL_ERR_NACK if the device does not acknowledge its address, or
+ * NODE_HAL_ERR_IO.
+ */
+node_hal_err_t node_hal_i2c_read(node_hal_i2c_dev_t dev, uint8_t *buf,
+                                 size_t len, uint32_t timeout_ms);
+
+/**
  * @brief Write bytes, then read bytes, with a repeated start between them.
  *
  * Blocks until the transfer finishes or the timeout expires.

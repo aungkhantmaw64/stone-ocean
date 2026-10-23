@@ -1,6 +1,6 @@
 # 06 — Driver framework
 
-**Status:** in-progress
+**Status:** done
 **Depends on:** 02, 03, 14, 15
 **Target:** ESP32 · ESP-IDF v5.x / FreeRTOS · `firmware/components/node_dev`
 
@@ -88,7 +88,7 @@ node_dev_err_t node_dev_start(const node_config_t *cfg);                /* once;
 node_dev_err_t node_dev_set_onoff(int dev_index, bool on);              /* any task; posts to the devices AO */
 node_dev_err_t node_dev_post_from_isr(int dev_index);                   /* ISR context; for event drivers */
 ```
-Driver methods run in the devices AO's thread and must not block: no delays and no waiting on queues or semaphores. A short HAL bus transfer is allowed.
+Driver methods run in the devices AO's thread and must not block: no delays and no waiting on queues or semaphores. A short HAL bus transfer is allowed. A driver's `init`, which runs only at start and on init retries, may also wait for a device timing shorter than a tick with `node_hal_time_delay_ms()`; each such wait blocks the devices AO for up to two ticks. `sample` never waits: it returns `NODE_DEV_PENDING` instead.
 
 ## Behavior & constraints
 - **Start:**
@@ -136,13 +136,13 @@ Driver methods run in the devices AO's thread and must not block: no delays and 
 - [x] Device faults are isolated, published and retried without affecting other devices.
 - [x] `node_dev_set_onoff` is safe to call from any task.
 - [x] Driver calls never block the devices AO: pending samples and ISR-triggered samples are scheduled with time events (host tests).
-- [ ] The log shows the device table at start (index, id, type, state), every state change, and every published reading.
+- [x] The log shows the device table at start (index, id, type, state), every state change, and every published reading.
 
 Host tests: `test_node_dev_report` (14 tests) and `test_node_dev` (42 tests) pass under ASan, LSan and UBSan (commit 064f253). Mutation checks confirmed the tests catch a drifting sample period, a deadline that fires late, a failure count that never resets, a second interrupt that does not restart the delay, and on/off published without a change.
 
 `node_dev_set_onoff` (AC 4) only posts to the devices AO and never blocks, also with a full queue (host tests). Calls from several real tasks are exercised on the board through spec 11, from the mesh task.
 
-Not yet verified on hardware: the log lines (AC 6). A QEMU boot with `configs/example-shtc3-pir-led.json` (commit 1bc0a90) logged the device table and every state change, and the host tests check that every published reading is logged. Real readings in the board log need the drivers of specs 07 and 08.
+A QEMU boot with `configs/example-shtc3-pir-led.json` (commit 1bc0a90) logged the device table and every state change, and the host tests check that every published reading is logged. On the custom WROVER board with `configs/board-shtc3-pir.json` (spec 08's hardware check), the log showed the device table, every published SHTC3 reading and PIR motion change, and the ok → FAULT → ok state changes when the SHTC3 was unplugged and replugged (AC 6).
 
 ## Open questions
 - None.

@@ -107,6 +107,7 @@ add_library(node_dev STATIC
   ${NODE_DEV_DIR}/node_dev_led.c
   ${NODE_DEV_DIR}/node_dev_pir.c
   ${NODE_DEV_DIR}/node_dev_report.c
+  ${NODE_DEV_DIR}/node_dev_shtc3.c
   mocks/node_dev_log.c)
 target_include_directories(node_dev PUBLIC mocks PRIVATE ${NODE_DEV_DIR})
 target_compile_options(node_dev PRIVATE -Wall -Wextra -Werror)
@@ -226,6 +227,10 @@ target_link_libraries(test_node_dev_pir PRIVATE node_dev)
 add_host_test(test_node_dev_led test_node_dev_led.c)
 target_include_directories(test_node_dev_led PRIVATE ${NODE_DEV_DIR})
 target_link_libraries(test_node_dev_led PRIVATE node_dev)
+
+add_host_test(test_node_dev_shtc3 test_node_dev_shtc3.c)
+target_include_directories(test_node_dev_shtc3 PRIVATE ${NODE_DEV_DIR})
+target_link_libraries(test_node_dev_shtc3 PRIVATE node_dev)
 
 add_host_test(test_node_status test_node_status.c)
 target_include_directories(test_node_status PRIVATE ${NODE_STATUS_DIR})

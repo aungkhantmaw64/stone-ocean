@@ -10,6 +10,7 @@
 #include "node_dev.h"
 #include "node_dev_led.h"
 #include "node_dev_pir.h"
+#include "node_dev_shtc3.h"
 #include "node_hal_selftest.h"
 #include "node_status.h"
 
@@ -103,5 +104,9 @@ static void boot_sequence_register_drivers(void) {
   err = node_dev_led_register();
   if (err != NODE_DEV_OK) {
     ESP_LOGE(TAG, "could not register the LED driver: %d", (int)err);
+  }
+  err = node_dev_shtc3_register();
+  if (err != NODE_DEV_OK) {
+    ESP_LOGE(TAG, "could not register the SHTC3 driver: %d", (int)err);
   }
 }

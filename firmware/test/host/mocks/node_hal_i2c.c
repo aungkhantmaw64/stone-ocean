@@ -159,8 +159,9 @@ static node_hal_err_t node_hal_i2c_match_write(uint8_t addr7,
  * @param addr7 Address of the transfer.
  * @param r     Receives the scripted bytes; must not be NULL.
  * @param rlen  Number of bytes to read.
- * @return NODE_HAL_OK if the step is a read of @p rlen bytes, or
- *         NODE_HAL_ERR_IO after recording a failure.
+ * @return NODE_HAL_OK if the step is a read of @p rlen bytes, the step's
+ *         error for an error step, or NODE_HAL_ERR_IO after recording a
+ *         failure.
  */
 static node_hal_err_t node_hal_i2c_match_read(uint8_t addr7, uint8_t *r,
                                               size_t rlen);
@@ -263,6 +264,15 @@ node_hal_err_t node_hal_i2c_write(node_hal_i2c_dev_t dev, const uint8_t *buf,
     return NODE_HAL_ERR_ARG;
   }
   return node_hal_i2c_match_write(dev->addr7, buf, len);
+}
+
+node_hal_err_t node_hal_i2c_read(node_hal_i2c_dev_t dev, uint8_t *buf,
+                                 size_t len, uint32_t timeout_ms) {
+  (void)timeout_ms;
+  if (!node_hal_i2c_dev_is_valid(dev) || buf == NULL || len == 0) {
+    return NODE_HAL_ERR_ARG;
+  }
+  return node_hal_i2c_match_read(dev->addr7, buf, len);
 }
 
 node_hal_err_t node_hal_i2c_write_read(node_hal_i2c_dev_t dev, const uint8_t *w,
@@ -372,6 +382,9 @@ static node_hal_err_t node_hal_i2c_match_read(uint8_t addr7, uint8_t *r,
   const node_hal_i2c_mock_step_t *step = node_hal_i2c_next_step(addr7);
   if (step == NULL) {
     return NODE_HAL_ERR_IO;
+  }
+  if (step->kind == STEP_ERROR) {
+    return step->err;
   }
   if (step->kind != STEP_READ) {
     node_hal_i2c_record_failure("expected a write, got a read", addr7);

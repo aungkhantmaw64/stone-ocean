@@ -572,7 +572,9 @@ static void node_dev_init_device(node_dev_ao_t *me, int dev_index,
   dev->initialised = true;
   node_dev_set_fault(me, dev_index, false);
   if (dev->drv->sample != NULL) {
-    node_dev_schedule_sample(dev, now_ms, 0);
+    /* init may wait briefly (spec 06), so time the first sample from when it
+     * returned; a stale now_ms would shorten the sample's first wait. */
+    node_dev_schedule_sample(dev, node_hal_time_ms(), 0);
   }
 }
 

@@ -1,6 +1,6 @@
 # 01 — Project skeleton
 
-**Status:** in-progress
+**Status:** done
 **Depends on:** none
 **Target:** ESP32-DevKitC (ESP32) · ESP-IDF v5.4.4 / FreeRTOS · idf.py, CMake, Python 3
 
@@ -19,7 +19,7 @@ ESP32-DevKitC with on-board USB-UART bridge. Flashing and logging go through `id
 ## Scope
 - In scope:
   - The `firmware/` ESP-IDF project with `main/`. Each component under `firmware/components/` is created by the spec that implements it, not stubbed in advance.
-  - A custom partition table with a factory app partition large enough for Bluedroid + BLE Mesh (2 MB to start; the rest of the 16 MB flash stays unallocated), plus `nvs` and `phy_init`. Spec 04 adds a 64 KB `config` LittleFS partition after `factory`.
+  - A custom partition table with a factory app partition large enough for Bluedroid + BLE Mesh (2 MB to start; the rest of the 16 MB flash stays unallocated), plus `nvs` and `phy_init`. Spec 04 adds a 64 KB `config` LittleFS partition after `factory`. The ≥ 15% app-partition headroom is checked in spec 10, where the mesh code is first linked in.
   - `sdkconfig.defaults`: PSRAM enabled (`CONFIG_SPIRAM=y`), Bluetooth enabled (BLE only, Bluedroid), `CONFIG_BLE_MESH=y`, and a project Kconfig option `NODE_MESH_ENABLE` (default `y`).
   - `sdkconfig.qemu`: `NODE_MESH_ENABLE=n`, Bluetooth disabled.
   - Helper scripts: `scripts/build.sh`, `scripts/qemu.sh` (wraps `idf.py qemu monitor` using the QEMU sdkconfig), `scripts/host_test.sh`.
@@ -46,13 +46,11 @@ ESP32-DevKitC with on-board USB-UART bridge. Flashing and logging go through `id
 - [x] `idf.py build` succeeds with the default (hardware) config, with BLE Mesh compiled in.
 - [x] QEMU build boots in Espressif QEMU and prints the banner with flavour `qemu`.
 - [x] Host test build compiles with no ESP-IDF dependency and the sample test passes.
-- [ ] CI runs host tests + hardware build on every push and fails on any error.
-- [ ] Partition table fits the hardware build with ≥ 15% app-partition headroom (check with `idf.py size`).
+- [x] CI runs host tests + hardware build on every push and fails on any error.
 
-Still to verify:
-- CI (AC 4): the steps pass in `espressif/idf:v5.4.4` locally, but no GitHub remote exists yet, so the workflow has not run on GitHub.
-- Headroom (AC 5): 91% free now, but nothing links the mesh code until spec 10. Re-check then.
-- Hardware: banner with flavour `hw` on a DevKitC, the 16 MB flash size (`esptool.py flash_id`), and PSRAM detected at boot.
+CI (AC 4): `.github/workflows/ci.yml` runs on every push and pull request, with the host tests and the hardware build in `espressif/idf:v5.4.4`, plus the config schema and PC tool checks. It is green on `main` on GitHub. Every step runs under GitHub's `bash -eo pipefail` and the scripts use `set -euo pipefail`, so any failing command fails its job.
+
+On hardware (the custom WROVER board, during spec 08's check): the boot banner shows flavour `hw`, PSRAM is detected (`Adding pool of 4096K of PSRAM memory to heap allocator`, the 4 MB mapped part), and `esptool.py flash_id` reports 16 MB of flash.
 
 ## Open questions
 - None. Resolved: flash is 16 MB; modules are WROVER with 8 MB PSRAM; CI runs on GitHub Actions.

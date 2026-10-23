@@ -58,7 +58,7 @@ The PIR ISR (AC 3) is a single `node_dev_post_from_isr` call. The host tests che
 
 A QEMU boot with `configs/example-shtc3-pir-led.json` (commit c3d4301) logged `pir1` and `led1` as ok, with `motion=0` and `on=0` published once after start.
 
-Not yet verified on hardware: AC 5.
+On the custom WROVER board with `configs/board-shtc3-pir.json` (PIR on GPIO 35, spec 08's hardware check), motion starts and stops were logged as `motion=1` and `motion=0`. Not yet verified on hardware: the LED half of AC 5, as the LED's pin is not confirmed.
 
 ## Open questions
 - Exact PIR module and its output voltage. Confirm 3.3 V-compatible output before wiring.

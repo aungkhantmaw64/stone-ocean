@@ -156,6 +156,37 @@ void test_queued_error_is_returned_by_the_next_transfer_to_that_device(void) {
 }
 
 /* AC: specs/02-hal.md #3 */
+void test_scripted_read_returns_the_queued_sensor_bytes_without_a_write_first(
+    void) {
+  node_hal_i2c_dev_t sensor = add_device(SENSOR_ADDR);
+  node_hal_i2c_mock_queue_read(SENSOR_ADDR, sensor_answer,
+                               sizeof sensor_answer);
+  uint8_t answer[sizeof sensor_answer] = {0};
+
+  node_hal_err_t err =
+      node_hal_i2c_read(sensor, answer, sizeof answer, TIMEOUT_MS);
+
+  TEST_ASSERT_EQUAL_INT(NODE_HAL_OK, err);
+  TEST_ASSERT_EQUAL_HEX8_ARRAY(sensor_answer, answer, sizeof sensor_answer);
+  TEST_ASSERT_EQUAL_size_t(0, node_hal_i2c_mock_pending_steps());
+  TEST_ASSERT_NULL(node_hal_i2c_mock_failure());
+}
+
+/* AC: specs/02-hal.md #3 */
+void test_queued_error_is_returned_by_a_read_from_that_device(void) {
+  node_hal_i2c_dev_t sensor = add_device(SENSOR_ADDR);
+  node_hal_i2c_mock_queue_error(SENSOR_ADDR, NODE_HAL_ERR_NACK);
+  uint8_t answer[sizeof sensor_answer] = {0};
+
+  node_hal_err_t err =
+      node_hal_i2c_read(sensor, answer, sizeof answer, TIMEOUT_MS);
+
+  TEST_ASSERT_EQUAL_INT(NODE_HAL_ERR_NACK, err);
+  TEST_ASSERT_EQUAL_size_t(0, node_hal_i2c_mock_pending_steps());
+  TEST_ASSERT_NULL(node_hal_i2c_mock_failure());
+}
+
+/* AC: specs/02-hal.md #3 */
 void test_script_reports_steps_that_were_never_used(void) {
   node_hal_i2c_dev_t sensor = add_device(SENSOR_ADDR);
   node_hal_i2c_mock_expect_write(SENSOR_ADDR, measure_command,
@@ -286,6 +317,13 @@ void test_transfer_with_a_missing_buffer_or_zero_length_is_rejected(void) {
       node_hal_i2c_write_read(sensor, measure_command, sizeof measure_command,
                               answer, 0, TIMEOUT_MS),
       "read of zero bytes");
+  TEST_ASSERT_EQUAL_INT_MESSAGE(
+      NODE_HAL_ERR_ARG,
+      node_hal_i2c_read(sensor, NULL, sizeof answer, TIMEOUT_MS),
+      "plain read without buffer");
+  TEST_ASSERT_EQUAL_INT_MESSAGE(
+      NODE_HAL_ERR_ARG, node_hal_i2c_read(sensor, answer, 0, TIMEOUT_MS),
+      "plain read of zero bytes");
   TEST_ASSERT_EQUAL_size_t(0, node_hal_i2c_mock_pending_steps());
   TEST_ASSERT_NULL(node_hal_i2c_mock_failure());
 }
@@ -307,6 +345,9 @@ int main(void) {
   RUN_TEST(test_transfer_to_the_wrong_address_fails_and_explains_the_mismatch);
   RUN_TEST(test_transfer_fails_when_the_script_has_no_step_left);
   RUN_TEST(test_queued_error_is_returned_by_the_next_transfer_to_that_device);
+  RUN_TEST(
+      test_scripted_read_returns_the_queued_sensor_bytes_without_a_write_first);
+  RUN_TEST(test_queued_error_is_returned_by_a_read_from_that_device);
   RUN_TEST(test_script_reports_steps_that_were_never_used);
   RUN_TEST(test_probe_finds_only_devices_marked_present);
   RUN_TEST(test_reset_clears_the_script_and_any_recorded_failure);

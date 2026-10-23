@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "node_name": "lab-node-1",
+  "i2c_buses": [
+    { "id": "i2c0", "port": 0, "sda": 32, "scl": 33, "freq_hz": 100000 }
+  ],
+  "devices": [
+    { "id": "env1", "type": "shtc3", "bus": "i2c0",
+      "sample_interval_ms": 10000,
+      "report": { "min_interval_ms": 5000, "max_interval_ms": 60000,
+                  "delta_temp_c": 0.5, "delta_rh_pct": 2.0 } },
+    { "id": "pir1", "type": "pir", "gpio": 35, "active_high": true,
+      "debounce_ms": 50, "pull": "none" }
+  ]
+}

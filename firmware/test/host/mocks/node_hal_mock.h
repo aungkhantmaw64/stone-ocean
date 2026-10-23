@@ -102,8 +102,8 @@ void node_hal_i2c_mock_expect_write(uint8_t addr7, const uint8_t *data,
                                     size_t len);
 
 /**
- * @brief Queue the bytes returned by the read half of the next
- *        node_hal_i2c_write_read() to @p addr7.
+ * @brief Queue the bytes returned by the next node_hal_i2c_read(), or the
+ *        read half of the next node_hal_i2c_write_read(), to @p addr7.
  *
  * @param addr7 7-bit device address.
  * @param data  Bytes to return.
@@ -115,8 +115,8 @@ void node_hal_i2c_mock_queue_read(uint8_t addr7, const uint8_t *data,
 /**
  * @brief Make the next transfer to @p addr7 fail with @p err.
  *
- * Takes the place of a write step: the failing transfer consumes this step
- * and nothing else.
+ * Takes the place of a write or read step: the failing transfer, or the
+ * failing half of a write-read, consumes this step and nothing else.
  *
  * @param addr7 7-bit device address.
  * @param err   Error the transfer returns, for example NODE_HAL_ERR_NACK.
