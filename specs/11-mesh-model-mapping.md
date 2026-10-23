@@ -8,7 +8,7 @@
 Expose each configured device on the mesh through standard SIG models, so a gateway can read sensors and switch actuators with no custom protocol.
 
 ## Context
-- Composition and elements come from spec 10. This spec provides the `mesh_models_builder_t`.
+- Composition and elements come from spec 10. This spec provides the `node_mesh_models_builder_t`.
 - Device data and commands go through the driver framework (06): this module subscribes to the `NODE_DEV_SIG_*` published events (spec 15) and keeps the latest value of each device in its own cache, and switches actuators with `node_dev_set_onoff`. Each device's config comes from the active config, at the device index.
 - The gateway script (12) is the counterpart client.
 
@@ -37,7 +37,7 @@ N/A.
 
 ## Interface
 ```c
-void mesh_models_init(void);   /* registers builder with mesh_node and subscribes to the NODE_DEV_SIG_* events */
+void mesh_models_init(void);   /* registers builder with node_mesh_set_models_builder() and subscribes to the NODE_DEV_SIG_* events */
 /* Internal helpers, exposed for host tests: */
 size_t mesh_encode_temp(float temp_c, uint8_t *out);      /* returns bytes written */
 size_t mesh_encode_rh(float rh_pct, uint8_t *out);
