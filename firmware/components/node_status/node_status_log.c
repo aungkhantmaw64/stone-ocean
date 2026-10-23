@@ -5,6 +5,7 @@
 #include "node_status_log.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "esp_log.h"
 
@@ -31,6 +32,11 @@ void node_status_log_setup_failed(int gpio, node_hal_err_t err) {
 
 void node_status_log_steady(bool on) {
   ESP_LOGI(NODE_STATUS_LOG_TAG, "status led: %s", on ? "on" : "off");
+}
+
+void node_status_log_blink(uint16_t on_ms, uint16_t off_ms) {
+  ESP_LOGI(NODE_STATUS_LOG_TAG, "status led: blink %u/%u", (unsigned)on_ms,
+           (unsigned)off_ms);
 }
 
 void node_status_log_write_failed(int gpio, node_hal_err_t err) {

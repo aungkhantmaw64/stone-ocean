@@ -15,6 +15,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 /* ==========================================================================
  * PUBLIC FUNCTIONS
@@ -51,6 +52,27 @@ size_t node_status_log_mock_steady_count(void);
  * @return True for on; false for off or if none was logged.
  */
 bool node_status_log_mock_last_steady_on(void);
+
+/**
+ * @brief Number of blink mode changes logged since the last reset.
+ *
+ * @return The count.
+ */
+size_t node_status_log_mock_blink_count(void);
+
+/**
+ * @brief On time of the last blink mode change logged.
+ *
+ * @return The time in ms, or 0 if none was logged.
+ */
+uint16_t node_status_log_mock_last_blink_on_ms(void);
+
+/**
+ * @brief Off time of the last blink mode change logged.
+ *
+ * @return The time in ms, or 0 if none was logged.
+ */
+uint16_t node_status_log_mock_last_blink_off_ms(void);
 
 /**
  * @brief Number of "writes start failing" lines logged since the last reset.

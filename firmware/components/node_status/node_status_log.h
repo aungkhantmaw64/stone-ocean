@@ -14,6 +14,7 @@
  * ========================================================================== */
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "node_hal.h"
 
@@ -43,6 +44,15 @@ void node_status_log_setup_failed(int gpio, node_hal_err_t err);
  * @param on True for on.
  */
 void node_status_log_steady(bool on);
+
+/**
+ * @brief Log at INFO level that the LED changed to blinking, or to blinking
+ *        with other times.
+ *
+ * @param on_ms  On time of each period, in ms.
+ * @param off_ms Off time of each period, in ms.
+ */
+void node_status_log_blink(uint16_t on_ms, uint16_t off_ms);
 
 /**
  * @brief Log at WARNING level that writes to the LED's pin started failing.

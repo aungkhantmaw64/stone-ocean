@@ -6,8 +6,8 @@
  *
  * The status LED is part of the board (node_hal_board.h), not of the config.
  * It publishes no events and is not a node_dev device, so the mesh never sees
- * it. Callers switch it with commands that are posted to the status AO; the
- * latest command wins.
+ * it. Callers switch it on, off or blinking with commands that are posted to
+ * the status AO; the latest command wins.
  */
 
 /* ==========================================================================
@@ -15,10 +15,18 @@
  * ========================================================================== */
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* ==========================================================================
+ * MACROS
+ * ========================================================================== */
+
+/** @brief Shortest on or off time node_status_led_blink() accepts, in ms. */
+#define NODE_STATUS_BLINK_MIN_MS 20
 
 /* ==========================================================================
  * TYPES
@@ -66,6 +74,24 @@ node_status_err_t node_status_start(void);
  *         AO's queue is full.
  */
 node_status_err_t node_status_led_set(bool on);
+
+/**
+ * @brief Blink the status LED, starting with the on phase.
+ *
+ * Replaces whatever the LED was doing; a new blink restarts the pattern with
+ * the new times. Each phase may run late by the status AO's dispatch latency
+ * (a few ms). Safe from any task; never blocks. Not for ISR context.
+ *
+ * @param on_ms  Time the LED is on in each period, in ms; at least
+ *               NODE_STATUS_BLINK_MIN_MS.
+ * @param off_ms Time the LED is off in each period, in ms; at least
+ *               NODE_STATUS_BLINK_MIN_MS.
+ * @return NODE_STATUS_OK once the command is queued, NODE_STATUS_ERR_ARG for
+ *         a time below NODE_STATUS_BLINK_MIN_MS, NODE_STATUS_ERR_STATE before
+ *         node_status_start(), or NODE_STATUS_ERR_FULL if the status AO's
+ *         queue is full.
+ */
+node_status_err_t node_status_led_blink(uint16_t on_ms, uint16_t off_ms);
 
 #ifdef __cplusplus
 }
