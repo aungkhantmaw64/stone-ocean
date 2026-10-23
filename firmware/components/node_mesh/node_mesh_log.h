@@ -17,7 +17,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "node_config.h"
 #include "node_mesh_err.h"
 #include "node_mesh_internal.h"
 
@@ -41,21 +40,10 @@ void node_mesh_log_prov_complete(uint16_t addr, uint8_t element_count,
                                  uint32_t iv_index);
 
 /**
- * @brief Log at ERROR level that the composition hash could not be stored,
- *        so a later config change will not be detected.
- */
-void node_mesh_log_hash_store_failed(void);
-
-/**
  * @brief Log at WARNING level that the gateway reset the node, which now
- *        erases its mesh metadata and restarts.
+ *        restarts.
  */
 void node_mesh_log_node_reset(void);
-
-/**
- * @brief Log at ERROR level that the mesh metadata could not be erased.
- */
-void node_mesh_log_meta_erase_failed(void);
 
 /**
  * @brief Log at ERROR level that a mesh event could not be posted to the
@@ -72,43 +60,6 @@ void node_mesh_log_post_failed(const char *what);
  * @param err    ESP-BLE-MESH error code, or 0.
  */
 void node_mesh_log_notice(node_mesh_ao_notice_t notice, int32_t err);
-
-/**
- * @brief Log at WARNING level that the config's composition differs from
- *        the one the node was provisioned with: `config composition changed
- *        since provisioning; factory-reset and reprovision required`.
- *
- * @param stored_hash Hash stored at provisioning.
- * @param config_hash Hash of the active config.
- */
-void node_mesh_log_mismatch(uint32_t stored_hash, uint32_t config_hash);
-
-/**
- * @brief Log at WARNING level that the composition hash could not be read,
- *        so the node is treated as never provisioned this boot.
- */
-void node_mesh_log_hash_load_failed(void);
-
-/**
- * @brief Log at WARNING level that the node is provisioned but no
- *        composition hash was stored, so the one in use is stored now.
- */
-void node_mesh_log_hash_missing(void);
-
-/**
- * @brief Log at WARNING level that a composition hash was stored but the
- *        node is not provisioned, so the hash is erased.
- */
-void node_mesh_log_hash_stale(void);
-
-/**
- * @brief Log at ERROR level that a device element gets no models because
- *        the models builder failed.
- *
- * @param dev_index Index of the device in the config.
- * @param err       The builder's error.
- */
-void node_mesh_log_builder_failed(int dev_index, node_mesh_err_t err);
 
 /**
  * @brief Log at ERROR level that an ESP-IDF call failed.
@@ -159,21 +110,12 @@ void node_mesh_log_keys(uint32_t iv_index, const uint16_t *net_idx,
                         size_t n_net, const uint16_t *app_idx, size_t n_app);
 
 /**
- * @brief Log at INFO level the primary element of the composition.
+ * @brief Log at INFO level the primary element, the node's only element.
  *
- * @param model_count Number of SIG models on it.
+ * @param sig_count Number of SIG models on it.
+ * @param vnd_count Number of vendor models on it.
  */
-void node_mesh_log_primary_element(uint8_t model_count);
-
-/**
- * @brief Log at INFO level one device element of the composition.
- *
- * @param element     Element number, from 1.
- * @param dev         The device's config entry; must not be NULL.
- * @param model_count Number of SIG models on it.
- */
-void node_mesh_log_device_element(uint8_t element, const node_config_dev_t *dev,
-                                  uint8_t model_count);
+void node_mesh_log_primary_element(uint8_t sig_count, uint8_t vnd_count);
 
 /**
  * @brief Log the free heap after the mesh started, at INFO level, or at

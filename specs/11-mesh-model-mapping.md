@@ -98,7 +98,8 @@ N/A.
 Applied by this spec, because the composition no longer depends on the config:
 - Composition: **element 0 only**, with Config Server, Health Server and the Stone Ocean Node Server. No per-device elements.
 - The models builder becomes a hook that returns the vendor models of element 0: `node_mesh_set_vendor_models(esp_ble_mesh_model_t *models, uint8_t count)`, called before `node_mesh_start()`. `node_mesh_device_element()` and `node_mesh_models_builder_t` are removed.
-- The composition hash, the `meshmeta` hash key, the mismatch WARN and the restart after a Config Node Reset are removed, and so is `node_config_composition_hash()` (spec 03), which has no other caller. Adding or removing a device no longer requires reprovisioning; the gateway rereads `DeviceList`. The README's open question on composition changes is closed.
+- `node_mesh_start()` takes no config any more: the composition is the same in normal and safe mode.
+- The composition hash, the `meshmeta` NVS namespace and the mismatch WARN are removed, and so is `node_config_composition_hash()` (spec 03), which has no other caller. Adding or removing a device no longer requires reprovisioning; the gateway rereads `DeviceList`. The README's open question on composition changes is closed.
 
 ## Interface
 ```c

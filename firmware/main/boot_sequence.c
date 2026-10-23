@@ -128,8 +128,7 @@ static void boot_sequence_register_drivers(void) {
 
 static void boot_sequence_start_mesh(void) {
 #if CONFIG_NODE_MESH_ENABLE
-  const node_mesh_err_t err =
-      node_mesh_start(config_store_mode_active_config());
+  const node_mesh_err_t err = node_mesh_start();
   if (err != NODE_MESH_OK) {
     ESP_LOGE(TAG, "could not start the mesh: %d", (int)err);
   }

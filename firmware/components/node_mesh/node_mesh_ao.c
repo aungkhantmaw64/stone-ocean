@@ -21,11 +21,11 @@
 #define NODE_MESH_AO_NAME "node_mesh"
 
 /** @brief FreeRTOS priority of the mesh AO. It handles rare events and only
- *         writes NVS, so it stays well below the Bluetooth tasks (spec 10). */
+ *         logs, so it stays well below the Bluetooth tasks (spec 10). */
 #define NODE_MESH_AO_PRIORITY 4
 
 /** @brief Stack size of the mesh AO's thread, in bytes. Its deepest path is
- *         an NVS write followed by a log line, as in the health AO. */
+ *         a log line, as in the health AO. */
 #define NODE_MESH_AO_STACK_BYTES 4096
 
 /** @brief Events the mesh AO's queue holds. Provisioning and node reset each
@@ -76,11 +76,8 @@ _Static_assert(sizeof(node_mesh_ao_notice_evt_t) <=
 /** @brief The mesh active object. */
 typedef struct {
   node_ao_t super;       /**< Framework part; must be first. */
-  uint32_t hash_in_use;  /**< Composition hash stored when provisioning
-                            completes; set before the AO starts. */
-  uint8_t element_count; /**< Elements registered this boot, 1 to
-                            NODE_MESH_COMP_MAX_ELEMENTS; set before the AO
-                            starts. */
+  uint8_t element_count; /**< Elements registered this boot; set before the
+                            AO starts. */
 } node_mesh_ao_t;
 
 /* ==========================================================================
@@ -108,7 +105,7 @@ static node_mesh_ao_t g_mesh = {0};
 static void node_mesh_ao_dispatch(node_ao_t *me, const node_ao_evt_t *e);
 
 /**
- * @brief Store the composition hash in use and log the provisioned state.
+ * @brief Log the provisioned state.
  *
  * @param me  The mesh AO.
  * @param evt The provisioning event.
@@ -117,7 +114,7 @@ static void node_mesh_ao_on_prov_complete(const node_mesh_ao_t *me,
                                           const node_mesh_ao_prov_evt_t *evt);
 
 /**
- * @brief Erase the mesh metadata and restart the node.
+ * @brief Log the reset and restart the node.
  */
 static void node_mesh_ao_on_node_reset(void);
 
@@ -136,12 +133,10 @@ static node_mesh_err_t node_mesh_ao_post(const void *evt, size_t size,
  * PUBLIC FUNCTIONS
  * ========================================================================== */
 
-node_mesh_err_t node_mesh_ao_start(uint32_t hash_in_use,
-                                   uint8_t element_count) {
+node_mesh_err_t node_mesh_ao_start(uint8_t element_count) {
   if (g_started) {
     return NODE_MESH_ERR_STATE;
   }
-  g_mesh.hash_in_use = hash_in_use;
   g_mesh.element_count = element_count;
   const node_ao_config_t ao_cfg = {
       .name = NODE_MESH_AO_NAME,
@@ -219,18 +214,12 @@ static void node_mesh_ao_dispatch(node_ao_t *me, const node_ao_evt_t *e) {
 
 static void node_mesh_ao_on_prov_complete(const node_mesh_ao_t *me,
                                           const node_mesh_ao_prov_evt_t *evt) {
-  if (node_mesh_port_hash_store(me->hash_in_use) != NODE_MESH_PORT_OK) {
-    node_mesh_log_hash_store_failed();
-  }
   node_mesh_log_prov_complete(evt->addr, me->element_count, evt->relay,
                               evt->net_idx, evt->iv_index);
 }
 
 static void node_mesh_ao_on_node_reset(void) {
   node_mesh_log_node_reset();
-  if (node_mesh_port_meta_erase() != NODE_MESH_PORT_OK) {
-    node_mesh_log_meta_erase_failed();
-  }
   node_mesh_port_restart();
 }
 

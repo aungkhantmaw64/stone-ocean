@@ -20,14 +20,8 @@ static size_t g_prov_complete_count = 0;
 /** @brief Arguments of the last provisioning-complete line; zero if none. */
 static node_mesh_log_mock_prov_t g_last_prov = {0};
 
-/** @brief "Composition hash not stored" lines logged since the last reset. */
-static size_t g_hash_store_failed_count = 0;
-
 /** @brief "Node reset by the gateway" lines logged since the last reset. */
 static size_t g_node_reset_count = 0;
-
-/** @brief "Mesh metadata erase failed" lines logged since the last reset. */
-static size_t g_meta_erase_failed_count = 0;
 
 /** @brief "Mesh event lost" lines logged since the last reset. */
 static size_t g_post_failed_count = 0;
@@ -48,9 +42,7 @@ static int32_t g_last_notice_err = 0;
 void node_mesh_log_mock_reset(void) {
   g_prov_complete_count = 0;
   g_last_prov = (node_mesh_log_mock_prov_t){0};
-  g_hash_store_failed_count = 0;
   g_node_reset_count = 0;
-  g_meta_erase_failed_count = 0;
   g_post_failed_count = 0;
   g_notice_count = 0;
   g_last_notice = NODE_MESH_AO_NOTICE_LINK_OPEN;
@@ -65,15 +57,7 @@ node_mesh_log_mock_prov_t node_mesh_log_mock_last_prov_complete(void) {
   return g_last_prov;
 }
 
-size_t node_mesh_log_mock_hash_store_failed_count(void) {
-  return g_hash_store_failed_count;
-}
-
 size_t node_mesh_log_mock_node_reset_count(void) { return g_node_reset_count; }
-
-size_t node_mesh_log_mock_meta_erase_failed_count(void) {
-  return g_meta_erase_failed_count;
-}
 
 size_t node_mesh_log_mock_post_failed_count(void) {
   return g_post_failed_count;
@@ -100,11 +84,7 @@ void node_mesh_log_prov_complete(uint16_t addr, uint8_t element_count,
   };
 }
 
-void node_mesh_log_hash_store_failed(void) { g_hash_store_failed_count++; }
-
 void node_mesh_log_node_reset(void) { g_node_reset_count++; }
-
-void node_mesh_log_meta_erase_failed(void) { g_meta_erase_failed_count++; }
 
 void node_mesh_log_post_failed(const char *what) {
   (void)what;

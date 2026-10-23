@@ -84,7 +84,6 @@ add_library(node_config STATIC
   ${NODE_CONFIG_DIR}/node_config_err.c
   ${NODE_CONFIG_DIR}/node_config_parse.c
   ${NODE_CONFIG_DIR}/node_config_validate.c
-  ${NODE_CONFIG_DIR}/node_config_composition.c
   mocks/node_config_log.c)
 target_include_directories(node_config PUBLIC mocks PRIVATE ${NODE_CONFIG_DIR})
 target_compile_options(node_config PRIVATE -Wall -Wextra -Werror)
@@ -166,14 +165,14 @@ target_include_directories(node_mesh_header_check PRIVATE ${NODE_MESH_DIR})
 target_link_libraries(node_mesh_header_check PRIVATE node_mesh_api
                       node_config_api node_dev_api)
 
-# The node_mesh sources free of ESP-BLE-MESH: the composition plan, the mesh
-# AO and the vendor model messages, on the host node_ao port, with the
+# The node_mesh sources free of ESP-BLE-MESH: the device UUID, the mesh AO
+# and the vendor model messages, on the host node_ao port, with the
 # in-memory fake in place of node_mesh_port.c and the host log mock in place
 # of node_mesh_log.c.
 add_library(node_mesh STATIC
   ${NODE_MESH_DIR}/node_mesh_ao.c
-  ${NODE_MESH_DIR}/node_mesh_comp.c
   ${NODE_MESH_DIR}/node_mesh_msg.c
+  ${NODE_MESH_DIR}/node_mesh_uuid.c
   mocks/node_mesh_port.c
   mocks/node_mesh_log.c)
 target_include_directories(node_mesh PUBLIC mocks ${NODE_MESH_DIR})
@@ -312,8 +311,8 @@ target_link_libraries(test_node_health PRIVATE node_health)
 add_host_test(test_node_health_ao test_node_health_ao.c)
 target_link_libraries(test_node_health_ao PRIVATE node_health)
 
-add_host_test(test_node_mesh_comp test_node_mesh_comp.c)
-target_link_libraries(test_node_mesh_comp PRIVATE node_mesh)
+add_host_test(test_node_mesh_uuid test_node_mesh_uuid.c)
+target_link_libraries(test_node_mesh_uuid PRIVATE node_mesh)
 
 add_host_test(test_node_mesh_ao test_node_mesh_ao.c)
 target_link_libraries(test_node_mesh_ao PRIVATE node_mesh)
@@ -324,10 +323,6 @@ target_link_libraries(test_node_config_parse PRIVATE node_config
 
 add_host_test(test_node_config_validate test_node_config_validate.c)
 target_link_libraries(test_node_config_validate PRIVATE node_config)
-
-add_host_test(test_node_config_composition test_node_config_composition.c)
-target_link_libraries(test_node_config_composition PRIVATE node_config
-                      node_config_example)
 
 add_host_test(test_config_store_crc test_config_store_crc.c)
 target_include_directories(test_config_store_crc PRIVATE ${CONFIG_STORE_DIR})

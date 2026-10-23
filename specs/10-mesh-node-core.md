@@ -33,7 +33,7 @@ Classic ESP32 radio, BLE 4.2. Bluetooth controller in BLE-only mode. Bluetooth C
   - Provisioning callbacks logged. OOB: none (no input/output) for v1.
   - Mesh log lines: at boot and when provisioning completes, log `mesh=unprov|prov`, the unicast address, the element count and the relay state. At boot, also log the UUID, IV index, net/app key indexes and the composition.
   - Factory-reset hook: `esp_ble_mesh_node_local_reset()`.
-  - A Config Node Reset from the gateway unprovisions the node, which beacons again; no restart is needed.
+  - A Config Node Reset from the gateway unprovisions the node, and the mesh AO then restarts it: ESP-BLE-MESH v5.4.4 does not send unprovisioned beacons again after a node reset (`bt_mesh_node_reset()` does not re-enable provisioning), and the restart does.
 - Out of scope: model message handling (11), Low Power / Friend features.
 
 ## Interface
@@ -46,7 +46,7 @@ typedef enum {
   NODE_MESH_ERR_MESH,   /* ESP-BLE-MESH init or provisioning enable failed */
 } node_mesh_err_t;
 
-node_mesh_err_t node_mesh_start(const node_config_t *cfg /* NULL in safe mode */);
+node_mesh_err_t node_mesh_start(void); /* the same in normal and safe mode */
 bool     node_mesh_is_provisioned(void);
 uint16_t node_mesh_primary_addr(void);
 /* Spec 11 registers the primary element's vendor models before start; the array must stay valid: */

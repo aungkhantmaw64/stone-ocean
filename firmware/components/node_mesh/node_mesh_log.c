@@ -11,7 +11,6 @@
 
 #include "esp_err.h"
 #include "esp_log.h"
-#include "node_config.h"
 #include "node_mesh_err.h"
 #include "node_mesh_internal.h"
 
@@ -32,14 +31,6 @@
 /* ==========================================================================
  * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
-
-/**
- * @brief Name of a device type, as written in the config.
- *
- * @param type The type.
- * @return A NUL-terminated name; "unknown" for an out-of-range value.
- */
-static const char *node_mesh_log_type_name(node_config_dev_type_t type);
 
 /**
  * @brief Write key indexes as comma-separated hex into a buffer; "none" if
@@ -66,19 +57,8 @@ void node_mesh_log_prov_complete(uint16_t addr, uint8_t element_count,
            (unsigned long)iv_index);
 }
 
-void node_mesh_log_hash_store_failed(void) {
-  ESP_LOGE(NODE_MESH_LOG_TAG,
-           "composition hash not stored; a config change will not be "
-           "detected");
-}
-
 void node_mesh_log_node_reset(void) {
-  ESP_LOGW(NODE_MESH_LOG_TAG,
-           "node reset by the gateway; erasing mesh metadata and restarting");
-}
-
-void node_mesh_log_meta_erase_failed(void) {
-  ESP_LOGE(NODE_MESH_LOG_TAG, "mesh metadata erase failed");
+  ESP_LOGW(NODE_MESH_LOG_TAG, "node reset by the gateway; restarting");
 }
 
 void node_mesh_log_post_failed(const char *what) {
@@ -103,38 +83,6 @@ void node_mesh_log_notice(node_mesh_ao_notice_t notice, int32_t err) {
                (int)notice);
       break;
   }
-}
-
-void node_mesh_log_mismatch(uint32_t stored_hash, uint32_t config_hash) {
-  ESP_LOGW(NODE_MESH_LOG_TAG,
-           "config composition changed since provisioning; factory-reset "
-           "and reprovision required");
-  ESP_LOGW(NODE_MESH_LOG_TAG,
-           "stored hash 0x%08lx, config hash 0x%08lx; device elements "
-           "disabled",
-           (unsigned long)stored_hash, (unsigned long)config_hash);
-}
-
-void node_mesh_log_hash_load_failed(void) {
-  ESP_LOGW(NODE_MESH_LOG_TAG,
-           "composition hash unreadable; treating the node as never "
-           "provisioned");
-}
-
-void node_mesh_log_hash_missing(void) {
-  ESP_LOGW(NODE_MESH_LOG_TAG,
-           "provisioned but no composition hash stored; storing the one in "
-           "use");
-}
-
-void node_mesh_log_hash_stale(void) {
-  ESP_LOGW(NODE_MESH_LOG_TAG,
-           "composition hash stored but not provisioned; erasing it");
-}
-
-void node_mesh_log_builder_failed(int dev_index, node_mesh_err_t err) {
-  ESP_LOGE(NODE_MESH_LOG_TAG, "device %d: models not built (%d); no models",
-           dev_index, (int)err);
 }
 
 void node_mesh_log_call_failed(const char *what, int32_t err) {
@@ -182,20 +130,11 @@ void node_mesh_log_keys(uint32_t iv_index, const uint16_t *net_idx,
            (unsigned long)iv_index, net_text, app_text);
 }
 
-void node_mesh_log_primary_element(uint8_t model_count) {
+void node_mesh_log_primary_element(uint8_t sig_count, uint8_t vnd_count) {
   ESP_LOGI(NODE_MESH_LOG_TAG,
-           "element 0: primary, config + health server (%u models)",
-           (unsigned)model_count);
-}
-
-void node_mesh_log_device_element(uint8_t element, const node_config_dev_t *dev,
-                                  uint8_t model_count) {
-  if (dev == NULL) {
-    return;
-  }
-  ESP_LOGI(NODE_MESH_LOG_TAG, "element %u: %s (%s, %u models)",
-           (unsigned)element, dev->id, node_mesh_log_type_name(dev->type),
-           (unsigned)model_count);
+           "element 0: primary, %u SIG models (config + health server), %u "
+           "vendor models",
+           (unsigned)sig_count, (unsigned)vnd_count);
 }
 
 void node_mesh_log_heap(size_t internal, size_t total, bool low) {
@@ -224,19 +163,6 @@ void node_mesh_log_reset_timeout(void) {
 /* ==========================================================================
  * PRIVATE FUNCTIONS
  * ========================================================================== */
-
-static const char *node_mesh_log_type_name(node_config_dev_type_t type) {
-  switch (type) {
-    case NODE_CONFIG_DEV_SHTC3:
-      return "shtc3";
-    case NODE_CONFIG_DEV_PIR:
-      return "pir";
-    case NODE_CONFIG_DEV_LED:
-      return "led";
-    default:
-      return "unknown";
-  }
-}
 
 static void node_mesh_log_format_idx(const uint16_t *idx, size_t n, char *text,
                                      size_t cap) {

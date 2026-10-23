@@ -3,8 +3,8 @@
 # ESP-IDF reads them before the Kconfig values are known.
 set(srcs)
 if(CONFIG_NODE_MESH_ENABLE)
-  list(APPEND srcs "node_mesh.c" "node_mesh_ao.c" "node_mesh_comp.c"
-                   "node_mesh_log.c" "node_mesh_msg.c" "node_mesh_port.c")
+  list(APPEND srcs "node_mesh.c" "node_mesh_ao.c" "node_mesh_log.c"
+                   "node_mesh_msg.c" "node_mesh_port.c" "node_mesh_uuid.c")
 endif()
 
 idf_component_register(SRCS ${srcs}
@@ -12,7 +12,7 @@ idf_component_register(SRCS ${srcs}
                        REQUIRES bt node_config
                        PRIV_REQUIRES esp_hw_support esp_system heap log
                                      nanopb node_ao node_dev node_hal
-                                     node_health node_proto nvs_flash)
+                                     node_health node_proto)
 
 if(CONFIG_NODE_MESH_ENABLE)
   target_compile_options(${COMPONENT_LIB} PRIVATE -Wall -Wextra -Werror)

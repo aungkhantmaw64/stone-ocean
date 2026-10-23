@@ -12,7 +12,6 @@
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "esp_system.h"
-#include "nvs.h"
 
 /* ==========================================================================
  * MACROS
@@ -20,12 +19,6 @@
 
 /** @brief ESP-IDF log tag of the node_mesh port. */
 #define NODE_MESH_PORT_LOG_TAG "node_mesh"
-
-/** @brief NVS namespace that holds node_mesh's data (spec 10). */
-#define NODE_MESH_PORT_NAMESPACE "meshmeta"
-
-/** @brief NVS key of the composition hash, a uint32_t. */
-#define NODE_MESH_PORT_KEY_COMP_HASH "comp_hash"
 
 /* ==========================================================================
  * PRIVATE FUNCTION PROTOTYPES
@@ -42,72 +35,6 @@ static void node_mesh_port_log_error(const char *what, esp_err_t err);
 /* ==========================================================================
  * PUBLIC FUNCTIONS
  * ========================================================================== */
-
-node_mesh_port_err_t node_mesh_port_hash_load(uint32_t *out) {
-  if (out == NULL) {
-    return NODE_MESH_PORT_ERR_ARG;
-  }
-  *out = 0;
-  nvs_handle_t handle = 0;
-  esp_err_t err = nvs_open(NODE_MESH_PORT_NAMESPACE, NVS_READONLY, &handle);
-  if (err == ESP_ERR_NVS_NOT_FOUND) {
-    return NODE_MESH_PORT_NOT_FOUND;
-  }
-  if (err != ESP_OK) {
-    node_mesh_port_log_error("nvs_open", err);
-    return NODE_MESH_PORT_ERR_IO;
-  }
-  uint32_t hash = 0;
-  err = nvs_get_u32(handle, NODE_MESH_PORT_KEY_COMP_HASH, &hash);
-  nvs_close(handle);
-  if (err == ESP_ERR_NVS_NOT_FOUND) {
-    return NODE_MESH_PORT_NOT_FOUND;
-  }
-  if (err != ESP_OK) {
-    node_mesh_port_log_error("nvs_get_u32", err);
-    return NODE_MESH_PORT_ERR_IO;
-  }
-  *out = hash;
-  return NODE_MESH_PORT_OK;
-}
-
-node_mesh_port_err_t node_mesh_port_hash_store(uint32_t hash) {
-  nvs_handle_t handle = 0;
-  esp_err_t err = nvs_open(NODE_MESH_PORT_NAMESPACE, NVS_READWRITE, &handle);
-  if (err != ESP_OK) {
-    node_mesh_port_log_error("nvs_open", err);
-    return NODE_MESH_PORT_ERR_IO;
-  }
-  err = nvs_set_u32(handle, NODE_MESH_PORT_KEY_COMP_HASH, hash);
-  if (err == ESP_OK) {
-    err = nvs_commit(handle);
-  }
-  nvs_close(handle);
-  if (err != ESP_OK) {
-    node_mesh_port_log_error("nvs_set_u32", err);
-    return NODE_MESH_PORT_ERR_IO;
-  }
-  return NODE_MESH_PORT_OK;
-}
-
-node_mesh_port_err_t node_mesh_port_meta_erase(void) {
-  nvs_handle_t handle = 0;
-  esp_err_t err = nvs_open(NODE_MESH_PORT_NAMESPACE, NVS_READWRITE, &handle);
-  if (err != ESP_OK) {
-    node_mesh_port_log_error("nvs_open", err);
-    return NODE_MESH_PORT_ERR_IO;
-  }
-  err = nvs_erase_all(handle);
-  if (err == ESP_OK) {
-    err = nvs_commit(handle);
-  }
-  nvs_close(handle);
-  if (err != ESP_OK) {
-    node_mesh_port_log_error("nvs_erase_all", err);
-    return NODE_MESH_PORT_ERR_IO;
-  }
-  return NODE_MESH_PORT_OK;
-}
 
 node_mesh_port_err_t node_mesh_port_bt_mac(uint8_t *mac) {
   if (mac == NULL) {

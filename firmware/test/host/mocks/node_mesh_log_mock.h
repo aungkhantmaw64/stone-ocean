@@ -5,7 +5,7 @@
  * @brief Test controls for the host implementation of node_mesh_log.c.
  *
  * The mock records the log lines of the node_mesh sources built on the host
- * (the composition plan and the mesh AO) instead of logging them. Lines only
+ * (the mesh AO) instead of logging them. Lines only
  * node_mesh.c logs are not implemented, as node_mesh.c needs ESP-BLE-MESH
  * and is not built on the host. Call node_mesh_log_mock_reset() from every
  * test's setUp() so tests stay independent.
@@ -56,28 +56,12 @@ size_t node_mesh_log_mock_prov_complete_count(void);
 node_mesh_log_mock_prov_t node_mesh_log_mock_last_prov_complete(void);
 
 /**
- * @brief Number of "composition hash not stored" lines logged since the
- *        last reset.
- *
- * @return The count.
- */
-size_t node_mesh_log_mock_hash_store_failed_count(void);
-
-/**
  * @brief Number of "node reset by the gateway" lines logged since the last
  *        reset.
  *
  * @return The count.
  */
 size_t node_mesh_log_mock_node_reset_count(void);
-
-/**
- * @brief Number of "mesh metadata erase failed" lines logged since the last
- *        reset.
- *
- * @return The count.
- */
-size_t node_mesh_log_mock_meta_erase_failed_count(void);
 
 /**
  * @brief Number of "mesh event lost" lines logged since the last reset.
