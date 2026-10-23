@@ -292,6 +292,9 @@ target_link_libraries(test_node_health_ao PRIVATE node_health)
 add_host_test(test_node_mesh_comp test_node_mesh_comp.c)
 target_link_libraries(test_node_mesh_comp PRIVATE node_mesh)
 
+add_host_test(test_node_mesh_ao test_node_mesh_ao.c)
+target_link_libraries(test_node_mesh_ao PRIVATE node_mesh)
+
 add_host_test(test_node_config_parse test_node_config_parse.c)
 target_link_libraries(test_node_config_parse PRIVATE node_config
                       node_config_example)
