@@ -6,7 +6,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "node_ao.h"
 #include "node_ao_port_mock.h"
+#include "node_ao_pub_sigs.h"
 #include "node_hal.h"
 #include "node_hal_board.h"
 #include "node_hal_mock.h"
@@ -37,6 +39,33 @@
 /** @brief A blink off time that differs from ON_MS, in ms. */
 #define OFF_MS 300
 
+/** @brief Blink periods a pattern is followed for. */
+#define PERIODS 5
+
+/** @brief Time a steady LED is watched for after blinking ends, in ms; several
+ *         blink periods. */
+#define WATCH_MS 2000
+
+/** @brief Events the recording subscriber's queue holds. */
+#define SUBSCRIBER_QUEUE_LEN 4
+
+/* ==========================================================================
+ * TYPES
+ * ========================================================================== */
+
+/** @brief A test AO that counts the published events it receives. */
+typedef struct {
+  node_ao_t super; /**< Framework part; first. */
+  size_t count;    /**< Events received, init event excluded. */
+} subscriber_t;
+
+/* ==========================================================================
+ * GLOBAL VARIABLES
+ * ========================================================================== */
+
+/** @brief Subscriber to every published signal; reset in setUp(). */
+static subscriber_t g_subscriber = {0};
+
 /* ==========================================================================
  * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
@@ -46,6 +75,27 @@ static void start_status_led(void);
 
 /** @brief Run every AO until idle; fail the test on a runaway. */
 static void run_until_idle(void);
+
+/**
+ * @brief Check the LED follows a blink pattern for PERIODS periods, starting
+ *        lit at the beginning of an on phase, and switches exactly at the end
+ *        of each phase.
+ *
+ * @param on_ms  Expected on time, in ms; at least 2.
+ * @param off_ms Expected off time, in ms; at least 2.
+ */
+static void assert_blinks(uint32_t on_ms, uint32_t off_ms);
+
+/**
+ * @brief Count an event in the subscriber.
+ *
+ * @param me The subscriber.
+ * @param e  The event.
+ */
+static void subscriber_dispatch(node_ao_t *me, const node_ao_evt_t *e);
+
+/** @brief Start g_subscriber and subscribe it to every published signal. */
+static void start_subscriber(void);
 
 /**
  * @brief Let @p ms of virtual time pass, then run every AO until idle.
@@ -70,6 +120,7 @@ void setUp(void) {
   node_ao_port_mock_reset();
   node_status_reset();
   node_status_log_mock_reset();
+  g_subscriber = (subscriber_t){0};
 }
 
 void tearDown(void) {}
@@ -206,6 +257,181 @@ void test_latest_status_led_command_wins_when_several_are_queued(void) {
   TEST_ASSERT_EQUAL_size_t(writes, node_hal_gpio_mock_write_count(LED_GPIO));
 }
 
+/* ---- Blinking ---- */
+
+/* AC: specs/16-status-led.md #1 */
+void test_status_led_blinks_with_the_requested_unequal_on_and_off_times_over_several_periods(
+    void) {
+  start_status_led();
+
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_blink(ON_MS, OFF_MS));
+  run_until_idle();
+
+  assert_blinks(ON_MS, OFF_MS);
+}
+
+/* AC: specs/16-status-led.md #1 */
+void test_status_led_keeps_blinking_on_time_across_the_millisecond_clock_wrap_around(
+    void) {
+  /* The 32-bit clock wraps during the first period. */
+  node_hal_time_mock_set(UINT32_MAX - (ON_MS / 2));
+  start_status_led();
+
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_blink(ON_MS, OFF_MS));
+  run_until_idle();
+
+  assert_blinks(ON_MS, OFF_MS);
+}
+
+/* AC: specs/16-status-led.md #1 */
+void test_new_blink_command_restarts_the_pattern_with_the_on_phase(void) {
+  start_status_led();
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_blink(ON_MS, OFF_MS));
+  run_until_idle();
+  wait_ms(ON_MS + (OFF_MS / 2));
+  TEST_ASSERT_EQUAL_INT(DARK_LEVEL, led_level());
+
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_blink(ON_MS, OFF_MS));
+  run_until_idle();
+
+  assert_blinks(ON_MS, OFF_MS);
+}
+
+/* AC: specs/16-status-led.md #1 */
+void test_switching_the_status_led_on_ends_blinking(void) {
+  start_status_led();
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_blink(ON_MS, OFF_MS));
+  run_until_idle();
+  wait_ms(ON_MS + (OFF_MS / 2));
+
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_set(true));
+  run_until_idle();
+  const size_t writes = node_hal_gpio_mock_write_count(LED_GPIO);
+  wait_ms(WATCH_MS);
+
+  TEST_ASSERT_EQUAL_INT(LIT_LEVEL, led_level());
+  TEST_ASSERT_EQUAL_size_t(writes, node_hal_gpio_mock_write_count(LED_GPIO));
+}
+
+/* AC: specs/16-status-led.md #1 */
+void test_switching_the_status_led_off_ends_blinking(void) {
+  start_status_led();
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_blink(ON_MS, OFF_MS));
+  run_until_idle();
+  wait_ms(ON_MS / 2);
+
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_set(false));
+  run_until_idle();
+  const size_t writes = node_hal_gpio_mock_write_count(LED_GPIO);
+  wait_ms(WATCH_MS);
+
+  TEST_ASSERT_EQUAL_INT(DARK_LEVEL, led_level());
+  TEST_ASSERT_EQUAL_size_t(writes, node_hal_gpio_mock_write_count(LED_GPIO));
+}
+
+/* ---- Logging ---- */
+
+/* AC: specs/16-status-led.md #1 */
+void test_change_of_status_led_mode_is_logged(void) {
+  start_status_led();
+
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_set(true));
+  run_until_idle();
+  TEST_ASSERT_EQUAL_size_t(1, node_status_log_mock_steady_count());
+  TEST_ASSERT_TRUE(node_status_log_mock_last_steady_on());
+
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_blink(ON_MS, OFF_MS));
+  run_until_idle();
+  TEST_ASSERT_EQUAL_size_t(1, node_status_log_mock_blink_count());
+  TEST_ASSERT_EQUAL_UINT16(ON_MS, node_status_log_mock_last_blink_on_ms());
+  TEST_ASSERT_EQUAL_UINT16(OFF_MS, node_status_log_mock_last_blink_off_ms());
+
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_set(false));
+  run_until_idle();
+  TEST_ASSERT_EQUAL_size_t(2, node_status_log_mock_steady_count());
+  TEST_ASSERT_FALSE(node_status_log_mock_last_steady_on());
+}
+
+/* AC: specs/16-status-led.md #1 */
+void test_repeating_the_current_status_led_command_is_not_logged(void) {
+  start_status_led();
+
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_set(true));
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_set(true));
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_blink(ON_MS, OFF_MS));
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_blink(ON_MS, OFF_MS));
+  run_until_idle();
+
+  TEST_ASSERT_EQUAL_size_t(1, node_status_log_mock_steady_count());
+  TEST_ASSERT_EQUAL_size_t(1, node_status_log_mock_blink_count());
+}
+
+/* AC: specs/16-status-led.md #1 */
+void test_individual_blink_toggles_are_not_logged(void) {
+  start_status_led();
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_blink(ON_MS, OFF_MS));
+  run_until_idle();
+
+  wait_ms(PERIODS * (ON_MS + OFF_MS));
+
+  TEST_ASSERT_EQUAL_size_t(1, node_status_log_mock_blink_count());
+  TEST_ASSERT_EQUAL_size_t(0, node_status_log_mock_steady_count());
+}
+
+/* AC: specs/16-status-led.md #1 */
+void test_failing_status_led_pin_writes_are_logged_once_per_failure_streak(
+    void) {
+  start_status_led();
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_blink(ON_MS, ON_MS));
+  run_until_idle();
+
+  /* First streak: two phases in a row fail, then one works. */
+  node_hal_gpio_mock_fail_next_write(NODE_HAL_ERR_IO);
+  wait_ms(ON_MS);
+  node_hal_gpio_mock_fail_next_write(NODE_HAL_ERR_IO);
+  wait_ms(ON_MS);
+  TEST_ASSERT_EQUAL_size_t(1, node_status_log_mock_write_failed_count());
+  wait_ms(ON_MS);
+
+  /* Second streak. */
+  node_hal_gpio_mock_fail_next_write(NODE_HAL_ERR_IO);
+  wait_ms(ON_MS);
+
+  TEST_ASSERT_EQUAL_size_t(2, node_status_log_mock_write_failed_count());
+}
+
+/* AC: specs/16-status-led.md #1 */
+void test_status_led_pin_working_again_after_failed_writes_is_logged(void) {
+  start_status_led();
+  node_hal_gpio_mock_fail_next_write(NODE_HAL_ERR_IO);
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_set(true));
+  run_until_idle();
+  TEST_ASSERT_EQUAL_size_t(0, node_status_log_mock_write_recovered_count());
+
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_set(true));
+  run_until_idle();
+
+  TEST_ASSERT_EQUAL_size_t(1, node_status_log_mock_write_recovered_count());
+  TEST_ASSERT_EQUAL_INT(LIT_LEVEL, led_level());
+}
+
+/* ---- Isolation ---- */
+
+/* AC: specs/16-status-led.md #5 */
+void test_status_led_publishes_no_events_to_subscribers(void) {
+  start_subscriber();
+  start_status_led();
+
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_set(true));
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_blink(ON_MS, OFF_MS));
+  run_until_idle();
+  wait_ms(PERIODS * (ON_MS + OFF_MS));
+  TEST_ASSERT_EQUAL_INT(NODE_STATUS_OK, node_status_led_set(false));
+  run_until_idle();
+
+  TEST_ASSERT_EQUAL_size_t(0, g_subscriber.count);
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_status_led_is_switched_off_when_it_starts);
@@ -221,6 +447,20 @@ int main(void) {
   RUN_TEST(
       test_status_led_command_is_rejected_without_waiting_when_its_queue_is_full);
   RUN_TEST(test_latest_status_led_command_wins_when_several_are_queued);
+  RUN_TEST(
+      test_status_led_blinks_with_the_requested_unequal_on_and_off_times_over_several_periods);
+  RUN_TEST(
+      test_status_led_keeps_blinking_on_time_across_the_millisecond_clock_wrap_around);
+  RUN_TEST(test_new_blink_command_restarts_the_pattern_with_the_on_phase);
+  RUN_TEST(test_switching_the_status_led_on_ends_blinking);
+  RUN_TEST(test_switching_the_status_led_off_ends_blinking);
+  RUN_TEST(test_change_of_status_led_mode_is_logged);
+  RUN_TEST(test_repeating_the_current_status_led_command_is_not_logged);
+  RUN_TEST(test_individual_blink_toggles_are_not_logged);
+  RUN_TEST(
+      test_failing_status_led_pin_writes_are_logged_once_per_failure_streak);
+  RUN_TEST(test_status_led_pin_working_again_after_failed_writes_is_logged);
+  RUN_TEST(test_status_led_publishes_no_events_to_subscribers);
   return UNITY_END();
 }
 
@@ -236,6 +476,48 @@ static void start_status_led(void) {
 static void run_until_idle(void) {
   TEST_ASSERT_NOT_EQUAL_INT(NODE_AO_PORT_MOCK_RUNAWAY,
                             node_ao_port_mock_run_until_idle());
+}
+
+static void assert_blinks(uint32_t on_ms, uint32_t off_ms) {
+  for (int period = 0; period < PERIODS; period++) {
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LIT_LEVEL, led_level(), "start of on phase");
+    wait_ms(on_ms - 1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LIT_LEVEL, led_level(), "end of on phase");
+    wait_ms(1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(DARK_LEVEL, led_level(),
+                                  "start of off phase");
+    wait_ms(off_ms - 1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(DARK_LEVEL, led_level(), "end of off phase");
+    wait_ms(1);
+  }
+  TEST_ASSERT_EQUAL_INT_MESSAGE(LIT_LEVEL, led_level(), "next period");
+}
+
+static void subscriber_dispatch(node_ao_t *me, const node_ao_evt_t *e) {
+  subscriber_t *sub = (subscriber_t *)me;
+  if (e->sig != NODE_AO_SIG_INIT) {
+    sub->count++;
+  }
+}
+
+static void start_subscriber(void) {
+  const node_ao_config_t cfg = {
+      .name = "subscriber",
+      .priority = 1,
+      .stack_bytes = 2048,
+      .queue_len = SUBSCRIBER_QUEUE_LEN,
+      .evt_size = NODE_AO_MAX_EVT_SIZE,
+  };
+  TEST_ASSERT_EQUAL_INT(NODE_AO_OK, node_ao_start(&g_subscriber.super,
+                                                  subscriber_dispatch, &cfg));
+  /* node_dev's block is the only published one (node_ao_pub_sigs.h). */
+  for (node_ao_sig_t sig = NODE_AO_PUB_SIGS_NODE_DEV;
+       sig < NODE_AO_PUB_SIGS_NODE_DEV + NODE_AO_PUB_SIGS_PER_COMPONENT;
+       sig++) {
+    TEST_ASSERT_EQUAL_INT(NODE_AO_OK,
+                          node_ao_pubsub_subscribe(&g_subscriber.super, sig));
+  }
+  run_until_idle();
 }
 
 static void wait_ms(uint32_t ms) {
