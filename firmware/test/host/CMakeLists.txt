@@ -228,6 +228,10 @@ add_host_test(test_node_dev_led test_node_dev_led.c)
 target_include_directories(test_node_dev_led PRIVATE ${NODE_DEV_DIR})
 target_link_libraries(test_node_dev_led PRIVATE node_dev)
 
+add_host_test(test_node_dev_shtc3 test_node_dev_shtc3.c)
+target_include_directories(test_node_dev_shtc3 PRIVATE ${NODE_DEV_DIR})
+target_link_libraries(test_node_dev_shtc3 PRIVATE node_dev)
+
 add_host_test(test_node_status test_node_status.c)
 target_include_directories(test_node_status PRIVATE ${NODE_STATUS_DIR})
 target_link_libraries(test_node_status PRIVATE node_status)
