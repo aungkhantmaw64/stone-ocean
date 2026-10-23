@@ -1,6 +1,6 @@
 # 16 — Status LED
 
-**Status:** in-progress
+**Status:** done
 **Depends on:** 02, 03, 14
 **Target:** custom ESP32 WROVER board · ESP-IDF v5.x · `firmware/components/node_status`, `node_hal/include/node_hal_board.h`, `node_config/node_config_validate.c`
 
@@ -94,6 +94,6 @@ node_status_err_t node_status_led_blink(uint16_t on_ms, uint16_t off_ms); /* any
 - [x] The status AO starts before the config is loaded, and blinks the heartbeat in normal and safe mode.
 - [x] A config that uses GPIO0 or GPIO34 is rejected by the firmware, the PC checker and the schema.
 - [x] The status LED publishes no events and is invisible to the devices AO and the mesh.
-- [ ] On hardware, the LED blinks 1 s on, 1 s off from boot, and the board always boots normally.
+- [x] On hardware, the LED blinks 1 s on, 1 s off from boot, and the board always boots normally.
 
-Host tests: `test_node_status` (23 tests), the board-pin tests in `test_node_config_validate`, a PC-checker CTest and two schema tests in `tools/tests` pass under ASan, LSan and UBSan. QEMU boots log the status AO starting and `status led: blink 1000/1000` in normal mode, in safe mode with no config, and in safe mode for a config with the PIR on GPIO 0 (`devices[1].gpio: GPIO 0 is used by the status LED`). The hardware criterion is still open.
+Host tests: `test_node_status` (23 tests), the board-pin tests in `test_node_config_validate`, a PC-checker CTest and two schema tests in `tools/tests` pass under ASan, LSan and UBSan. QEMU boots log the status AO starting and `status led: blink 1000/1000` in normal mode, in safe mode with no config, and in safe mode for a config with the PIR on GPIO 0 (`devices[1].gpio: GPIO 0 is used by the status LED`). On the custom board, the LED blinks about 1 s on, 1 s off, and 10+ USB power cycles all booted normally (2026-10-23).
