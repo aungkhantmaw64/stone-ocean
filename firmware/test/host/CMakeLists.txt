@@ -338,6 +338,9 @@ target_link_libraries(test_node_mesh_uuid PRIVATE node_mesh)
 add_host_test(test_node_mesh_ao test_node_mesh_ao.c)
 target_link_libraries(test_node_mesh_ao PRIVATE node_mesh)
 
+add_host_test(test_node_mesh_models test_node_mesh_models.c)
+target_link_libraries(test_node_mesh_models PRIVATE node_mesh)
+
 add_host_test(test_node_mesh_msg test_node_mesh_msg.c)
 target_link_libraries(test_node_mesh_msg PRIVATE node_mesh node_proto
                       node_vectors cjson)
