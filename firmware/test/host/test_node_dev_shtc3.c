@@ -90,6 +90,31 @@
 /** @brief Time between measurements of the test sensor, in ms. */
 #define SAMPLE_INTERVAL_MS 10000U
 
+/** @brief Time from starting a measurement until the driver reads it, in ms
+ *         (datasheet: 12.1 ms max, rounded up). */
+#define MEASUREMENT_TIME_MS 13U
+
+/** @brief Raw temperature word for 24.999 °C: -45 + 175 * 0x6666 / 65536. */
+#define RAW_TEMP_25_C 0x6666U
+
+/** @brief Temperature of RAW_TEMP_25_C, in °C. */
+#define TEMP_OF_RAW_TEMP_25_C 24.999f
+
+/** @brief Raw humidity word for 50 %: 100 * 0x8000 / 65536. */
+#define RAW_RH_50_PCT 0x8000U
+
+/** @brief Humidity of RAW_RH_50_PCT, in %. */
+#define RH_OF_RAW_RH_50_PCT 50.0f
+
+/** @brief Bytes of a measurement result: temperature word, humidity word. */
+#define RESULT_SIZE (2U * WORD_SIZE)
+
+/** @brief Position of the temperature word's CRC in a measurement result. */
+#define TEMP_CRC_INDEX 2U
+
+/** @brief Position of the humidity word's CRC in a measurement result. */
+#define RH_CRC_INDEX 5U
+
 /* ==========================================================================
  * TYPES
  * ========================================================================== */
@@ -177,6 +202,32 @@ static void expect_sensor_start(uint16_t id);
 
 /** @brief Expect the start of a measurement: wakeup, then measure. */
 static void expect_measurement_start(void);
+
+/**
+ * @brief Encode a measurement result as the sensor sends it.
+ *
+ * @param raw_temp Raw temperature word.
+ * @param raw_rh   Raw humidity word.
+ * @param out      Receives both words, each with its CRC-8.
+ */
+static void encode_result(uint16_t raw_temp, uint16_t raw_rh,
+                          uint8_t out[RESULT_SIZE]);
+
+/**
+ * @brief Expect the end of a measurement: the result is read, then the
+ *        sensor is put to sleep.
+ *
+ * @param result Bytes the sensor answers with.
+ */
+static void expect_measurement_result(const uint8_t result[RESULT_SIZE]);
+
+/**
+ * @brief Add one sensor, script a successful start and the first
+ *        measurement's start, and start the devices.
+ *
+ * @return The sensor's device index.
+ */
+static int start_one_sensor(void);
 
 /**
  * @brief Number of events with this signal and device the subscriber got.
@@ -379,6 +430,210 @@ void test_sensor_that_keeps_failing_at_start_is_retried_without_running_out_of_b
                             "the sensor recovers once it answers again");
 }
 
+/* ---- Measuring ---- */
+
+/* AC: specs/08-shtc3-driver.md #2 */
+void test_measurement_is_started_right_after_the_sensor_starts(void) {
+  (void)add_sensor("env1");
+  expect_sensor_start(SHTC3_ID);
+  expect_measurement_start();
+
+  start_devices();
+
+  assert_script_followed();
+  TEST_ASSERT_EQUAL_size_t(0, count_events(NODE_DEV_SIG_READING, 0));
+}
+
+/* AC: specs/08-shtc3-driver.md #2 */
+void test_measurement_result_is_not_read_before_13_ms(void) {
+  const int sensor = start_one_sensor();
+  uint8_t result[RESULT_SIZE] = {0};
+  encode_result(RAW_TEMP_25_C, RAW_RH_50_PCT, result);
+  expect_measurement_result(result);
+
+  advance_and_run(MEASUREMENT_TIME_MS - 1U);
+
+  TEST_ASSERT_EQUAL_size_t_MESSAGE(2, node_hal_i2c_mock_pending_steps(),
+                                   "the read and the sleep are still to come");
+  TEST_ASSERT_EQUAL_size_t(0, count_events(NODE_DEV_SIG_READING, sensor));
+}
+
+/* AC: specs/08-shtc3-driver.md #2 */
+void test_measurement_result_is_read_after_13_ms_and_the_sensor_is_put_back_to_sleep(
+    void) {
+  (void)start_one_sensor();
+  uint8_t result[RESULT_SIZE] = {0};
+  encode_result(RAW_TEMP_25_C, RAW_RH_50_PCT, result);
+  expect_measurement_result(result);
+
+  advance_and_run(MEASUREMENT_TIME_MS);
+
+  assert_script_followed();
+}
+
+/* AC: specs/08-shtc3-driver.md #2 */
+void test_reading_is_published_in_degrees_c_and_percent_humidity(void) {
+  const int sensor = start_one_sensor();
+  uint8_t result[RESULT_SIZE] = {0};
+  encode_result(RAW_TEMP_25_C, RAW_RH_50_PCT, result);
+  expect_measurement_result(result);
+
+  advance_and_run(MEASUREMENT_TIME_MS);
+
+  TEST_ASSERT_EQUAL_size_t(1, count_events(NODE_DEV_SIG_READING, sensor));
+  const node_dev_evt_t *reading = nth_event(NODE_DEV_SIG_READING, sensor, 0);
+  TEST_ASSERT_FLOAT_WITHIN(CONVERSION_TOLERANCE, TEMP_OF_RAW_TEMP_25_C,
+                           reading->value.temp_c);
+  TEST_ASSERT_FLOAT_WITHIN(CONVERSION_TOLERANCE, RH_OF_RAW_RH_50_PCT,
+                           reading->value.rh_pct);
+}
+
+/* AC: specs/08-shtc3-driver.md #2 */
+void test_sensor_is_measured_again_every_sample_interval(void) {
+  (void)start_one_sensor();
+  uint8_t result[RESULT_SIZE] = {0};
+  encode_result(RAW_TEMP_25_C, RAW_RH_50_PCT, result);
+  expect_measurement_result(result);
+  advance_and_run(MEASUREMENT_TIME_MS);
+  expect_measurement_start();
+
+  advance_and_run(SAMPLE_INTERVAL_MS - MEASUREMENT_TIME_MS - 1U);
+  const size_t pending_just_before = node_hal_i2c_mock_pending_steps();
+  advance_and_run(1U);
+
+  TEST_ASSERT_EQUAL_size_t_MESSAGE(2, pending_just_before,
+                                   "no new measurement before the interval");
+  assert_script_followed();
+}
+
+/* ---- Rejecting bad sensor data ---- */
+
+/* AC: specs/08-shtc3-driver.md #3 */
+void test_reading_with_a_corrupted_temperature_checksum_is_not_published(void) {
+  const int sensor = start_one_sensor();
+  uint8_t result[RESULT_SIZE] = {0};
+  encode_result(RAW_TEMP_25_C, RAW_RH_50_PCT, result);
+  result[TEMP_CRC_INDEX] ^= 0x01U;
+  expect_measurement_result(result);
+
+  advance_and_run(MEASUREMENT_TIME_MS);
+
+  TEST_ASSERT_EQUAL_size_t(0, count_events(NODE_DEV_SIG_READING, sensor));
+  TEST_ASSERT_EQUAL_size_t(1, node_dev_log_mock_warning_count());
+}
+
+/* AC: specs/08-shtc3-driver.md #3 */
+void test_reading_with_a_corrupted_humidity_checksum_is_not_published(void) {
+  const int sensor = start_one_sensor();
+  uint8_t result[RESULT_SIZE] = {0};
+  encode_result(RAW_TEMP_25_C, RAW_RH_50_PCT, result);
+  result[RH_CRC_INDEX] ^= 0x01U;
+  expect_measurement_result(result);
+
+  advance_and_run(MEASUREMENT_TIME_MS);
+
+  TEST_ASSERT_EQUAL_size_t(0, count_events(NODE_DEV_SIG_READING, sensor));
+  TEST_ASSERT_EQUAL_size_t(1, node_dev_log_mock_warning_count());
+}
+
+/* AC: specs/08-shtc3-driver.md #3 */
+void test_sensor_is_put_to_sleep_even_when_its_reading_is_corrupted(void) {
+  (void)start_one_sensor();
+  uint8_t result[RESULT_SIZE] = {0};
+  encode_result(RAW_TEMP_25_C, RAW_RH_50_PCT, result);
+  result[RH_CRC_INDEX] ^= 0x01U;
+  expect_measurement_result(result);
+
+  advance_and_run(MEASUREMENT_TIME_MS);
+
+  assert_script_followed();
+}
+
+/* AC: specs/08-shtc3-driver.md #3 */
+void test_reading_is_not_published_when_the_sensor_stops_answering_during_a_measurement(
+    void) {
+  const int sensor = start_one_sensor();
+  node_hal_i2c_mock_queue_error(SENSOR_ADDR, NODE_HAL_ERR_NACK);
+  expect_command(CMD_SLEEP);
+
+  advance_and_run(MEASUREMENT_TIME_MS);
+
+  assert_script_followed();
+  TEST_ASSERT_EQUAL_size_t(0, count_events(NODE_DEV_SIG_READING, sensor));
+  TEST_ASSERT_EQUAL_size_t(1, node_dev_log_mock_warning_count());
+}
+
+/* AC: specs/08-shtc3-driver.md #3 */
+void test_measurement_is_not_started_when_the_sensor_does_not_wake_up(void) {
+  const int sensor = add_sensor("env1");
+  expect_sensor_start(SHTC3_ID);
+  node_hal_i2c_mock_queue_error(SENSOR_ADDR, NODE_HAL_ERR_NACK);
+
+  start_devices();
+  advance_and_run(MEASUREMENT_TIME_MS);
+
+  assert_script_followed();
+  TEST_ASSERT_EQUAL_size_t(0, count_events(NODE_DEV_SIG_READING, sensor));
+  TEST_ASSERT_EQUAL_size_t(1, node_dev_log_mock_warning_count());
+}
+
+/* AC: specs/08-shtc3-driver.md #3 */
+void test_new_measurement_is_started_after_a_failed_one(void) {
+  (void)start_one_sensor();
+  node_hal_i2c_mock_queue_error(SENSOR_ADDR, NODE_HAL_ERR_NACK);
+  expect_command(CMD_SLEEP);
+  advance_and_run(MEASUREMENT_TIME_MS);
+  expect_measurement_start();
+
+  advance_and_run(SAMPLE_INTERVAL_MS - MEASUREMENT_TIME_MS);
+
+  assert_script_followed();
+}
+
+/* AC: specs/08-shtc3-driver.md #3 */
+void test_reading_is_dropped_when_the_sensor_cannot_be_put_back_to_sleep(void) {
+  const int sensor = start_one_sensor();
+  uint8_t result[RESULT_SIZE] = {0};
+  encode_result(RAW_TEMP_25_C, RAW_RH_50_PCT, result);
+  node_hal_i2c_mock_queue_read(SENSOR_ADDR, result, sizeof(result));
+  node_hal_i2c_mock_queue_error(SENSOR_ADDR, NODE_HAL_ERR_NACK);
+
+  advance_and_run(MEASUREMENT_TIME_MS);
+
+  assert_script_followed();
+  TEST_ASSERT_EQUAL_size_t(0, count_events(NODE_DEV_SIG_READING, sensor));
+}
+
+/* AC: specs/08-shtc3-driver.md #3, #5 */
+void test_sensor_is_marked_as_faulty_after_three_failed_measurements_and_recovers_on_the_next_good_one(
+    void) {
+  const int sensor = add_sensor("env1");
+  expect_sensor_start(SHTC3_ID);
+  node_hal_i2c_mock_queue_error(SENSOR_ADDR, NODE_HAL_ERR_NACK);
+  start_devices();
+  for (int i = 1; i < NODE_DEV_MAX_SAMPLE_FAILS; i++) {
+    node_hal_i2c_mock_queue_error(SENSOR_ADDR, NODE_HAL_ERR_NACK);
+    advance_and_run(SAMPLE_INTERVAL_MS);
+  }
+  const size_t faults_after_failures = count_events(NODE_DEV_SIG_FAULT, sensor);
+  const bool faulty_after_failures =
+      nth_event(NODE_DEV_SIG_FAULT, sensor, 0)->fault;
+  uint8_t result[RESULT_SIZE] = {0};
+  encode_result(RAW_TEMP_25_C, RAW_RH_50_PCT, result);
+  expect_measurement_start();
+  expect_measurement_result(result);
+
+  advance_and_run(SAMPLE_INTERVAL_MS);
+  advance_and_run(MEASUREMENT_TIME_MS);
+
+  assert_script_followed();
+  TEST_ASSERT_EQUAL_size_t(1, faults_after_failures);
+  TEST_ASSERT_TRUE(faulty_after_failures);
+  TEST_ASSERT_EQUAL_size_t(2, count_events(NODE_DEV_SIG_FAULT, sensor));
+  TEST_ASSERT_FALSE(nth_event(NODE_DEV_SIG_FAULT, sensor, 1)->fault);
+  TEST_ASSERT_EQUAL_size_t(1, count_events(NODE_DEV_SIG_READING, sensor));
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_checksum_of_the_datasheet_example_0xbeef_is_0x92);
@@ -396,6 +651,22 @@ int main(void) {
       test_device_at_the_sensor_address_that_is_not_an_shtc3_is_marked_as_faulty);
   RUN_TEST(
       test_sensor_that_keeps_failing_at_start_is_retried_without_running_out_of_bus_devices);
+  RUN_TEST(test_measurement_is_started_right_after_the_sensor_starts);
+  RUN_TEST(test_measurement_result_is_not_read_before_13_ms);
+  RUN_TEST(
+      test_measurement_result_is_read_after_13_ms_and_the_sensor_is_put_back_to_sleep);
+  RUN_TEST(test_reading_is_published_in_degrees_c_and_percent_humidity);
+  RUN_TEST(test_sensor_is_measured_again_every_sample_interval);
+  RUN_TEST(test_reading_with_a_corrupted_temperature_checksum_is_not_published);
+  RUN_TEST(test_reading_with_a_corrupted_humidity_checksum_is_not_published);
+  RUN_TEST(test_sensor_is_put_to_sleep_even_when_its_reading_is_corrupted);
+  RUN_TEST(
+      test_reading_is_not_published_when_the_sensor_stops_answering_during_a_measurement);
+  RUN_TEST(test_measurement_is_not_started_when_the_sensor_does_not_wake_up);
+  RUN_TEST(test_new_measurement_is_started_after_a_failed_one);
+  RUN_TEST(test_reading_is_dropped_when_the_sensor_cannot_be_put_back_to_sleep);
+  RUN_TEST(
+      test_sensor_is_marked_as_faulty_after_three_failed_measurements_and_recovers_on_the_next_good_one);
   return UNITY_END();
 }
 
@@ -496,6 +767,25 @@ static void expect_sensor_start(uint16_t id) {
 static void expect_measurement_start(void) {
   expect_command(CMD_WAKEUP);
   expect_command(CMD_MEASURE);
+}
+
+static void encode_result(uint16_t raw_temp, uint16_t raw_rh,
+                          uint8_t out[RESULT_SIZE]) {
+  encode_word(raw_temp, &out[0]);
+  encode_word(raw_rh, &out[WORD_SIZE]);
+}
+
+static void expect_measurement_result(const uint8_t result[RESULT_SIZE]) {
+  node_hal_i2c_mock_queue_read(SENSOR_ADDR, result, RESULT_SIZE);
+  expect_command(CMD_SLEEP);
+}
+
+static int start_one_sensor(void) {
+  const int sensor = add_sensor("env1");
+  expect_sensor_start(SHTC3_ID);
+  expect_measurement_start();
+  start_devices();
+  return sensor;
 }
 
 static size_t count_events(node_ao_sig_t sig, int dev_index) {
