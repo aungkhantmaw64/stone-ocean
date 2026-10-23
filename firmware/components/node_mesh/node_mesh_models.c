@@ -41,6 +41,31 @@
  * TYPES
  * ========================================================================== */
 
+/** @brief Private signals of the models AO. */
+enum {
+  NODE_MESH_MODELS_SIG_REQUEST =
+      NODE_AO_SIG_USER, /**< A vendor model
+                           request; carries a
+                           node_mesh_models_req_evt_t.
+                           From Bluedroid's task. */
+};
+
+/** @brief Event of NODE_MESH_MODELS_SIG_REQUEST. */
+typedef struct {
+  node_ao_evt_t super;             /**< Header; sig is
+                                      NODE_MESH_MODELS_SIG_REQUEST. */
+  node_mesh_models_port_ctx_t ctx; /**< Where the request came from. */
+  uint8_t op;                      /**< Opcode number, NODE_MESH_MSG_OP_*. */
+  uint8_t len;                     /**< Bytes used in payload. */
+  uint8_t payload[NODE_MESH_MSG_MAX_UNSEGMENTED]; /**< Request payload. */
+} node_mesh_models_req_evt_t;
+
+_Static_assert(sizeof(node_mesh_models_req_evt_t) <= NODE_AO_MAX_EVT_SIZE,
+               "a request must fit an AO queue slot");
+
+_Static_assert(sizeof(node_dev_evt_t) <= NODE_AO_MAX_EVT_SIZE,
+               "a device event must fit an AO queue slot");
+
 /** @brief What the models AO knows about one device, from its published
  *         events. */
 typedef struct {
@@ -114,6 +139,76 @@ static void node_mesh_models_on_dev_evt(node_mesh_models_ao_t *me,
 static void node_mesh_models_publish_status(const node_mesh_models_ao_t *me,
                                             int dev_index);
 
+/**
+ * @brief Answer one vendor model request, or drop and log it.
+ *
+ * @param me  The models AO.
+ * @param req The request.
+ */
+static void node_mesh_models_on_request(const node_mesh_models_ao_t *me,
+                                        const node_mesh_models_req_evt_t *req);
+
+/**
+ * @brief Answer a DeviceGet with one DeviceStatus per device asked for.
+ *
+ * @param me  The models AO.
+ * @param req The request.
+ */
+static void node_mesh_models_on_device_get(
+    const node_mesh_models_ao_t *me, const node_mesh_models_req_evt_t *req);
+
+/**
+ * @brief Switch an actuator for an OnOffSet and, for the acknowledged
+ *        variant, reply with its DeviceStatus.
+ *
+ * @param me  The models AO.
+ * @param req The request.
+ */
+static void node_mesh_models_on_onoff_set(
+    const node_mesh_models_ao_t *me, const node_mesh_models_req_evt_t *req);
+
+/**
+ * @brief Reply with the DeviceList of the active config.
+ *
+ * @param me  The models AO.
+ * @param ctx The request's context.
+ */
+static void node_mesh_models_reply_device_list(
+    const node_mesh_models_ao_t *me, const node_mesh_models_port_ctx_t *ctx);
+
+/**
+ * @brief Reply with a DeviceStatus.
+ *
+ * @param ctx       The request's context.
+ * @param dev_index Device index, below the number of devices.
+ * @param type      The device's type.
+ * @param value     Value to report, or NULL if unknown.
+ * @param fault     True if the device is in FAULT.
+ */
+static void node_mesh_models_reply_status(
+    const node_mesh_models_port_ctx_t *ctx, int dev_index,
+    node_config_dev_type_t type, const node_dev_value_t *value, bool fault);
+
+/**
+ * @brief Send a reply, logging a failure.
+ *
+ * @param ctx     The request's context.
+ * @param op      Opcode number of the reply.
+ * @param payload Reply payload; may be NULL if @p len is 0.
+ * @param len     Payload length in bytes.
+ */
+static void node_mesh_models_send(const node_mesh_models_port_ctx_t *ctx,
+                                  uint8_t op, const uint8_t *payload,
+                                  size_t len);
+
+/**
+ * @brief Whether a device type can be switched on and off.
+ *
+ * @param type Device type.
+ * @return True for an actuator.
+ */
+static bool node_mesh_models_is_actuator(node_config_dev_type_t type);
+
 /* ==========================================================================
  * PUBLIC FUNCTIONS
  * ========================================================================== */
@@ -152,6 +247,34 @@ node_mesh_err_t node_mesh_models_start(const node_config_t *cfg) {
   return NODE_MESH_OK;
 }
 
+node_mesh_err_t node_mesh_models_post_request(
+    const node_mesh_models_port_ctx_t *ctx, uint8_t op, const uint8_t *payload,
+    size_t len) {
+  if ((ctx == NULL) || ((payload == NULL) && (len > 0u))) {
+    return NODE_MESH_ERR_ARG;
+  }
+  if (len > NODE_MESH_MSG_MAX_UNSEGMENTED) {
+    node_mesh_log_models_request_dropped(op, ctx->addr,
+                                         NODE_MESH_MODELS_DROP_TOO_LONG);
+    return NODE_MESH_ERR_ARG;
+  }
+  node_mesh_models_req_evt_t evt = {
+      .super = {.sig = NODE_MESH_MODELS_SIG_REQUEST},
+      .ctx = *ctx,
+      .op = op,
+      .len = (uint8_t)len,
+  };
+  if (len > 0u) {
+    (void)memcpy(evt.payload, payload, len);
+  }
+  if (!g_started ||
+      (node_ao_post(&g_models.super, &evt, sizeof(evt)) != NODE_AO_OK)) {
+    node_mesh_log_post_failed("models request");
+    return NODE_MESH_ERR_STATE;
+  }
+  return NODE_MESH_OK;
+}
+
 void node_mesh_models_reset(void) {
   g_started = false;
   (void)memset(&g_models, 0, sizeof(g_models));
@@ -172,6 +295,10 @@ static void node_mesh_models_dispatch(node_ao_t *me, const node_ao_evt_t *e) {
     case NODE_DEV_SIG_ONOFF_CHANGED:
     case NODE_DEV_SIG_FAULT:
       node_mesh_models_on_dev_evt(models, (const node_dev_evt_t *)e);
+      break;
+    case NODE_MESH_MODELS_SIG_REQUEST:
+      node_mesh_models_on_request(models,
+                                  (const node_mesh_models_req_evt_t *)e);
       break;
     default:
       break;
@@ -218,5 +345,142 @@ static void node_mesh_models_publish_status(const node_mesh_models_ao_t *me,
    * provisioned: nothing to publish, and nothing to report. */
   if ((err != NODE_MESH_OK) && (err != NODE_MESH_ERR_STATE)) {
     node_mesh_log_models_publish_failed(dev_index, err);
+  }
+}
+
+static void node_mesh_models_on_request(const node_mesh_models_ao_t *me,
+                                        const node_mesh_models_req_evt_t *req) {
+  switch (req->op) {
+    case NODE_MESH_MSG_OP_DEVICE_LIST_GET:
+      node_mesh_models_reply_device_list(me, &req->ctx);
+      break;
+    case NODE_MESH_MSG_OP_DEVICE_GET:
+      node_mesh_models_on_device_get(me, req);
+      break;
+    case NODE_MESH_MSG_OP_ONOFF_SET:
+    case NODE_MESH_MSG_OP_ONOFF_SET_UNACK:
+      node_mesh_models_on_onoff_set(me, req);
+      break;
+    default:
+      node_mesh_log_models_request_dropped(req->op, req->ctx.addr,
+                                           NODE_MESH_MODELS_DROP_UNKNOWN_OP);
+      break;
+  }
+}
+
+static void node_mesh_models_on_device_get(
+    const node_mesh_models_ao_t *me, const node_mesh_models_req_evt_t *req) {
+  bool all = false;
+  int dev_index = 0;
+  if (node_mesh_msg_decode_device_get(req->payload, req->len, &all,
+                                      &dev_index) != NODE_MESH_OK) {
+    node_mesh_log_models_request_dropped(req->op, req->ctx.addr,
+                                         NODE_MESH_MODELS_DROP_MALFORMED);
+    return;
+  }
+  if (!all && (dev_index >= me->n_dev)) {
+    node_mesh_log_models_request_dropped(req->op, req->ctx.addr,
+                                         NODE_MESH_MODELS_DROP_NO_DEVICE);
+    return;
+  }
+  const int first = all ? 0 : dev_index;
+  const int end = all ? me->n_dev : (dev_index + 1);
+  for (int i = first; i < end; i++) {
+    const node_mesh_models_dev_t *dev = &me->devs[i];
+    node_mesh_models_reply_status(&req->ctx, i, me->cfg->dev[i].type,
+                                  dev->has_value ? &dev->value : NULL,
+                                  dev->fault);
+  }
+}
+
+static void node_mesh_models_on_onoff_set(
+    const node_mesh_models_ao_t *me, const node_mesh_models_req_evt_t *req) {
+  int dev_index = 0;
+  bool on = false;
+  if (node_mesh_msg_decode_onoff_set(req->payload, req->len, &dev_index, &on) !=
+      NODE_MESH_OK) {
+    node_mesh_log_models_request_dropped(req->op, req->ctx.addr,
+                                         NODE_MESH_MODELS_DROP_MALFORMED);
+    return;
+  }
+  if (dev_index >= me->n_dev) {
+    node_mesh_log_models_request_dropped(req->op, req->ctx.addr,
+                                         NODE_MESH_MODELS_DROP_NO_DEVICE);
+    return;
+  }
+  const node_config_dev_type_t type = me->cfg->dev[dev_index].type;
+  if (!node_mesh_models_is_actuator(type)) {
+    node_mesh_log_models_request_dropped(req->op, req->ctx.addr,
+                                         NODE_MESH_MODELS_DROP_NOT_ACTUATOR);
+    return;
+  }
+  const node_dev_err_t err = node_dev_set_onoff(dev_index, on);
+  if (err != NODE_DEV_OK) {
+    node_mesh_log_models_onoff_not_queued(dev_index, (int)err);
+  }
+  if (req->op != NODE_MESH_MSG_OP_ONOFF_SET) {
+    return;
+  }
+  const node_mesh_models_dev_t *dev = &me->devs[dev_index];
+  if (dev->fault || (err != NODE_DEV_OK)) {
+    /* The devices AO ignores a set to a device in FAULT, and a set that was
+     * not queued changes nothing: report what is known instead. */
+    node_mesh_models_reply_status(&req->ctx, dev_index, type,
+                                  dev->has_value ? &dev->value : NULL,
+                                  dev->fault);
+    return;
+  }
+  /* v1 applies the set at once, so the reply carries the requested state
+   * (spec 11); the devices AO publishes the change itself. */
+  const node_dev_value_t requested = {.on = on};
+  node_mesh_models_reply_status(&req->ctx, dev_index, type, &requested, false);
+}
+
+static void node_mesh_models_reply_device_list(
+    const node_mesh_models_ao_t *me, const node_mesh_models_port_ctx_t *ctx) {
+  uint8_t payload[NODE_MESH_MSG_DEVICE_LIST_MAX_LEN] = {0};
+  size_t len = 0;
+  const node_mesh_err_t err =
+      node_mesh_msg_encode_device_list(me->cfg, payload, sizeof(payload), &len);
+  if (err != NODE_MESH_OK) {
+    node_mesh_log_models_send_failed(NODE_MESH_MSG_OP_DEVICE_LIST, ctx->addr,
+                                     err);
+    return;
+  }
+  node_mesh_models_send(ctx, NODE_MESH_MSG_OP_DEVICE_LIST, payload, len);
+}
+
+static void node_mesh_models_reply_status(
+    const node_mesh_models_port_ctx_t *ctx, int dev_index,
+    node_config_dev_type_t type, const node_dev_value_t *value, bool fault) {
+  uint8_t payload[NODE_MESH_MSG_MAX_UNSEGMENTED] = {0};
+  size_t len = 0;
+  const node_mesh_err_t err = node_mesh_msg_encode_device_status(
+      dev_index, type, value, fault, payload, sizeof(payload), &len);
+  if (err != NODE_MESH_OK) {
+    node_mesh_log_models_send_failed(NODE_MESH_MSG_OP_DEVICE_STATUS, ctx->addr,
+                                     err);
+    return;
+  }
+  node_mesh_models_send(ctx, NODE_MESH_MSG_OP_DEVICE_STATUS, payload, len);
+}
+
+static void node_mesh_models_send(const node_mesh_models_port_ctx_t *ctx,
+                                  uint8_t op, const uint8_t *payload,
+                                  size_t len) {
+  const node_mesh_err_t err = node_mesh_models_port_send(ctx, op, payload, len);
+  if (err != NODE_MESH_OK) {
+    node_mesh_log_models_send_failed(op, ctx->addr, err);
+  }
+}
+
+static bool node_mesh_models_is_actuator(node_config_dev_type_t type) {
+  switch (type) {
+    case NODE_CONFIG_DEV_LED:
+      return true;
+    case NODE_CONFIG_DEV_SHTC3:
+    case NODE_CONFIG_DEV_PIR:
+    default:
+      return false;
   }
 }

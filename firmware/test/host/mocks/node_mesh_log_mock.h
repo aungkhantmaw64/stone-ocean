@@ -129,3 +129,32 @@ size_t node_mesh_log_mock_publish_failed_count(void);
  * @return The error; NODE_MESH_OK if none was logged.
  */
 node_mesh_err_t node_mesh_log_mock_last_publish_err(void);
+
+/**
+ * @brief Number of "request dropped" lines logged since the last reset.
+ *
+ * @return The count.
+ */
+size_t node_mesh_log_mock_request_dropped_count(void);
+
+/**
+ * @brief Reason of the last "request dropped" line.
+ *
+ * @return The reason; NODE_MESH_MODELS_DROP_TOO_LONG if none was logged.
+ */
+node_mesh_models_drop_t node_mesh_log_mock_last_drop_reason(void);
+
+/**
+ * @brief Number of "reply not sent" lines logged since the last reset.
+ *
+ * @return The count.
+ */
+size_t node_mesh_log_mock_send_failed_count(void);
+
+/**
+ * @brief Number of "on/off not passed to the devices" lines logged since the
+ *        last reset.
+ *
+ * @return The count.
+ */
+size_t node_mesh_log_mock_onoff_not_queued_count(void);

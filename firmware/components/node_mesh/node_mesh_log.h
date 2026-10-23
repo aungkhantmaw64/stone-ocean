@@ -166,3 +166,32 @@ void node_mesh_log_models_fault(int dev_index, bool fault);
  * @param err       Why: an encoding or ESP-BLE-MESH error.
  */
 void node_mesh_log_models_publish_failed(int dev_index, node_mesh_err_t err);
+
+/**
+ * @brief Log at WARNING level that a request was dropped without a reply.
+ *
+ * @param op   Opcode number of the request.
+ * @param addr Address of the sender.
+ * @param why  Why it was dropped.
+ */
+void node_mesh_log_models_request_dropped(uint8_t op, uint16_t addr,
+                                          node_mesh_models_drop_t why);
+
+/**
+ * @brief Log at ERROR level that a reply could not be sent.
+ *
+ * @param op   Opcode number of the reply.
+ * @param addr Address it was for.
+ * @param err  Why: an encoding or ESP-BLE-MESH error.
+ */
+void node_mesh_log_models_send_failed(uint8_t op, uint16_t addr,
+                                      node_mesh_err_t err);
+
+/**
+ * @brief Log at ERROR level that an OnOffSet could not be passed to the
+ *        devices AO, so the LED was not switched.
+ *
+ * @param dev_index Device index.
+ * @param err       node_dev error code.
+ */
+void node_mesh_log_models_onoff_not_queued(int dev_index, int err);

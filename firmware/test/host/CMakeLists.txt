@@ -167,13 +167,15 @@ target_link_libraries(node_mesh_header_check PRIVATE node_mesh_api
 
 # The node_mesh sources free of ESP-BLE-MESH: the device UUID, the mesh AO,
 # the vendor model messages and the models AO, on the host node_ao port,
-# with fakes in place of node_mesh_port.c and node_mesh_models_port.c and
-# the host log mock in place of node_mesh_log.c.
+# with fakes in place of node_mesh_port.c, node_mesh_models_port.c and
+# node_dev.c's node_dev_set_onoff(), and the host log mock in place of
+# node_mesh_log.c.
 add_library(node_mesh STATIC
   ${NODE_MESH_DIR}/node_mesh_ao.c
   ${NODE_MESH_DIR}/node_mesh_models.c
   ${NODE_MESH_DIR}/node_mesh_msg.c
   ${NODE_MESH_DIR}/node_mesh_uuid.c
+  mocks/node_dev.c
   mocks/node_mesh_models_port.c
   mocks/node_mesh_port.c
   mocks/node_mesh_log.c)

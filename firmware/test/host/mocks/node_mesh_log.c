@@ -50,6 +50,20 @@ static size_t g_publish_failed_count = 0;
 /** @brief Error of the last "device status not published" line. */
 static node_mesh_err_t g_last_publish_err = NODE_MESH_OK;
 
+/** @brief "Request dropped" lines logged since the last reset. */
+static size_t g_request_dropped_count = 0;
+
+/** @brief Reason of the last "request dropped" line. */
+static node_mesh_models_drop_t g_last_drop_reason =
+    NODE_MESH_MODELS_DROP_TOO_LONG;
+
+/** @brief "Reply not sent" lines logged since the last reset. */
+static size_t g_send_failed_count = 0;
+
+/** @brief "On/off not passed to the devices" lines logged since the last
+ *         reset. */
+static size_t g_onoff_not_queued_count = 0;
+
 /* ==========================================================================
  * PUBLIC FUNCTIONS
  * ========================================================================== */
@@ -67,6 +81,10 @@ void node_mesh_log_mock_reset(void) {
   g_last_fault = false;
   g_publish_failed_count = 0;
   g_last_publish_err = NODE_MESH_OK;
+  g_request_dropped_count = 0;
+  g_last_drop_reason = NODE_MESH_MODELS_DROP_TOO_LONG;
+  g_send_failed_count = 0;
+  g_onoff_not_queued_count = 0;
 }
 
 size_t node_mesh_log_mock_prov_complete_count(void) {
@@ -105,6 +123,22 @@ size_t node_mesh_log_mock_publish_failed_count(void) {
 
 node_mesh_err_t node_mesh_log_mock_last_publish_err(void) {
   return g_last_publish_err;
+}
+
+size_t node_mesh_log_mock_request_dropped_count(void) {
+  return g_request_dropped_count;
+}
+
+node_mesh_models_drop_t node_mesh_log_mock_last_drop_reason(void) {
+  return g_last_drop_reason;
+}
+
+size_t node_mesh_log_mock_send_failed_count(void) {
+  return g_send_failed_count;
+}
+
+size_t node_mesh_log_mock_onoff_not_queued_count(void) {
+  return g_onoff_not_queued_count;
 }
 
 void node_mesh_log_prov_complete(uint16_t addr, uint8_t element_count,
@@ -148,4 +182,26 @@ void node_mesh_log_models_publish_failed(int dev_index, node_mesh_err_t err) {
   (void)dev_index;
   g_publish_failed_count++;
   g_last_publish_err = err;
+}
+
+void node_mesh_log_models_request_dropped(uint8_t op, uint16_t addr,
+                                          node_mesh_models_drop_t why) {
+  (void)op;
+  (void)addr;
+  g_request_dropped_count++;
+  g_last_drop_reason = why;
+}
+
+void node_mesh_log_models_send_failed(uint8_t op, uint16_t addr,
+                                      node_mesh_err_t err) {
+  (void)op;
+  (void)addr;
+  (void)err;
+  g_send_failed_count++;
+}
+
+void node_mesh_log_models_onoff_not_queued(int dev_index, int err) {
+  (void)dev_index;
+  (void)err;
+  g_onoff_not_queued_count++;
 }

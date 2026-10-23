@@ -44,6 +44,14 @@
 static void node_mesh_log_format_idx(const uint16_t *idx, size_t n, char *text,
                                      size_t cap);
 
+/**
+ * @brief Text of a reason for dropping a request.
+ *
+ * @param why The reason.
+ * @return A NUL-terminated text; "unknown reason" for an out-of-range value.
+ */
+static const char *node_mesh_log_drop_reason(node_mesh_models_drop_t why);
+
 /* ==========================================================================
  * PUBLIC FUNCTIONS
  * ========================================================================== */
@@ -181,6 +189,23 @@ void node_mesh_log_models_publish_failed(int dev_index, node_mesh_err_t err) {
            (int)err);
 }
 
+void node_mesh_log_models_request_dropped(uint8_t op, uint16_t addr,
+                                          node_mesh_models_drop_t why) {
+  ESP_LOGW(NODE_MESH_LOG_TAG, "request op 0x%02x from 0x%04x dropped: %s",
+           (unsigned)op, (unsigned)addr, node_mesh_log_drop_reason(why));
+}
+
+void node_mesh_log_models_send_failed(uint8_t op, uint16_t addr,
+                                      node_mesh_err_t err) {
+  ESP_LOGE(NODE_MESH_LOG_TAG, "reply op 0x%02x to 0x%04x not sent: %d",
+           (unsigned)op, (unsigned)addr, (int)err);
+}
+
+void node_mesh_log_models_onoff_not_queued(int dev_index, int err) {
+  ESP_LOGE(NODE_MESH_LOG_TAG, "[%d] on/off not passed to the devices: %d",
+           dev_index, err);
+}
+
 /* ==========================================================================
  * PRIVATE FUNCTIONS
  * ========================================================================== */
@@ -201,5 +226,22 @@ static void node_mesh_log_format_idx(const uint16_t *idx, size_t n, char *text,
       return;
     }
     used += (size_t)written;
+  }
+}
+
+static const char *node_mesh_log_drop_reason(node_mesh_models_drop_t why) {
+  switch (why) {
+    case NODE_MESH_MODELS_DROP_TOO_LONG:
+      return "payload too long";
+    case NODE_MESH_MODELS_DROP_MALFORMED:
+      return "payload does not decode";
+    case NODE_MESH_MODELS_DROP_NO_DEVICE:
+      return "no such device";
+    case NODE_MESH_MODELS_DROP_NOT_ACTUATOR:
+      return "not an actuator";
+    case NODE_MESH_MODELS_DROP_UNKNOWN_OP:
+      return "unknown opcode";
+    default:
+      return "unknown reason";
   }
 }

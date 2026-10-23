@@ -21,6 +21,17 @@
 #include "node_mesh_err.h"
 
 /* ==========================================================================
+ * TYPES
+ * ========================================================================== */
+
+/** @brief Where a request came from, and so where its reply goes. */
+typedef struct {
+  uint16_t net_idx; /**< Network key index the request used. */
+  uint16_t app_idx; /**< Application key index the request used. */
+  uint16_t addr;    /**< Address of the sender; the reply goes to it. */
+} node_mesh_models_port_ctx_t;
+
+/* ==========================================================================
  * PUBLIC FUNCTIONS
  * ========================================================================== */
 
@@ -54,3 +65,24 @@ node_mesh_err_t node_mesh_models_port_register(void);
 node_mesh_err_t node_mesh_models_port_publish(uint8_t op,
                                               const uint8_t *payload,
                                               size_t len);
+
+/**
+ * @brief Send a reply from the vendor model to the sender of a request.
+ *
+ * Task context; called from the models AO. Never blocks: ESP-BLE-MESH
+ * queues the message, and segments it if it is longer than
+ * NODE_MESH_MSG_MAX_UNSEGMENTED.
+ *
+ * @param ctx     The request's context; must not be NULL.
+ * @param op      Opcode number, one of NODE_MESH_MSG_OP_*; the port adds the
+ *                vendor opcode bits and the company ID.
+ * @param payload Message payload; may be NULL if @p len is 0.
+ * @param len     Payload length in bytes, at most
+ *                NODE_MESH_MSG_DEVICE_LIST_MAX_LEN.
+ * @return NODE_MESH_OK if the message was handed to ESP-BLE-MESH;
+ *         NODE_MESH_ERR_ARG for a NULL @p ctx or a bad payload; or
+ *         NODE_MESH_ERR_MESH if ESP-BLE-MESH refused it.
+ */
+node_mesh_err_t node_mesh_models_port_send(
+    const node_mesh_models_port_ctx_t *ctx, uint8_t op, const uint8_t *payload,
+    size_t len);
