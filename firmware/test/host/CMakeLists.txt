@@ -164,19 +164,22 @@ add_library(node_mesh_header_check OBJECT node_mesh_header_check.c)
 target_compile_options(node_mesh_header_check PRIVATE -Wall -Wextra -Werror)
 target_include_directories(node_mesh_header_check PRIVATE ${NODE_MESH_DIR})
 target_link_libraries(node_mesh_header_check PRIVATE node_mesh_api
-                      node_config_api)
+                      node_config_api node_dev_api)
 
-# The node_mesh sources free of ESP-BLE-MESH: the composition plan and the
-# mesh AO, on the host node_ao port, with the in-memory fake in place of
-# node_mesh_port.c and the host log mock in place of node_mesh_log.c.
+# The node_mesh sources free of ESP-BLE-MESH: the composition plan, the mesh
+# AO and the vendor model messages, on the host node_ao port, with the
+# in-memory fake in place of node_mesh_port.c and the host log mock in place
+# of node_mesh_log.c.
 add_library(node_mesh STATIC
   ${NODE_MESH_DIR}/node_mesh_ao.c
   ${NODE_MESH_DIR}/node_mesh_comp.c
+  ${NODE_MESH_DIR}/node_mesh_msg.c
   mocks/node_mesh_port.c
   mocks/node_mesh_log.c)
 target_include_directories(node_mesh PUBLIC mocks ${NODE_MESH_DIR})
 target_compile_options(node_mesh PRIVATE -Wall -Wextra -Werror)
-target_link_libraries(node_mesh PUBLIC node_mesh_api node_config node_ao)
+target_link_libraries(node_mesh PUBLIC node_mesh_api node_config node_ao
+                      node_dev_api PRIVATE node_proto m)
 
 # The vendored nanopb runtime, built unchanged with its own flags, and the
 # mesh messages generated from proto/ by the same rule as the firmware's

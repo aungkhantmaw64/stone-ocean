@@ -75,7 +75,7 @@ N/A.
     }
     ```
 
-    Rules: value fields are present only for the device's own type. A device in FAULT, or one that has not reported a value yet, sends no value fields: absence means "unknown", never a stale value. A FAULT device also sets `fault`. Temperature and humidity are rounded half away from zero to 0.1 units, and humidity is clamped to 0–100 %. The node sends no timestamp; it has no wall clock, so the gateway stamps arrival time.
+    Rules: value fields are present only for the device's own type. A device in FAULT, or one that has not reported a value yet, sends no value fields: absence means "unknown", never a stale value. A FAULT device also sets `fault`. Temperature is clamped to −45.0 to 130.0 °C (the range of the SHTC3's conversion formula) and humidity to 0–100 %, then both are rounded half away from zero to 0.1 units; a value that is not a finite number is left out. The clamp keeps every status within the size budget. The node sends no timestamp; it has no wall clock, so the gateway stamps arrival time.
   - **Size budget:** an unsegmented vendor message carries at most 8 bytes of payload after the 3-byte opcode. `DeviceGet`, `OnOffSet` and every `DeviceStatus` fit in it: the largest is an SHTC3 status, 8 bytes. `DeviceList` may be segmented (at most about 170 bytes for 8 devices). Requests whose payload is longer than 8 bytes are dropped and logged.
   - **Replies:**
     - `DeviceListGet` → `DeviceList` with every configured device, in config order. Empty in safe mode.
@@ -108,15 +108,18 @@ Applied by this spec, because the composition no longer depends on the config:
  * it must stay valid. */
 node_mesh_err_t node_mesh_models_start(const node_config_t *cfg);
 
-/* node_mesh_msg.h: internal, pure, exposed for host tests. Each encoder returns the bytes written, or
- * 0 for a NULL pointer, a bad argument or a buffer too small. Each decoder returns NODE_MESH_OK or
- * NODE_MESH_ERR_ARG for a NULL pointer or a payload that does not decode. */
+/* node_mesh_msg.h: internal, pure, exposed for host tests. Encoders write the payload length to *len,
+ * which may be 0: an empty protobuf message is a valid, empty payload. Every function returns
+ * NODE_MESH_OK, or NODE_MESH_ERR_ARG for a NULL pointer, a bad argument, a buffer too small or a
+ * payload that does not decode. */
 #define NODE_MESH_MSG_MAX_UNSEGMENTED 8 /* payload bytes after a 3-byte vendor opcode */
-size_t node_mesh_msg_encode_device_status(int dev_index, node_config_dev_type_t type,
-                                          const node_dev_value_t *value /* NULL = unknown */,
-                                          bool fault, uint8_t *out, size_t cap);
-size_t node_mesh_msg_encode_device_list(const node_config_t *cfg /* NULL = empty */,
-                                        uint8_t *out, size_t cap);
+#define NODE_MESH_MSG_DEVICE_LIST_MAX_LEN 168
+#define NODE_MESH_MSG_OP_DEVICE_LIST_GET 0x01 /* ... to NODE_MESH_MSG_OP_ONOFF_SET_UNACK 0x06 */
+node_mesh_err_t node_mesh_msg_encode_device_status(int dev_index, node_config_dev_type_t type,
+                                                   const node_dev_value_t *value /* NULL = unknown */,
+                                                   bool fault, uint8_t *out, size_t cap, size_t *len);
+node_mesh_err_t node_mesh_msg_encode_device_list(const node_config_t *cfg /* NULL = empty */,
+                                                 uint8_t *out, size_t cap, size_t *len);
 node_mesh_err_t node_mesh_msg_decode_device_get(const uint8_t *in, size_t len,
                                                 bool *all, int *dev_index);
 node_mesh_err_t node_mesh_msg_decode_onoff_set(const uint8_t *in, size_t len,
