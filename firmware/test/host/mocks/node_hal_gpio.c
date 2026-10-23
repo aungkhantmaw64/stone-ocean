@@ -140,6 +140,13 @@ void node_hal_gpio_mock_set_input(int pin, int level) {
   }
 }
 
+void node_hal_gpio_mock_set_input_without_edge(int pin, int level) {
+  if (!node_hal_gpio_pin_in_range(pin)) {
+    return;
+  }
+  g_pins[pin].level = level != 0;
+}
+
 size_t node_hal_gpio_mock_write_count(int pin) {
   if (!node_hal_gpio_pin_in_range(pin)) {
     return 0;

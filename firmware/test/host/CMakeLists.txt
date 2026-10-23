@@ -261,6 +261,9 @@ target_link_libraries(test_node_status PRIVATE node_status)
 add_host_test(test_node_health test_node_health.c)
 target_link_libraries(test_node_health PRIVATE node_health)
 
+add_host_test(test_node_health_ao test_node_health_ao.c)
+target_link_libraries(test_node_health_ao PRIVATE node_health)
+
 add_host_test(test_node_config_parse test_node_config_parse.c)
 target_link_libraries(test_node_config_parse PRIVATE node_config
                       node_config_example)
