@@ -14,6 +14,8 @@
 
 #include <stdint.h>
 
+#include "node_hal.h"
+
 /* ==========================================================================
  * PUBLIC FUNCTIONS
  * ========================================================================== */
@@ -61,3 +63,39 @@ void node_health_log_factory_reset(void);
  * @param what NUL-terminated name of the step, such as "config erase".
  */
 void node_health_log_factory_reset_failed(const char *what);
+
+/**
+ * @brief Log at ERROR level that the health AO could not be started, so the
+ *        reset button does nothing.
+ */
+void node_health_log_ao_start_failed(void);
+
+/**
+ * @brief Log at INFO level that the reset button is watched.
+ *
+ * @param gpio GPIO number of the button.
+ */
+void node_health_log_button_started(int gpio);
+
+/**
+ * @brief Log at WARNING level that the button's pin could not be set up,
+ *        so the button does nothing.
+ *
+ * @param gpio GPIO number of the button.
+ * @param err  The HAL's error.
+ */
+void node_health_log_button_setup_failed(int gpio, node_hal_err_t err);
+
+/**
+ * @brief Log at WARNING level that the reset button is held and the node
+ *        factory-resets if it stays held. Health AO thread only.
+ *
+ * @param hold_ms Hold time still needed, in ms.
+ */
+void node_health_log_button_held(uint32_t hold_ms);
+
+/**
+ * @brief Log at INFO level that the button was released before the hold
+ *        time, so no factory reset happens. Health AO thread only.
+ */
+void node_health_log_button_released_early(void);

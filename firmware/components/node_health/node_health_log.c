@@ -48,3 +48,28 @@ void node_health_log_factory_reset_failed(const char *what) {
   ESP_LOGE(NODE_HEALTH_LOG_TAG, "factory reset: %s failed; going on",
            (what != NULL) ? what : "?");
 }
+
+void node_health_log_ao_start_failed(void) {
+  ESP_LOGE(NODE_HEALTH_LOG_TAG,
+           "health AO did not start; the reset button does nothing");
+}
+
+void node_health_log_button_started(int gpio) {
+  ESP_LOGI(NODE_HEALTH_LOG_TAG, "reset button: watching GPIO %d", gpio);
+}
+
+void node_health_log_button_setup_failed(int gpio, node_hal_err_t err) {
+  ESP_LOGW(NODE_HEALTH_LOG_TAG,
+           "reset button: GPIO %d setup failed (%d); the button does nothing",
+           gpio, (int)err);
+}
+
+void node_health_log_button_held(uint32_t hold_ms) {
+  ESP_LOGW(NODE_HEALTH_LOG_TAG,
+           "reset button: held; factory reset in %lu ms unless released",
+           (unsigned long)hold_ms);
+}
+
+void node_health_log_button_released_early(void) {
+  ESP_LOGI(NODE_HEALTH_LOG_TAG, "reset button: released; no factory reset");
+}

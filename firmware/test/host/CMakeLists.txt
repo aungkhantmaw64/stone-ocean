@@ -141,15 +141,17 @@ target_link_libraries(node_health_header_check PRIVATE node_health_api)
 
 # The real node_health logic, with the in-memory fake in place of
 # node_health_port.c, the host log mock in place of node_health_log.c, and
-# the real config_store on its in-memory file fake.
+# the real config_store on its in-memory file fake. The health AO runs on the
+# host node_ao port and the mock HAL.
 set(NODE_HEALTH_DIR ${FIRMWARE_DIR}/components/node_health)
 add_library(node_health STATIC
   ${NODE_HEALTH_DIR}/node_health.c
+  ${NODE_HEALTH_DIR}/node_health_ao.c
   mocks/node_health_port.c
   mocks/node_health_log.c)
 target_include_directories(node_health PUBLIC mocks ${NODE_HEALTH_DIR})
 target_compile_options(node_health PRIVATE -Wall -Wextra -Werror)
-target_link_libraries(node_health PUBLIC node_health_api config_store)
+target_link_libraries(node_health PUBLIC node_health_api config_store node_ao)
 
 add_library(config_store_api INTERFACE)
 target_include_directories(config_store_api INTERFACE

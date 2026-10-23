@@ -45,6 +45,21 @@ static size_t g_factory_reset_count = 0;
 /** @brief Failed factory reset steps logged since the last reset. */
 static size_t g_factory_reset_failed_count = 0;
 
+/** @brief "Health AO did not start" lines logged since the last reset. */
+static size_t g_ao_start_failed_count = 0;
+
+/** @brief "Reset button watched" lines logged since the last reset. */
+static size_t g_button_started_count = 0;
+
+/** @brief Button pin setup failures logged since the last reset. */
+static size_t g_button_setup_failed_count = 0;
+
+/** @brief "Reset button held" lines logged since the last reset. */
+static size_t g_button_held_count = 0;
+
+/** @brief "Released early" lines logged since the last reset. */
+static size_t g_button_released_early_count = 0;
+
 /* ==========================================================================
  * PUBLIC FUNCTIONS
  * ========================================================================== */
@@ -58,6 +73,11 @@ void node_health_log_mock_reset(void) {
   g_last_boot_crash_count = 0;
   g_factory_reset_count = 0;
   g_factory_reset_failed_count = 0;
+  g_ao_start_failed_count = 0;
+  g_button_started_count = 0;
+  g_button_setup_failed_count = 0;
+  g_button_held_count = 0;
+  g_button_released_early_count = 0;
 }
 
 size_t node_health_log_mock_nvs_erasing_count(void) {
@@ -90,6 +110,26 @@ size_t node_health_log_mock_factory_reset_failed_count(void) {
   return g_factory_reset_failed_count;
 }
 
+size_t node_health_log_mock_ao_start_failed_count(void) {
+  return g_ao_start_failed_count;
+}
+
+size_t node_health_log_mock_button_started_count(void) {
+  return g_button_started_count;
+}
+
+size_t node_health_log_mock_button_setup_failed_count(void) {
+  return g_button_setup_failed_count;
+}
+
+size_t node_health_log_mock_button_held_count(void) {
+  return g_button_held_count;
+}
+
+size_t node_health_log_mock_button_released_early_count(void) {
+  return g_button_released_early_count;
+}
+
 void node_health_log_nvs_erasing(const char *why) {
   (void)why;
   g_nvs_erasing_count++;
@@ -114,4 +154,26 @@ void node_health_log_factory_reset(void) { g_factory_reset_count++; }
 void node_health_log_factory_reset_failed(const char *what) {
   (void)what;
   g_factory_reset_failed_count++;
+}
+
+void node_health_log_ao_start_failed(void) { g_ao_start_failed_count++; }
+
+void node_health_log_button_started(int gpio) {
+  (void)gpio;
+  g_button_started_count++;
+}
+
+void node_health_log_button_setup_failed(int gpio, node_hal_err_t err) {
+  (void)gpio;
+  (void)err;
+  g_button_setup_failed_count++;
+}
+
+void node_health_log_button_held(uint32_t hold_ms) {
+  (void)hold_ms;
+  g_button_held_count++;
+}
+
+void node_health_log_button_released_early(void) {
+  g_button_released_early_count++;
 }

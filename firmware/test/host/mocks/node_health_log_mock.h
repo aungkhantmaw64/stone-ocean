@@ -79,3 +79,40 @@ size_t node_health_log_mock_factory_reset_count(void);
  * @return The count.
  */
 size_t node_health_log_mock_factory_reset_failed_count(void);
+
+/**
+ * @brief Number of "health AO did not start" lines logged since the last
+ *        reset.
+ *
+ * @return The count.
+ */
+size_t node_health_log_mock_ao_start_failed_count(void);
+
+/**
+ * @brief Number of "reset button watched" lines logged since the last
+ *        reset.
+ *
+ * @return The count.
+ */
+size_t node_health_log_mock_button_started_count(void);
+
+/**
+ * @brief Number of button pin setup failures logged since the last reset.
+ *
+ * @return The count.
+ */
+size_t node_health_log_mock_button_setup_failed_count(void);
+
+/**
+ * @brief Number of "reset button held" lines logged since the last reset.
+ *
+ * @return The count.
+ */
+size_t node_health_log_mock_button_held_count(void);
+
+/**
+ * @brief Number of "released early" lines logged since the last reset.
+ *
+ * @return The count.
+ */
+size_t node_health_log_mock_button_released_early_count(void);

@@ -29,3 +29,6 @@
 /** @brief GPIO of the reset button (spec 09). Input-only; the board pulls it
  *         up externally and a press pulls it low. */
 #define NODE_HAL_BOARD_RESET_BUTTON_GPIO 34
+
+/** @brief True if a pressed reset button reads high; it reads low. */
+#define NODE_HAL_BOARD_RESET_BUTTON_ACTIVE_HIGH false

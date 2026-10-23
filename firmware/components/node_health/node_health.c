@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include "config_store.h"
+#include "node_health_internal.h"
 #include "node_health_log.h"
 #include "node_health_port.h"
 
@@ -120,6 +121,10 @@ void node_health_init(void) {
   g_reason_name = info->name;
   g_crash_count = g_nvs_ready ? node_health_count_boot(info->is_crash) : 0;
   node_health_log_boot(g_reason_name, g_crash_count);
+
+  if (node_health_ao_start() != NODE_HEALTH_OK) {
+    node_health_log_ao_start_failed();
+  }
 }
 
 const char *node_health_reset_reason_str(void) { return g_reason_name; }
@@ -152,6 +157,17 @@ void node_health_factory_reset(void) {
     node_health_log_factory_reset_failed("crash counter erase");
   }
   node_health_port_restart();
+}
+
+void node_health_reset(void) {
+  g_initialised = false;
+  g_nvs_ready = false;
+  g_reason_name = NODE_HEALTH_REASON_NOT_READ;
+  g_crash_count = 0;
+  for (size_t i = 0; i < NODE_HEALTH_MAX_RESET_HOOKS; i++) {
+    g_hooks[i] = NULL;
+  }
+  g_hook_count = 0;
 }
 
 node_health_err_t node_health_crash_count_clear(void) {
