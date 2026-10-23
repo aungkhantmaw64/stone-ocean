@@ -1,0 +1,58 @@
+// Messages of the Stone Ocean Node Server vendor model (spec 11).
+//
+// Each message travels alone in one vendor message; its opcode, not a field,
+// says which message it is. The opcode of each message is given above it:
+// 3-octet vendor opcode 0xC0 | op, followed by the company ID.
+//
+// Evolve this schema by protobuf's rules: add fields, never renumber, reuse
+// or change the type of an existing one. Value fields are optional so that
+// "absent" can mean "unknown".
+syntax = "proto3";
+
+package stoneocean.mesh.v1;
+
+// Kind of device, as in the node's JSON config.
+enum DeviceType {
+  DEVICE_TYPE_UNSPECIFIED = 0;
+  DEVICE_TYPE_SHTC3 = 1;  // temperature and humidity sensor
+  DEVICE_TYPE_PIR = 2;    // motion sensor
+  DEVICE_TYPE_LED = 3;    // on/off actuator
+}
+
+// One configured device.
+message DeviceInfo {
+  DeviceType type = 1;
+  string id = 2;  // id from the node's config, at most 15 bytes
+}
+
+// op 0x01, gateway -> node. Asks for the node's devices; empty payload.
+message DeviceListGet {}
+
+// op 0x02, node -> gateway. Reply to DeviceListGet.
+message DeviceList {
+  repeated DeviceInfo devices = 1;  // in config order: position = device index; at most 8
+}
+
+// op 0x03, gateway -> node. Asks for one device's status, or every device's.
+message DeviceGet {
+  optional uint32 device = 1;  // device index; absent: every device
+}
+
+// op 0x04, node -> gateway. Reply to DeviceGet and OnOffSet, and publication.
+// Only the value fields of the device's own type are present. A device in
+// FAULT, or one that has not reported a value yet, has no value fields.
+message DeviceStatus {
+  uint32 device = 1;                   // device index
+  optional sint32 temperature_dc = 2;  // SHTC3: temperature, in 0.1 °C
+  optional uint32 humidity_dpct = 3;   // SHTC3: relative humidity, in 0.1 %, 0 to 1000
+  optional bool motion = 4;            // PIR: true while motion is sensed
+  optional bool on = 5;                // LED: true while switched on
+  bool fault = 6;                      // true while the device is in FAULT
+}
+
+// op 0x05 (acknowledged, replied to with DeviceStatus) and op 0x06
+// (unacknowledged), gateway -> node. Switches an actuator.
+message OnOffSet {
+  uint32 device = 1;  // device index
+  bool on = 2;        // true to switch on
+}

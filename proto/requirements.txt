@@ -1,0 +1,6 @@
+# Python packages that generate code from the .proto files. The firmware and
+# host builds install them into a venv in their build directory.
+nanopb==0.4.9.1  # same release as firmware/components/nanopb
+protobuf==7.36.2
+grpcio-tools==1.84.0  # provides protoc to the nanopb generator
+grpcio==1.84.0  # grpcio-tools needs it; pinned so the venv is reproducible

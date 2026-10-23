@@ -178,6 +178,26 @@ target_include_directories(node_mesh PUBLIC mocks ${NODE_MESH_DIR})
 target_compile_options(node_mesh PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(node_mesh PUBLIC node_mesh_api node_config node_ao)
 
+# The vendored nanopb runtime, built unchanged with its own flags, and the
+# mesh messages generated from proto/ by the same rule as the firmware's
+# node_proto component.
+set(NANOPB_DIR ${FIRMWARE_DIR}/components/nanopb)
+add_library(nanopb STATIC
+  ${NANOPB_DIR}/pb_common.c
+  ${NANOPB_DIR}/pb_decode.c
+  ${NANOPB_DIR}/pb_encode.c)
+target_include_directories(nanopb SYSTEM PUBLIC ${NANOPB_DIR})
+
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+include(${FIRMWARE_DIR}/../proto/nanopb.cmake)
+set(NODE_PROTO_GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR}/node_proto)
+nanopb_generate(${Python3_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/nanopb_venv
+                ${NODE_PROTO_GENERATED_DIR} node_proto_srcs)
+add_library(node_proto STATIC ${node_proto_srcs})
+target_include_directories(node_proto PUBLIC ${NODE_PROTO_GENERATED_DIR})
+target_compile_options(node_proto PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_proto PUBLIC nanopb)
+
 add_library(config_store_api INTERFACE)
 target_include_directories(config_store_api INTERFACE
   ${FIRMWARE_DIR}/components/config_store/include)
