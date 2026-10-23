@@ -36,6 +36,23 @@
 /** @brief Read ID register command (datasheet). */
 #define NODE_DEV_SHTC3_CMD_READ_ID 0xEFC8U
 
+/** @brief Measure command: normal mode, temperature first, clock stretching
+ *         disabled (datasheet). */
+#define NODE_DEV_SHTC3_CMD_MEASURE 0x7866U
+
+/** @brief Time from the measure command until the result is read, in ms
+ *         (datasheet: 12.1 ms max in normal mode, rounded up). */
+#define NODE_DEV_SHTC3_MEASURE_TIME_MS 13U
+
+/** @brief Data words of a measurement: temperature, then humidity. */
+#define NODE_DEV_SHTC3_MEASURE_WORDS 2U
+
+/** @brief Position of the temperature word in a measurement. */
+#define NODE_DEV_SHTC3_TEMP_WORD 0U
+
+/** @brief Position of the humidity word in a measurement. */
+#define NODE_DEV_SHTC3_RH_WORD 1U
+
 /** @brief Longest time the sensor needs after a wakeup command before it
  *         accepts another, in µs (datasheet: 240 µs max). */
 #define NODE_DEV_SHTC3_WAKEUP_TIME_US 240U
@@ -108,6 +125,8 @@ typedef struct {
   node_hal_i2c_dev_t dev; /**< The sensor on @c bus; added once and reused by
                              init retries, as the HAL cannot remove a
                              device. */
+  bool measuring;         /**< True between starting a measurement and
+                             reading its result. */
 } node_dev_shtc3_state_t;
 
 /* ==========================================================================
@@ -137,6 +156,46 @@ static node_dev_shtc3_state_t g_shtc3_states[NODE_CONFIG_MAX_DEVICES] = {0};
 static node_dev_err_t node_dev_shtc3_init(const node_dev_init_args_t *args,
                                           void **state,
                                           node_dev_sched_t *sched);
+
+/**
+ * @brief Take one measurement in two calls: the first starts it and returns
+ *        NODE_DEV_PENDING, the next reads the result and puts the sensor to
+ *        sleep.
+ *
+ * @param state    The device's node_dev_shtc3_state_t.
+ * @param out      Receives @c temp_c and @c rh_pct; set only on NODE_DEV_OK.
+ * @param again_ms Receives the time until the result can be read, with
+ *                 NODE_DEV_PENDING.
+ * @return NODE_DEV_PENDING after starting, NODE_DEV_OK with the reading,
+ *         NODE_DEV_ERR_ARG for NULL pointers, or NODE_DEV_ERR_IO if a
+ *         transfer failed or a CRC was wrong; the next call then starts a new
+ *         measurement.
+ */
+static node_dev_err_t node_dev_shtc3_sample(void *state, node_dev_value_t *out,
+                                            uint32_t *again_ms);
+
+/**
+ * @brief Wake the sensor and start a measurement.
+ *
+ * @param dev The sensor.
+ * @return NODE_DEV_OK, or NODE_DEV_ERR_IO if a transfer failed; the sensor
+ *         is then sent back to sleep if it can be.
+ */
+static node_dev_err_t node_dev_shtc3_start_measurement(node_hal_i2c_dev_t dev);
+
+/**
+ * @brief Read and convert a finished measurement, then put the sensor to
+ *        sleep.
+ *
+ * The sensor is sent to sleep even if the read fails.
+ *
+ * @param dev The sensor.
+ * @param out Receives @c temp_c and @c rh_pct; set only on NODE_DEV_OK.
+ * @return NODE_DEV_OK, or NODE_DEV_ERR_IO if the read failed, a CRC was
+ *         wrong or the sensor could not be put to sleep.
+ */
+static node_dev_err_t node_dev_shtc3_read_measurement(node_hal_i2c_dev_t dev,
+                                                      node_dev_value_t *out);
 
 /**
  * @brief Add the sensor to @p bus, unless it was already added there.
@@ -208,7 +267,7 @@ node_dev_err_t node_dev_shtc3_register(void) {
       .type = NODE_CONFIG_DEV_SHTC3,
       .sample_sig = NODE_DEV_SIG_READING,
       .init = node_dev_shtc3_init,
-      .sample = NULL,
+      .sample = node_dev_shtc3_sample,
       .set_onoff = NULL,
       .on_isr = NULL,
   };
@@ -265,6 +324,7 @@ static node_dev_err_t node_dev_shtc3_init(const node_dev_init_args_t *args,
     return NODE_DEV_ERR_ARG;
   }
   node_dev_shtc3_state_t *shtc3 = &g_shtc3_states[args->dev_index];
+  shtc3->measuring = false;
   node_dev_err_t err = node_dev_shtc3_attach(shtc3, args->bus);
   if (err != NODE_DEV_OK) {
     return err;
@@ -297,6 +357,59 @@ static node_dev_err_t node_dev_shtc3_init(const node_dev_init_args_t *args,
   sched->sample_interval_ms = args->cfg->shtc3.sample_interval_ms;
   sched->report = &args->cfg->shtc3.report;
   *state = shtc3;
+  return NODE_DEV_OK;
+}
+
+static node_dev_err_t node_dev_shtc3_sample(void *state, node_dev_value_t *out,
+                                            uint32_t *again_ms) {
+  if ((state == NULL) || (out == NULL) || (again_ms == NULL)) {
+    return NODE_DEV_ERR_ARG;
+  }
+  node_dev_shtc3_state_t *shtc3 = state;
+  if (!shtc3->measuring) {
+    const node_dev_err_t err = node_dev_shtc3_start_measurement(shtc3->dev);
+    if (err != NODE_DEV_OK) {
+      return err;
+    }
+    shtc3->measuring = true;
+    *again_ms = NODE_DEV_SHTC3_MEASURE_TIME_MS;
+    return NODE_DEV_PENDING;
+  }
+  shtc3->measuring = false;
+  return node_dev_shtc3_read_measurement(shtc3->dev, out);
+}
+
+static node_dev_err_t node_dev_shtc3_start_measurement(node_hal_i2c_dev_t dev) {
+  node_dev_err_t err = node_dev_shtc3_send_and_wait(
+      dev, NODE_DEV_SHTC3_CMD_WAKEUP, NODE_DEV_SHTC3_WAKEUP_TIME_US);
+  if (err != NODE_DEV_OK) {
+    return err;
+  }
+  err = node_dev_shtc3_send(dev, NODE_DEV_SHTC3_CMD_MEASURE);
+  if (err != NODE_DEV_OK) {
+    /* Best effort: the measure command already failed, and that is the
+     * error to report. */
+    (void)node_dev_shtc3_send(dev, NODE_DEV_SHTC3_CMD_SLEEP);
+    return err;
+  }
+  return NODE_DEV_OK;
+}
+
+static node_dev_err_t node_dev_shtc3_read_measurement(node_hal_i2c_dev_t dev,
+                                                      node_dev_value_t *out) {
+  uint16_t words[NODE_DEV_SHTC3_MEASURE_WORDS] = {0};
+  const node_dev_err_t read_err =
+      node_dev_shtc3_read_words(dev, words, NODE_DEV_SHTC3_MEASURE_WORDS);
+  const node_dev_err_t sleep_err =
+      node_dev_shtc3_send(dev, NODE_DEV_SHTC3_CMD_SLEEP);
+  if (read_err != NODE_DEV_OK) {
+    return read_err;
+  }
+  if (sleep_err != NODE_DEV_OK) {
+    return sleep_err;
+  }
+  out->temp_c = node_dev_shtc3_raw_to_temp_c(words[NODE_DEV_SHTC3_TEMP_WORD]);
+  out->rh_pct = node_dev_shtc3_raw_to_rh_pct(words[NODE_DEV_SHTC3_RH_WORD]);
   return NODE_DEV_OK;
 }
 
