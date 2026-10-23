@@ -89,7 +89,11 @@ node_mesh_err_t node_mesh_set_models_builder(node_mesh_models_builder_t builder)
 - [ ] Composition = primary element + one element per device, in config order (host test + boot log).
 - [ ] Composition-hash mismatch is detected and logged as specified.
 - [ ] Relay is enabled, and free internal heap after start is ≥ 40 KB (logged).
-- [ ] The hardware build, with the mesh code linked in, fits the factory app partition with ≥ 15% headroom (check with `idf.py size`). Moved here from spec 01, where nothing called the mesh code yet, so the linker dropped it.
+- [x] The hardware build, with the mesh code linked in, fits the factory app partition with ≥ 15% headroom (check with `idf.py size`). Moved here from spec 01, where nothing called the mesh code yet, so the linker dropped it.
+
+Verified so far: `idf.py size` of the hardware build gives a 972,723-byte image; `mesh_node.bin` is 0xed830 bytes, leaving 54% of the 2 MB factory partition free. Host tests `test_node_mesh_comp` (20 tests: element count from config, safe mode, match / mismatch / unprovisioned, the hash stored at provisioning, the UUID) and `test_node_mesh_ao` (11 tests: hash stored and line logged at provisioning, gateway node reset erases and restarts, provisioning notices, lost events) pass under ASan, LSan and UBSan, and cover the host-testable parts of AC 1, 2, 3, 4 and 5. The QEMU build (mesh compiled out) still builds and boots with the example config.
+
+Not yet verified on hardware: AC 1–6. They need a BlueZ provisioner, which cannot run on the development laptop (`bluetooth-meshd` needs the `algif_aead` kernel module, disabled there for CVE-2026-31431). They will be checked against a BeagleBone Black gateway with a USB BLE dongle. The boot-log parts of AC 1, 4 and 6 (UUID, element lines, heap, start time) need only the board.
 
 ## Open questions
 - Should Mesh 1.1 (Remote Provisioning / Composition Data Page 128 refresh) be adopted later to avoid reprovisioning on config change? This depends on the ESP-IDF and BlueZ versions in use.
