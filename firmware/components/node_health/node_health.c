@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "config_store.h"
 #include "node_health_log.h"
 #include "node_health_port.h"
 
@@ -63,6 +64,14 @@ static const char *g_reason_name = NODE_HEALTH_REASON_NOT_READ;
  *         task context. */
 static uint32_t g_crash_count = 0;
 
+/** @brief Registered factory-reset hooks, in registration order; the first
+ *         g_hook_count entries are valid. Written from task context. */
+static node_health_reset_hook_t g_hooks[NODE_HEALTH_MAX_RESET_HOOKS] = {0};
+
+/** @brief Number of valid entries in g_hooks, 0 to
+ *         NODE_HEALTH_MAX_RESET_HOOKS. */
+static size_t g_hook_count = 0;
+
 /* ==========================================================================
  * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
@@ -116,6 +125,34 @@ void node_health_init(void) {
 const char *node_health_reset_reason_str(void) { return g_reason_name; }
 
 uint32_t node_health_crash_count(void) { return g_crash_count; }
+
+node_health_err_t node_health_register_reset_hook(
+    node_health_reset_hook_t hook) {
+  if (hook == NULL) {
+    return NODE_HEALTH_ERR_ARG;
+  }
+  if (g_hook_count >= NODE_HEALTH_MAX_RESET_HOOKS) {
+    return NODE_HEALTH_ERR_FULL;
+  }
+  g_hooks[g_hook_count] = hook;
+  g_hook_count++;
+  return NODE_HEALTH_OK;
+}
+
+void node_health_factory_reset(void) {
+  node_health_log_factory_reset();
+  for (size_t i = 0; (i < g_hook_count) && (i < NODE_HEALTH_MAX_RESET_HOOKS);
+       i++) {
+    g_hooks[i]();
+  }
+  if (config_store_erase() != CONFIG_STORE_OK) {
+    node_health_log_factory_reset_failed("config erase");
+  }
+  if (!g_nvs_ready || (node_health_port_health_erase() != NODE_HEALTH_OK)) {
+    node_health_log_factory_reset_failed("crash counter erase");
+  }
+  node_health_port_restart();
+}
 
 node_health_err_t node_health_crash_count_clear(void) {
   if (!g_initialised) {

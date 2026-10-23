@@ -138,6 +138,27 @@ node_health_err_t node_health_port_counter_store(uint32_t count) {
   return NODE_HEALTH_OK;
 }
 
+node_health_err_t node_health_port_health_erase(void) {
+  nvs_handle_t handle = 0;
+  esp_err_t err = nvs_open(NODE_HEALTH_PORT_NAMESPACE, NVS_READWRITE, &handle);
+  if (err != ESP_OK) {
+    node_health_port_log_error("nvs_open", err);
+    return NODE_HEALTH_ERR_IO;
+  }
+  err = nvs_erase_all(handle);
+  if (err == ESP_OK) {
+    err = nvs_commit(handle);
+  }
+  nvs_close(handle);
+  if (err != ESP_OK) {
+    node_health_port_log_error("nvs_erase_all", err);
+    return NODE_HEALTH_ERR_IO;
+  }
+  return NODE_HEALTH_OK;
+}
+
+void node_health_port_restart(void) { esp_restart(); }
+
 /* ==========================================================================
  * PRIVATE FUNCTIONS
  * ========================================================================== */

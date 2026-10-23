@@ -40,6 +40,12 @@ static bool g_fail_load = false;
 /** @brief True if counter writes fail. */
 static bool g_fail_store = false;
 
+/** @brief True if erasing the `health` namespace fails. */
+static bool g_fail_health_erase = false;
+
+/** @brief Times the node was restarted since the last reset. */
+static size_t g_restart_count = 0;
+
 /* ==========================================================================
  * PUBLIC FUNCTIONS
  * ========================================================================== */
@@ -54,6 +60,8 @@ void node_health_port_mock_reset(void) {
   g_counter = 0;
   g_fail_load = false;
   g_fail_store = false;
+  g_fail_health_erase = false;
+  g_restart_count = 0;
 }
 
 void node_health_port_mock_set_reset_reason(node_health_port_reason_t reason) {
@@ -84,6 +92,12 @@ uint32_t node_health_port_mock_counter(void) {
 void node_health_port_mock_fail_counter_load(void) { g_fail_load = true; }
 
 void node_health_port_mock_fail_counter_store(void) { g_fail_store = true; }
+
+void node_health_port_mock_fail_health_erase(void) {
+  g_fail_health_erase = true;
+}
+
+size_t node_health_port_mock_restart_count(void) { return g_restart_count; }
 
 node_health_port_nvs_t node_health_port_nvs_init(void) {
   return (g_nvs_erase_count > 0) ? g_nvs_after_erase : g_nvs_before_erase;
@@ -122,3 +136,14 @@ node_health_err_t node_health_port_counter_store(uint32_t count) {
   node_health_port_mock_set_counter(count);
   return NODE_HEALTH_OK;
 }
+
+node_health_err_t node_health_port_health_erase(void) {
+  if (g_fail_health_erase) {
+    return NODE_HEALTH_ERR_IO;
+  }
+  g_counter_stored = false;
+  g_counter = 0;
+  return NODE_HEALTH_OK;
+}
+
+void node_health_port_restart(void) { g_restart_count++; }

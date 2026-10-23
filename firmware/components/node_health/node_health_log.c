@@ -39,3 +39,12 @@ void node_health_log_boot(const char *reason, uint32_t crash_count) {
   ESP_LOGI(NODE_HEALTH_LOG_TAG, "reset_reason=%s crash_count=%lu",
            (reason != NULL) ? reason : "unknown", (unsigned long)crash_count);
 }
+
+void node_health_log_factory_reset(void) {
+  ESP_LOGW(NODE_HEALTH_LOG_TAG, "FACTORY RESET");
+}
+
+void node_health_log_factory_reset_failed(const char *what) {
+  ESP_LOGE(NODE_HEALTH_LOG_TAG, "factory reset: %s failed; going on",
+           (what != NULL) ? what : "?");
+}

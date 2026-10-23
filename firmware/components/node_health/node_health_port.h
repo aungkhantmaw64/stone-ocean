@@ -92,3 +92,18 @@ node_health_err_t node_health_port_counter_load(uint32_t *out);
  * @return NODE_HEALTH_OK, or NODE_HEALTH_ERR_IO.
  */
 node_health_err_t node_health_port_counter_store(uint32_t count);
+
+/**
+ * @brief Erase every key in the `health` NVS namespace, the crash counter
+ *        included, and commit.
+ *
+ * @return NODE_HEALTH_OK, also when the namespace does not exist; or
+ *         NODE_HEALTH_ERR_IO.
+ */
+node_health_err_t node_health_port_health_erase(void);
+
+/**
+ * @brief Restart the node. Does not return on the target; the host fake
+ *        records the restart and returns.
+ */
+void node_health_port_restart(void);

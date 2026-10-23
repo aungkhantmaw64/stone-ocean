@@ -89,3 +89,16 @@ void node_health_port_mock_fail_counter_load(void);
  * @brief Make every later counter write fail, until the next reset.
  */
 void node_health_port_mock_fail_counter_store(void);
+
+/**
+ * @brief Make every later erase of the `health` namespace fail, until the
+ *        next reset.
+ */
+void node_health_port_mock_fail_health_erase(void);
+
+/**
+ * @brief Number of times the node was restarted since the last reset.
+ *
+ * @return The count.
+ */
+size_t node_health_port_mock_restart_count(void);

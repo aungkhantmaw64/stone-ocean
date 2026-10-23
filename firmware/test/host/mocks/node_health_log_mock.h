@@ -65,3 +65,17 @@ const char *node_health_log_mock_last_boot_reason(void);
  * @return The count, or 0 if none was logged.
  */
 uint32_t node_health_log_mock_last_boot_crash_count(void);
+
+/**
+ * @brief Number of `FACTORY RESET` lines logged since the last reset.
+ *
+ * @return The count.
+ */
+size_t node_health_log_mock_factory_reset_count(void);
+
+/**
+ * @brief Number of failed factory reset steps logged since the last reset.
+ *
+ * @return The count.
+ */
+size_t node_health_log_mock_factory_reset_failed_count(void);

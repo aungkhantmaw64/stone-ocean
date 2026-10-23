@@ -48,3 +48,16 @@ void node_health_log_counter_failed(const char *action);
  * @param crash_count Crash count, this boot's reset included.
  */
 void node_health_log_boot(const char *reason, uint32_t crash_count);
+
+/**
+ * @brief Log at WARNING level `FACTORY RESET`, as a factory reset starts.
+ */
+void node_health_log_factory_reset(void);
+
+/**
+ * @brief Log at ERROR level that a factory reset step failed; the reset
+ *        goes on.
+ *
+ * @param what NUL-terminated name of the step, such as "config erase".
+ */
+void node_health_log_factory_reset_failed(const char *what);

@@ -39,6 +39,12 @@ static char g_last_boot_reason[NODE_HEALTH_LOG_MOCK_REASON_LEN] = {0};
 /** @brief Crash count of the last boot line; 0 if none. */
 static uint32_t g_last_boot_crash_count = 0;
 
+/** @brief `FACTORY RESET` lines logged since the last reset. */
+static size_t g_factory_reset_count = 0;
+
+/** @brief Failed factory reset steps logged since the last reset. */
+static size_t g_factory_reset_failed_count = 0;
+
 /* ==========================================================================
  * PUBLIC FUNCTIONS
  * ========================================================================== */
@@ -50,6 +56,8 @@ void node_health_log_mock_reset(void) {
   g_boot_count = 0;
   g_last_boot_reason[0] = '\0';
   g_last_boot_crash_count = 0;
+  g_factory_reset_count = 0;
+  g_factory_reset_failed_count = 0;
 }
 
 size_t node_health_log_mock_nvs_erasing_count(void) {
@@ -74,6 +82,14 @@ uint32_t node_health_log_mock_last_boot_crash_count(void) {
   return g_last_boot_crash_count;
 }
 
+size_t node_health_log_mock_factory_reset_count(void) {
+  return g_factory_reset_count;
+}
+
+size_t node_health_log_mock_factory_reset_failed_count(void) {
+  return g_factory_reset_failed_count;
+}
+
 void node_health_log_nvs_erasing(const char *why) {
   (void)why;
   g_nvs_erasing_count++;
@@ -91,4 +107,11 @@ void node_health_log_boot(const char *reason, uint32_t crash_count) {
   (void)snprintf(g_last_boot_reason, sizeof(g_last_boot_reason), "%s",
                  (reason != NULL) ? reason : "");
   g_last_boot_crash_count = crash_count;
+}
+
+void node_health_log_factory_reset(void) { g_factory_reset_count++; }
+
+void node_health_log_factory_reset_failed(const char *what) {
+  (void)what;
+  g_factory_reset_failed_count++;
 }
