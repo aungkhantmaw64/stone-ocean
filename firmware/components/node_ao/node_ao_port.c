@@ -5,6 +5,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "esp_err.h"
+#include "esp_log.h"
+#include "esp_task_wdt.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -13,11 +16,19 @@
 #include "node_ao_port.h"
 
 /* ==========================================================================
+ * MACROS
+ * ========================================================================== */
+
+/** @brief ESP-IDF log tag of the node_ao FreeRTOS port. */
+#define NODE_AO_PORT_LOG_TAG "node_ao"
+
+/* ==========================================================================
  * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
 
 /**
- * @brief Body of every AO thread: run the AO loop forever.
+ * @brief Body of every AO thread: subscribe it to the task watchdog, then
+ *        run the AO loop forever, feeding the watchdog on every turn.
  *
  * @param arg The AO; never NULL.
  */
@@ -98,10 +109,21 @@ bool node_ao_port_receive(node_ao_t *me, void *slot, uint32_t timeout_ms) {
  * PRIVATE FUNCTIONS
  * ========================================================================== */
 
+/* Every turn waits at most NODE_AO_MAX_WAIT_MS, well inside the task
+ * watchdog's timeout, so only a dispatch that hangs trips it (spec 09). */
 static void node_ao_port_thread(void *arg) {
   node_ao_t *me = arg;
+  const esp_err_t err = esp_task_wdt_add(NULL);
+  if (err != ESP_OK) {
+    ESP_LOGE(NODE_AO_PORT_LOG_TAG, "%s: not watched by the task watchdog: %s",
+             me->cfg.name, esp_err_to_name(err));
+  }
   for (;;) {
     (void)node_ao_run_once(me);
+    if (err == ESP_OK) {
+      /* Feeding a subscribed task cannot fail. */
+      (void)esp_task_wdt_reset();
+    }
   }
 }
 
