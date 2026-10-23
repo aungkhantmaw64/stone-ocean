@@ -24,9 +24,12 @@ menu "Node HAL"
         int "Button GPIO whose edges are logged"
         depends on NODE_HAL_SELFTEST
         range 0 39
-        default 0
+        default 34
         help
-            GPIO 0 is the DevKitC BOOT button.
+            GPIO 34 is the board's reset button, pulled up on the board.
+            GPIO 0 is the status LED and fails the build.
+            Input-only pins (34-39) get no internal pull resistor, as they
+            have none.
 
     config NODE_HAL_SELFTEST_OUTPUT_GPIO
         int "Output GPIO to toggle (-1 for none)"

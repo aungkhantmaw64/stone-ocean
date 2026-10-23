@@ -22,6 +22,8 @@ CONFIG_LIMIT = 4096  # NODE_CONFIG_MAX_RAW_LEN
 # Firmware messages the fake checker prints, as node_config_parse() words them.
 DUPLICATE_GPIO_MESSAGE = "devices[1].gpio: GPIO 25 is already used by devices[0].gpio"
 FLASH_PIN_MESSAGE = "devices[0].gpio: GPIO 7 is used by the flash"
+STATUS_LED_PIN = 0  # NODE_HAL_BOARD_STATUS_LED_GPIO
+RESET_BUTTON_PIN = 34  # NODE_HAL_BOARD_RESET_BUTTON_GPIO
 STRAPPING_PIN_WARNING = "devices[0].gpio: GPIO 2 is a strapping pin and may affect boot"
 
 
@@ -30,6 +32,12 @@ def led_config(gpio: int, **extra) -> dict:
     return {"version": 1, "node_name": "test-node",
             "devices": [{"id": "led1", "type": "led", "gpio": gpio, "active_high": True,
                          **extra}]}
+
+
+def pir_config(gpio: int) -> dict:
+    """Return a config with one motion sensor on gpio and no pull resistor."""
+    return {"version": 1, "node_name": "test-node",
+            "devices": [{"id": "pir1", "type": "pir", "gpio": gpio, "active_high": True}]}
 
 
 def write_json(directory: Path, document) -> Path:
@@ -156,6 +164,24 @@ class TestCheckingAConfigBeforeItIsWritten:
 
         assert exit_code == EXIT_INVALID
         assert DUPLICATE_GPIO_MESSAGE in capsys.readouterr().err
+
+    # AC: specs/16-status-led.md #4
+    def test_config_using_the_status_led_pin_is_rejected_by_the_schema(self, tmp_path, capsys):
+        config = write_json(tmp_path, led_config(STATUS_LED_PIN))
+
+        exit_code = run_check(config, fake_checker(tmp_path, 0))  # only the schema can reject it
+
+        assert exit_code == EXIT_INVALID
+        assert "devices[0].gpio" in capsys.readouterr().err
+
+    # AC: specs/16-status-led.md #4
+    def test_config_using_the_reset_button_pin_is_rejected_by_the_schema(self, tmp_path, capsys):
+        config = write_json(tmp_path, pir_config(RESET_BUTTON_PIN))
+
+        exit_code = run_check(config, fake_checker(tmp_path, 0))  # only the schema can reject it
+
+        assert exit_code == EXIT_INVALID
+        assert "devices[0].gpio" in capsys.readouterr().err
 
     # AC: specs/05-config-flash-tool.md #1
     def test_firmware_message_is_shown_when_both_the_schema_and_the_firmware_reject_a_config(

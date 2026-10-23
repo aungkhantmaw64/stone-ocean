@@ -112,6 +112,24 @@ target_include_directories(node_dev PUBLIC mocks PRIVATE ${NODE_DEV_DIR})
 target_compile_options(node_dev PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(node_dev PUBLIC node_dev_api node_ao node_config PRIVATE m)
 
+add_library(node_status_api INTERFACE)
+target_include_directories(node_status_api INTERFACE
+  ${FIRMWARE_DIR}/components/node_status/include)
+
+add_library(node_status_header_check OBJECT node_status_header_check.c)
+target_compile_options(node_status_header_check PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_status_header_check PRIVATE node_status_api)
+
+# The real node_status source, on the host node_ao port and the mock HAL,
+# with the host log mock in place of node_status_log.c.
+set(NODE_STATUS_DIR ${FIRMWARE_DIR}/components/node_status)
+add_library(node_status STATIC
+  ${NODE_STATUS_DIR}/node_status.c
+  mocks/node_status_log.c)
+target_include_directories(node_status PUBLIC mocks PRIVATE ${NODE_STATUS_DIR})
+target_compile_options(node_status PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_status PUBLIC node_status_api node_ao)
+
 add_library(config_store_api INTERFACE)
 target_include_directories(config_store_api INTERFACE
   ${FIRMWARE_DIR}/components/config_store/include)
@@ -209,6 +227,10 @@ add_host_test(test_node_dev_led test_node_dev_led.c)
 target_include_directories(test_node_dev_led PRIVATE ${NODE_DEV_DIR})
 target_link_libraries(test_node_dev_led PRIVATE node_dev)
 
+add_host_test(test_node_status test_node_status.c)
+target_include_directories(test_node_status PRIVATE ${NODE_STATUS_DIR})
+target_link_libraries(test_node_status PRIVATE node_status)
+
 add_host_test(test_node_config_parse test_node_config_parse.c)
 target_link_libraries(test_node_config_parse PRIVATE node_config
                       node_config_example)
@@ -260,3 +282,9 @@ add_config_checker_test(
   test_config_using_a_flash_pin_is_rejected_by_the_pc_config_checker_with_its_path
   ${CMAKE_CURRENT_SOURCE_DIR}/configs/config_with_a_flash_pin.json 1
   "devices\\[0\\]\\.gpio: GPIO 7 is used by the flash")
+
+# AC: specs/16-status-led.md #4
+add_config_checker_test(
+  test_config_using_the_status_led_pin_is_rejected_by_the_pc_config_checker
+  ${CMAKE_CURRENT_SOURCE_DIR}/configs/config_with_the_status_led_pin.json 1
+  "devices\\[0\\]\\.gpio: GPIO 0 is used by the status LED")

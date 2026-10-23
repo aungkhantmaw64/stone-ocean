@@ -20,7 +20,8 @@ Pin validation rules for the classic ESP32. Confirm against the datasheet:
 - Reject GPIO 1 and 3 (UART0 TX/RX, used for flashing and the serial log).
 - Reject GPIO 34–39 for outputs and for internal pull resistors.
 - Reject pins above 39.
-- Warn (don't reject) on strapping pins 0, 2, 5, 12, 15.
+- Reject GPIO 0 (status LED) and GPIO 34 (reset button), which the board reserves (spec 16).
+- Warn (don't reject) on strapping pins 2, 5, 12, 15.
 - I2C `port` must be 0 or 1 (the ESP32 has two I2C controllers).
 - I2C `sda` and `scl` are outputs (open drain), so the output rules apply to them.
 

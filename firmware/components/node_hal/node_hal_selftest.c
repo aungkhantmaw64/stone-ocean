@@ -10,6 +10,7 @@
 
 #include "node_ao.h"
 #include "node_hal.h"
+#include "node_hal_board.h"
 #include "node_hal_selftest.h"
 
 #if CONFIG_NODE_HAL_SELFTEST
@@ -53,6 +54,27 @@
 
 /** @brief FreeRTOS priority of the self-test AO's thread. */
 #define TASK_PRIORITY 5
+
+/** @brief First of the input-only GPIOs 34-39, which have no internal pull
+ *         resistors (ESP32 datasheet); a button on one needs an external
+ *         pull resistor. */
+#define FIRST_INPUT_ONLY_GPIO 34
+
+/* The status AO owns the status LED's pin; a self-test pin on it would
+ * reconfigure the pin and stop the LED (spec 16). A stale sdkconfig keeps
+ * old pin values, so catch that at build time. */
+_Static_assert(CONFIG_NODE_HAL_SELFTEST_BUTTON_GPIO !=
+                   NODE_HAL_BOARD_STATUS_LED_GPIO,
+               "CONFIG_NODE_HAL_SELFTEST_BUTTON_GPIO is the status LED's pin");
+_Static_assert(CONFIG_NODE_HAL_SELFTEST_OUTPUT_GPIO !=
+                   NODE_HAL_BOARD_STATUS_LED_GPIO,
+               "CONFIG_NODE_HAL_SELFTEST_OUTPUT_GPIO is the status LED's pin");
+_Static_assert(CONFIG_NODE_HAL_SELFTEST_I2C_SDA !=
+                   NODE_HAL_BOARD_STATUS_LED_GPIO,
+               "CONFIG_NODE_HAL_SELFTEST_I2C_SDA is the status LED's pin");
+_Static_assert(CONFIG_NODE_HAL_SELFTEST_I2C_SCL !=
+                   NODE_HAL_BOARD_STATUS_LED_GPIO,
+               "CONFIG_NODE_HAL_SELFTEST_I2C_SCL is the status LED's pin");
 
 /* ==========================================================================
  * TYPES
@@ -241,8 +263,10 @@ static void node_hal_selftest_on_button_edge(int pin, void *ctx) {
 
 static bool node_hal_selftest_watch_button(void) {
   const int pin = CONFIG_NODE_HAL_SELFTEST_BUTTON_GPIO;
-  node_hal_err_t err =
-      node_hal_gpio_config(pin, NODE_HAL_GPIO_IN, NODE_HAL_GPIO_PULL_UP);
+  const node_hal_gpio_pull_t pull = (pin >= FIRST_INPUT_ONLY_GPIO)
+                                        ? NODE_HAL_GPIO_PULL_NONE
+                                        : NODE_HAL_GPIO_PULL_UP;
+  node_hal_err_t err = node_hal_gpio_config(pin, NODE_HAL_GPIO_IN, pull);
   if (err == NODE_HAL_OK) {
     err = node_hal_gpio_set_isr(pin, NODE_HAL_GPIO_EDGE_ANY,
                                 node_hal_selftest_on_button_edge, NULL);

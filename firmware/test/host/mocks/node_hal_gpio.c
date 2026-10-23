@@ -32,6 +32,10 @@ static node_hal_gpio_mock_pin_t g_pins[NODE_HAL_MOCK_GPIO_COUNT] = {0};
  *         if none is pending. Set by node_hal_gpio_mock_fail_next_write(). */
 static node_hal_err_t g_next_write_error = NODE_HAL_OK;
 
+/** @brief Error the next config of a valid pin returns; NODE_HAL_OK if none
+ *         is pending. Set by node_hal_gpio_mock_fail_next_config(). */
+static node_hal_err_t g_next_config_error = NODE_HAL_OK;
+
 /* ==========================================================================
  * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
@@ -64,6 +68,7 @@ void node_hal_gpio_mock_reset(void) {
     g_pins[pin] = (node_hal_gpio_mock_pin_t){0};
   }
   g_next_write_error = NODE_HAL_OK;
+  g_next_config_error = NODE_HAL_OK;
 }
 
 node_hal_err_t node_hal_gpio_config(int pin, node_hal_gpio_dir_t dir,
@@ -73,6 +78,11 @@ node_hal_err_t node_hal_gpio_config(int pin, node_hal_gpio_dir_t dir,
       (pull != NODE_HAL_GPIO_PULL_NONE && pull != NODE_HAL_GPIO_PULL_UP &&
        pull != NODE_HAL_GPIO_PULL_DOWN)) {
     return NODE_HAL_ERR_ARG;
+  }
+  if (g_next_config_error != NODE_HAL_OK) {
+    const node_hal_err_t err = g_next_config_error;
+    g_next_config_error = NODE_HAL_OK;
+    return err;
   }
   g_pins[pin].configured = true;
   g_pins[pin].dir = dir;
@@ -139,6 +149,10 @@ size_t node_hal_gpio_mock_write_count(int pin) {
 
 void node_hal_gpio_mock_fail_next_write(node_hal_err_t err) {
   g_next_write_error = err;
+}
+
+void node_hal_gpio_mock_fail_next_config(node_hal_err_t err) {
+  g_next_config_error = err;
 }
 
 /* ==========================================================================

@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "node_config_internal.h"
+#include "node_hal_board.h"
 
 /* ==========================================================================
  * MACROS
@@ -357,7 +358,9 @@ static node_config_err_code_t node_config_validate_use_pin(
 }
 
 /* Pin rules for the classic ESP32 on a WROVER module (spec 03, Hardware
- * details), from the ESP32 datasheet's pin list. */
+ * details), from the ESP32 datasheet's pin list, plus the pins the board
+ * reserves (spec 16). Board pins are checked before the input-only rule, so
+ * GPIO 34 is reported as the reset button's. */
 static node_config_err_code_t node_config_validate_pin_rules(
     int gpio, node_config_validate_pin_use_t use, const char *path,
     const char *pull_path, node_config_err_t *err) {
@@ -376,6 +379,14 @@ static node_config_err_code_t node_config_validate_pin_rules(
   if (gpio == 1 || gpio == 3) {
     return node_config_err_set(err, NODE_CONFIG_ERR_PIN, path,
                                "GPIO %d is used by the serial console", gpio);
+  }
+  if (gpio == NODE_HAL_BOARD_STATUS_LED_GPIO) {
+    return node_config_err_set(err, NODE_CONFIG_ERR_PIN, path,
+                               "GPIO %d is used by the status LED", gpio);
+  }
+  if (gpio == NODE_HAL_BOARD_RESET_BUTTON_GPIO) {
+    return node_config_err_set(err, NODE_CONFIG_ERR_PIN, path,
+                               "GPIO %d is used by the reset button", gpio);
   }
 
   bool input_only = gpio >= NODE_CONFIG_VALIDATE_FIRST_INPUT_ONLY_GPIO;
