@@ -131,6 +131,14 @@ target_include_directories(node_status PUBLIC mocks PRIVATE ${NODE_STATUS_DIR})
 target_compile_options(node_status PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(node_status PUBLIC node_status_api node_ao)
 
+add_library(node_health_api INTERFACE)
+target_include_directories(node_health_api INTERFACE
+  ${FIRMWARE_DIR}/components/node_health/include)
+
+add_library(node_health_header_check OBJECT node_health_header_check.c)
+target_compile_options(node_health_header_check PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_health_header_check PRIVATE node_health_api)
+
 add_library(config_store_api INTERFACE)
 target_include_directories(config_store_api INTERFACE
   ${FIRMWARE_DIR}/components/config_store/include)

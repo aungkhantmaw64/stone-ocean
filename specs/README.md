@@ -94,7 +94,7 @@ tools/
 | 06 | [Driver framework](06-driver-framework.md) | 02, 03, 14, 15 | done |
 | 07 | [GPIO drivers: PIR & LED](07-gpio-drivers.md) | 06 | in-progress |
 | 08 | [SHTC3 driver](08-shtc3-driver.md) | 06 | done |
-| 09 | [Watchdog, reset reason & factory reset](09-health-factory-reset.md) | 02, 04, 05 | todo |
+| 09 | [Watchdog, reset reason & factory reset](09-health-factory-reset.md) | 02, 04, 05 | in-progress |
 | 10 | [Mesh node core](10-mesh-node-core.md) | 03, 09 | todo |
 | 11 | [Mesh model mapping](11-mesh-model-mapping.md) | 06, 07, 08, 10 | todo |
 | 12 | [PC gateway script (BlueZ)](12-pc-gateway-script.md) | 10, 11 | todo |
