@@ -10,6 +10,7 @@
 
 #include "node_ao.h"
 #include "node_hal.h"
+#include "node_hal_board.h"
 #include "node_hal_selftest.h"
 
 #if CONFIG_NODE_HAL_SELFTEST
@@ -58,6 +59,22 @@
  *         resistors (ESP32 datasheet); a button on one needs an external
  *         pull resistor. */
 #define FIRST_INPUT_ONLY_GPIO 34
+
+/* The status AO owns the status LED's pin; a self-test pin on it would
+ * reconfigure the pin and stop the LED (spec 16). A stale sdkconfig keeps
+ * old pin values, so catch that at build time. */
+_Static_assert(CONFIG_NODE_HAL_SELFTEST_BUTTON_GPIO !=
+                   NODE_HAL_BOARD_STATUS_LED_GPIO,
+               "CONFIG_NODE_HAL_SELFTEST_BUTTON_GPIO is the status LED's pin");
+_Static_assert(CONFIG_NODE_HAL_SELFTEST_OUTPUT_GPIO !=
+                   NODE_HAL_BOARD_STATUS_LED_GPIO,
+               "CONFIG_NODE_HAL_SELFTEST_OUTPUT_GPIO is the status LED's pin");
+_Static_assert(CONFIG_NODE_HAL_SELFTEST_I2C_SDA !=
+                   NODE_HAL_BOARD_STATUS_LED_GPIO,
+               "CONFIG_NODE_HAL_SELFTEST_I2C_SDA is the status LED's pin");
+_Static_assert(CONFIG_NODE_HAL_SELFTEST_I2C_SCL !=
+                   NODE_HAL_BOARD_STATUS_LED_GPIO,
+               "CONFIG_NODE_HAL_SELFTEST_I2C_SCL is the status LED's pin");
 
 /* ==========================================================================
  * TYPES

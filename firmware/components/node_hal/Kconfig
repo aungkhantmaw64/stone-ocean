@@ -27,6 +27,7 @@ menu "Node HAL"
         default 34
         help
             GPIO 34 is the board's reset button, pulled up on the board.
+            GPIO 0 is the status LED and fails the build.
             Input-only pins (34-39) get no internal pull resistor, as they
             have none.
 
