@@ -26,13 +26,13 @@ Values below are confirmed against the Sensirion SHTC3 datasheet.
 - A measurement with `0x7866` returns 6 bytes: T MSB, T LSB, CRC, RH MSB, RH LSB, CRC.
 - Read ID returns 3 bytes: the ID word, then its CRC. Bits 11 and 5:0 hold the product code: `(id & 0x083F) == 0x0807` for an SHTC3.
 - Conversion: `T[°C] = -45 + 175 * S_T / 65536`, `RH[%] = 100 * S_RH / 65536`.
-- Timing: wake-up time max 240 µs, soft reset time max 240 µs, measurement time in normal mode max 12.1 ms. The driver busy-waits the 240 µs times with `node_hal_time_busy_wait_us()` (spec 02) and waits 13 ms (12.1 ms rounded up) before reading a measurement.
+- Timing: wake-up time max 240 µs, soft reset time max 240 µs, measurement time in normal mode max 12.1 ms. The HAL's delays and the AO time events count whole ms, so the driver gives the sensor 1 ms for each 240 µs time and 13 ms (12.1 ms rounded up) before reading a measurement. Init waits with `node_hal_time_delay_ms()` (spec 06), which on the target is a task delay of up to two 10 ms ticks; sampling waits with `NODE_DEV_PENDING`.
 - While asleep, the sensor accepts only the Wakeup command.
 
 ## Scope
 - In scope:
   - Init: wakeup → wait → soft reset → wait → read ID, check its CRC and product code, log it → sleep. The I2C device is added once per device index and reused by init retries, since the HAL cannot remove a device.
-  - Sample, in two non-blocking steps: wakeup → wait → measure, then return `NODE_DEV_PENDING` with `again_ms` = 13; on the next call read 6 bytes → verify CRCs → convert → sleep.
+  - Sample, in three non-blocking steps: wakeup, then return `NODE_DEV_PENDING` with `again_ms` = 1; measure, then return `NODE_DEV_PENDING` with `again_ms` = 13; read 6 bytes → verify CRCs → convert → sleep.
   - CRC-8 helper.
 - Out of scope: low-power measurement mode, clock-stretching mode.
 
@@ -71,9 +71,9 @@ float   node_dev_shtc3_raw_to_rh_pct(uint16_t raw);
 - [x] Driver registers and instantiates from config. The ID is read and logged at init.
 - [x] On hardware, plausible readings appear and the fault/recovery path works.
 
-Host tests: `test_node_dev_shtc3` (26 tests) runs the real driver on the framework, the mock HAL and the host AO port, and passes under ASan, LSan and UBSan (commit b0b8b61). Every bus test checks that the scripted transfers ran exactly and in full. Mutation checks confirmed the tests catch a wrong CRC initial value or polynomial, a wrong conversion span or full scale, a missing soft-reset wait, a skipped sleep at init or after a failed read, a missing product-code check, an init retry that adds the I2C device again, a measurement read after 12 ms, a stale measuring step, an ignored failed sleep, an unchecked humidity CRC and humidity taken from the temperature word.
+Host tests: `test_node_dev_shtc3` (28 tests) runs the real driver on the framework, the mock HAL and the host AO port, and passes under ASan, LSan and UBSan. Every bus test checks that the scripted transfers ran exactly and in full. Mutation checks confirmed the tests catch a wrong CRC initial value or polynomial, a wrong conversion span or full scale, a missing soft-reset wait, a skipped sleep at init or after a failed read, a missing product-code check, an init retry that adds the I2C device again, a measurement read after 12 ms, a stale measuring step, an ignored failed sleep, an unchecked humidity CRC, humidity taken from the temperature word, a measurement started without the wake-up time, no sleep after a failed measure command, and a first sample timed from before a waiting init.
 
-On the custom WROVER board (SHTC3 on I2C port 0, SDA 32 / SCL 33, 100 kHz), the log showed `SHTC3 id 0x0887` at init, readings of about 27.1 °C and 54.5 % RH, and a report when RH rose by more than 2 %. Unplugging the sensor marked it FAULT after 3 failed samples, and replugging it recovered it.
+On the custom WROVER board (SHTC3 on I2C port 0, SDA 32 / SCL 33, 100 kHz), the log showed `SHTC3 id 0x0887` at init, readings of about 27.1 °C and 54.5 % RH, and a report when RH rose by more than 2 %. Unplugging the sensor marked it FAULT after 3 failed samples, and replugging it recovered it. That check ran on the busy-wait version (commit 72c5e45), before init moved to task delays and sampling to three pending steps.
 
 ## Open questions
 - None. Resolved: command codes, timings, CRC test vector and the ID product code were confirmed against the datasheet.

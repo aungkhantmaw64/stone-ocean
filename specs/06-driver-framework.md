@@ -88,7 +88,7 @@ node_dev_err_t node_dev_start(const node_config_t *cfg);                /* once;
 node_dev_err_t node_dev_set_onoff(int dev_index, bool on);              /* any task; posts to the devices AO */
 node_dev_err_t node_dev_post_from_isr(int dev_index);                   /* ISR context; for event drivers */
 ```
-Driver methods run in the devices AO's thread and must not block: no delays and no waiting on queues or semaphores. A short HAL bus transfer is allowed, and so is a busy-wait of at most `NODE_HAL_TIME_BUSY_WAIT_MAX_US` (1 ms) with `node_hal_time_busy_wait_us()`, for device timings shorter than a tick.
+Driver methods run in the devices AO's thread and must not block: no delays and no waiting on queues or semaphores. A short HAL bus transfer is allowed. A driver's `init`, which runs only at start and on init retries, may also wait for a device timing shorter than a tick with `node_hal_time_delay_ms()`; each such wait blocks the devices AO for up to two ticks. `sample` never waits: it returns `NODE_DEV_PENDING` instead.
 
 ## Behavior & constraints
 - **Start:**

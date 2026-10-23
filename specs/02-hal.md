@@ -29,7 +29,7 @@ The HAL does not hard-code these lists. It relies on ESP-IDF to reject unusable 
 - In scope:
   - GPIO configure, read, write, and edge interrupt with a callback.
   - I2C bus init and device add, write, read, write-then-read with timeout, and probing an address without adding a device.
-  - Monotonic time in ms, a delay, and a busy-wait of at most 1 ms for short device timings (added for spec 08).
+  - Monotonic time in ms, and a delay.
   - Mock implementation with call recording and scripted responses.
 - Out of scope: ADC and PWM (later), SPI.
 
@@ -62,8 +62,6 @@ node_hal_err_t node_hal_i2c_write_read(node_hal_i2c_dev_t dev, const uint8_t *w,
 /* node_hal_time.c */
 uint32_t node_hal_time_ms(void);
 void     node_hal_time_delay_ms(uint32_t ms);
-#define  NODE_HAL_TIME_BUSY_WAIT_MAX_US 1000U
-node_hal_err_t node_hal_time_busy_wait_us(uint32_t us);  /* spins, no yield; ERR_ARG above the max */
 ```
 Mock-only helpers (host), declared in `node_hal_mock.h`:
 - `node_hal_mock_reset()` clears all mock state.
@@ -71,7 +69,7 @@ Mock-only helpers (host), declared in `node_hal_mock.h`:
 - `node_hal_i2c_mock_expect_write(...)`, `node_hal_i2c_mock_queue_read(...)`, `node_hal_i2c_mock_queue_error(...)` and `node_hal_i2c_mock_set_present(...)` script I2C traffic. Steps are consumed in order; a transfer that does not match returns `NODE_HAL_ERR_IO`. An error step takes the place of a write or a read.
 - `node_hal_i2c_mock_failure()` describes the first mismatching transfer (NULL if none) and `node_hal_i2c_mock_pending_steps()` counts unconsumed steps, so tests can check the whole script ran.
 - `node_hal_gpio_mock_reset()`, `node_hal_i2c_mock_reset()` and `node_hal_time_mock_reset()` reset one area each.
-- `node_hal_time_mock_advance(ms)` and `node_hal_time_mock_set(ms)` control virtual time. `node_hal_time_mock_busy_wait_total_us()` reports the time busy-waited; busy-waits also move virtual time forward.
+- `node_hal_time_mock_advance(ms)` and `node_hal_time_mock_set(ms)` control virtual time.
 
 ## Behavior & constraints
 - All functions validate arguments and return `NODE_HAL_ERR_ARG` rather than asserting.

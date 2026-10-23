@@ -34,10 +34,11 @@ extern "C" {
  *
  * Task context, before node_dev_start(). Init resets the sensor, checks and
  * logs its ID and puts it to sleep; a sensor that does not answer or is not
- * an SHTC3 fails init, and the framework retries it. Each sample wakes the
- * sensor and starts a measurement, then reads it 13 ms later and puts the
- * sensor back to sleep; a bus error or bad CRC fails the sample and reports
- * no reading.
+ * an SHTC3 fails init, and the framework retries it. Init waits for the
+ * sensor's wake-up and reset times with node_hal_time_delay_ms(). Each sample
+ * wakes the sensor, starts a measurement 1 ms later, then reads it 13 ms
+ * later and puts the sensor back to sleep, without blocking; a bus error or
+ * bad CRC fails the sample and reports no reading.
  *
  * @return As for node_dev_register_driver().
  */

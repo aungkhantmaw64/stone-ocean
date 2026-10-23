@@ -68,7 +68,7 @@ Host-only helpers, declared in `node_ao_port_mock.h`:
 - `node_ao_port_mock_run_until_idle()` dispatches, in every started AO, the queued events and the time events that are due at the mock HAL time, until no AO has work left. It returns the number of events dispatched, and stops with an error after a fixed bound so an endless event ping-pong fails the test instead of hanging it.
 
 ## Behavior & constraints
-- Run to completion: an AO dispatches one event at a time, in its own thread. Its dispatch function must not block or wait (no delays, no blocking queue or semaphore calls). Long work is split into steps driven by events or time events.
+- Run to completion: an AO dispatches one event at a time, in its own thread. Its dispatch function must not block or wait (no delays, no blocking queue or semaphore calls). Long work is split into steps driven by events or time events. The one exception is a device driver's `init` in the devices AO, which may wait briefly with `node_hal_time_delay_ms()` (spec 06).
 - Events are dispatched in the order they were posted. Due time events are dispatched after the event that was being processed, in the order they were initialised.
 - `node_ao_post` and `node_ao_post_from_isr` copy `size` bytes (at least `sizeof(node_ao_evt_t)`, at most the AO's `evt_size`) and zero the rest of the queued slot. They never block. A full queue returns `NODE_AO_ERR_FULL` and the event is dropped; callers decide whether that matters.
 - Posting to an AO that is not started returns `NODE_AO_ERR_STATE`. Starting an AO twice returns `NODE_AO_ERR_STATE`.

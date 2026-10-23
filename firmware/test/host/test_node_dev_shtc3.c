@@ -73,9 +73,13 @@
  *         an SHTC3's. */
 #define OTHER_DEVICE_ID 0x1234U
 
-/** @brief Wake-up time and soft reset time the driver waits, in µs
- *         (datasheet: 240 µs each). */
-#define WAKE_UP_TIME_US 240U
+/** @brief Time the driver gives the sensor after a wakeup command, in ms
+ *         (datasheet: 240 µs, rounded up to whole ms). */
+#define WAKE_UP_TIME_MS 1U
+
+/** @brief Time the driver gives the sensor after a soft reset, in ms
+ *         (datasheet: 240 µs, rounded up to whole ms). */
+#define SOFT_RESET_TIME_MS 1U
 
 /** @brief Bytes of one data word on the bus: MSB, LSB, CRC. */
 #define WORD_SIZE 3U
@@ -140,6 +144,10 @@ static node_config_t g_cfg = {0};
 /** @brief Subscriber to every device event; reset in setUp(). */
 static subscriber_t g_subscriber = {0};
 
+/** @brief Virtual time at which the first measurement woke the sensor, in
+ *         ms; set by start_one_sensor(), reset in setUp(). */
+static uint32_t g_first_wake_ms = 0;
+
 /* ==========================================================================
  * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
@@ -176,6 +184,13 @@ static void run_until_idle(void);
  * @param ms Time to advance, in ms.
  */
 static void advance_and_run(uint32_t ms);
+
+/**
+ * @brief Move virtual time forward to @p ms, then run every AO until idle.
+ *
+ * @param ms Time to move to, in ms; at or after the current time.
+ */
+static void advance_to_and_run(uint32_t ms);
 
 /**
  * @brief Expect the next transfer to the sensor to write a command.
@@ -223,7 +238,10 @@ static void expect_measurement_result(const uint8_t result[RESULT_SIZE]);
 
 /**
  * @brief Add one sensor, script a successful start and the first
- *        measurement's start, and start the devices.
+ *        measurement's start, start the devices, and run until that
+ *        measurement has started.
+ *
+ * Records in g_first_wake_ms when the measurement woke the sensor.
  *
  * @return The sensor's device index.
  */
@@ -265,6 +283,7 @@ void setUp(void) {
   node_dev_log_mock_reset();
   g_cfg = (node_config_t){.version = 1};
   (void)memset(&g_subscriber, 0, sizeof(g_subscriber));
+  g_first_wake_ms = 0;
   start_subscriber();
 }
 
@@ -333,14 +352,14 @@ void test_highest_raw_humidity_is_just_under_100_percent(void) {
 void test_sensor_is_woken_reset_identified_and_put_to_sleep_at_start(void) {
   const int sensor = add_sensor("env1");
   expect_sensor_start(SHTC3_ID);
-  expect_measurement_start();
+  expect_command(CMD_WAKEUP);
 
   start_devices();
 
   assert_script_followed();
-  /* Wake-up and reset at start, then wake-up for the first measurement. */
-  TEST_ASSERT_EQUAL_UINT64(3U * WAKE_UP_TIME_US,
-                           node_hal_time_mock_busy_wait_total_us());
+  TEST_ASSERT_EQUAL_UINT32_MESSAGE(
+      WAKE_UP_TIME_MS + SOFT_RESET_TIME_MS, node_hal_time_ms(),
+      "the sensor is given its wake-up and reset times at start");
   TEST_ASSERT_EQUAL_size_t(0, count_events(NODE_DEV_SIG_FAULT, sensor));
 }
 
@@ -348,7 +367,7 @@ void test_sensor_is_woken_reset_identified_and_put_to_sleep_at_start(void) {
 void test_sensor_id_is_logged_at_start(void) {
   (void)add_sensor("env1");
   expect_sensor_start(SHTC3_ID);
-  expect_measurement_start();
+  expect_command(CMD_WAKEUP);
 
   start_devices();
 
@@ -420,7 +439,7 @@ void test_sensor_that_keeps_failing_at_start_is_retried_without_running_out_of_b
     advance_and_run(NODE_DEV_INIT_RETRY_MS);
   }
   expect_sensor_start(SHTC3_ID);
-  expect_measurement_start();
+  expect_command(CMD_WAKEUP);
 
   advance_and_run(NODE_DEV_INIT_RETRY_MS);
 
@@ -433,15 +452,31 @@ void test_sensor_that_keeps_failing_at_start_is_retried_without_running_out_of_b
 /* ---- Measuring ---- */
 
 /* AC: specs/08-shtc3-driver.md #2 */
-void test_measurement_is_started_right_after_the_sensor_starts(void) {
-  (void)add_sensor("env1");
+void test_sensor_is_woken_for_a_measurement_right_after_it_starts(void) {
+  const int sensor = add_sensor("env1");
   expect_sensor_start(SHTC3_ID);
-  expect_measurement_start();
+  expect_command(CMD_WAKEUP);
 
   start_devices();
 
   assert_script_followed();
-  TEST_ASSERT_EQUAL_size_t(0, count_events(NODE_DEV_SIG_READING, 0));
+  TEST_ASSERT_EQUAL_size_t(0, count_events(NODE_DEV_SIG_READING, sensor));
+}
+
+/* AC: specs/08-shtc3-driver.md #2 */
+void test_measurement_is_started_once_the_sensor_has_had_its_wake_up_time(
+    void) {
+  (void)add_sensor("env1");
+  expect_sensor_start(SHTC3_ID);
+  expect_measurement_start();
+  start_devices();
+  const size_t pending_right_after_wake = node_hal_i2c_mock_pending_steps();
+
+  advance_and_run(WAKE_UP_TIME_MS);
+
+  TEST_ASSERT_EQUAL_size_t_MESSAGE(1, pending_right_after_wake,
+                                   "no measurement before the wake-up time");
+  assert_script_followed();
 }
 
 /* AC: specs/08-shtc3-driver.md #2 */
@@ -495,13 +530,13 @@ void test_sensor_is_measured_again_every_sample_interval(void) {
   encode_result(RAW_TEMP_25_C, RAW_RH_50_PCT, result);
   expect_measurement_result(result);
   advance_and_run(MEASUREMENT_TIME_MS);
-  expect_measurement_start();
+  expect_command(CMD_WAKEUP);
 
-  advance_and_run(SAMPLE_INTERVAL_MS - MEASUREMENT_TIME_MS - 1U);
+  advance_to_and_run(g_first_wake_ms + SAMPLE_INTERVAL_MS - 1U);
   const size_t pending_just_before = node_hal_i2c_mock_pending_steps();
   advance_and_run(1U);
 
-  TEST_ASSERT_EQUAL_size_t_MESSAGE(2, pending_just_before,
+  TEST_ASSERT_EQUAL_size_t_MESSAGE(1, pending_just_before,
                                    "no new measurement before the interval");
   assert_script_followed();
 }
@@ -578,14 +613,32 @@ void test_measurement_is_not_started_when_the_sensor_does_not_wake_up(void) {
 }
 
 /* AC: specs/08-shtc3-driver.md #3 */
+void test_sensor_is_put_back_to_sleep_when_a_measurement_cannot_be_started(
+    void) {
+  const int sensor = add_sensor("env1");
+  expect_sensor_start(SHTC3_ID);
+  expect_command(CMD_WAKEUP);
+  node_hal_i2c_mock_queue_error(SENSOR_ADDR, NODE_HAL_ERR_NACK);
+  expect_command(CMD_SLEEP);
+  start_devices();
+
+  advance_and_run(WAKE_UP_TIME_MS);
+  advance_and_run(MEASUREMENT_TIME_MS);
+
+  assert_script_followed();
+  TEST_ASSERT_EQUAL_size_t(0, count_events(NODE_DEV_SIG_READING, sensor));
+  TEST_ASSERT_EQUAL_size_t(1, node_dev_log_mock_warning_count());
+}
+
+/* AC: specs/08-shtc3-driver.md #3 */
 void test_new_measurement_is_started_after_a_failed_one(void) {
   (void)start_one_sensor();
   node_hal_i2c_mock_queue_error(SENSOR_ADDR, NODE_HAL_ERR_NACK);
   expect_command(CMD_SLEEP);
   advance_and_run(MEASUREMENT_TIME_MS);
-  expect_measurement_start();
+  expect_command(CMD_WAKEUP);
 
-  advance_and_run(SAMPLE_INTERVAL_MS - MEASUREMENT_TIME_MS);
+  advance_to_and_run(g_first_wake_ms + SAMPLE_INTERVAL_MS);
 
   assert_script_followed();
 }
@@ -624,6 +677,7 @@ void test_sensor_is_marked_as_faulty_after_three_failed_measurements_and_recover
   expect_measurement_result(result);
 
   advance_and_run(SAMPLE_INTERVAL_MS);
+  advance_and_run(WAKE_UP_TIME_MS);
   advance_and_run(MEASUREMENT_TIME_MS);
 
   assert_script_followed();
@@ -651,7 +705,9 @@ int main(void) {
       test_device_at_the_sensor_address_that_is_not_an_shtc3_is_marked_as_faulty);
   RUN_TEST(
       test_sensor_that_keeps_failing_at_start_is_retried_without_running_out_of_bus_devices);
-  RUN_TEST(test_measurement_is_started_right_after_the_sensor_starts);
+  RUN_TEST(test_sensor_is_woken_for_a_measurement_right_after_it_starts);
+  RUN_TEST(
+      test_measurement_is_started_once_the_sensor_has_had_its_wake_up_time);
   RUN_TEST(test_measurement_result_is_not_read_before_13_ms);
   RUN_TEST(
       test_measurement_result_is_read_after_13_ms_and_the_sensor_is_put_back_to_sleep);
@@ -663,6 +719,8 @@ int main(void) {
   RUN_TEST(
       test_reading_is_not_published_when_the_sensor_stops_answering_during_a_measurement);
   RUN_TEST(test_measurement_is_not_started_when_the_sensor_does_not_wake_up);
+  RUN_TEST(
+      test_sensor_is_put_back_to_sleep_when_a_measurement_cannot_be_started);
   RUN_TEST(test_new_measurement_is_started_after_a_failed_one);
   RUN_TEST(test_reading_is_dropped_when_the_sensor_cannot_be_put_back_to_sleep);
   RUN_TEST(
@@ -743,6 +801,12 @@ static void advance_and_run(uint32_t ms) {
   run_until_idle();
 }
 
+static void advance_to_and_run(uint32_t ms) {
+  const uint32_t now_ms = node_hal_time_ms();
+  TEST_ASSERT_TRUE_MESSAGE(ms >= now_ms, "tests only move time forward");
+  advance_and_run(ms - now_ms);
+}
+
 static void expect_command(uint16_t cmd) {
   const uint8_t bytes[] = {(uint8_t)(cmd >> 8), (uint8_t)(cmd & 0xFFU)};
   node_hal_i2c_mock_expect_write(SENSOR_ADDR, bytes, sizeof(bytes));
@@ -785,6 +849,8 @@ static int start_one_sensor(void) {
   expect_sensor_start(SHTC3_ID);
   expect_measurement_start();
   start_devices();
+  g_first_wake_ms = node_hal_time_ms();
+  advance_and_run(WAKE_UP_TIME_MS);
   return sensor;
 }
 

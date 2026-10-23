@@ -2,7 +2,6 @@
  * INCLUDES
  * ========================================================================== */
 
-#include "esp_rom_sys.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -48,12 +47,4 @@ void node_hal_time_delay_ms(uint32_t ms) {
     return;
   }
   vTaskDelay(node_hal_time_ticks_for_at_least_ms(ms));
-}
-
-node_hal_err_t node_hal_time_busy_wait_us(uint32_t us) {
-  if (us > NODE_HAL_TIME_BUSY_WAIT_MAX_US) {
-    return NODE_HAL_ERR_ARG;
-  }
-  esp_rom_delay_us(us);
-  return NODE_HAL_OK;
 }

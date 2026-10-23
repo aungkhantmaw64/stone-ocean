@@ -178,14 +178,3 @@ void node_hal_time_mock_advance(uint32_t ms);
  * @param ms New time, in ms.
  */
 void node_hal_time_mock_set(uint32_t ms);
-
-/**
- * @brief Total time spent in node_hal_time_busy_wait_us() since the last
- *        reset.
- *
- * Each busy-wait also moves virtual time forward, in whole ms once the
- * waits add up to one.
- *
- * @return Time in µs.
- */
-uint64_t node_hal_time_mock_busy_wait_total_us(void);
