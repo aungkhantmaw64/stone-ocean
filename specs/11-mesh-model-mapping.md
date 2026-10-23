@@ -147,15 +147,29 @@ node_mesh_err_t node_mesh_msg_decode_onoff_set(const uint8_t *in, size_t len,
 
 ## Acceptance criteria
 - [ ] The node's composition is element 0 with Config Server, Health Server and the Stone Ocean Node Server (CID `0x02E5`, model `0x0001`), whatever the config.
-- [ ] Messages are encoded and decoded per `proto/stone_ocean/mesh/v1/node.proto`, checked by host known-answer tests whose vectors live in `proto/testdata/`.
-- [ ] Every `DeviceGet`, `OnOffSet` and `DeviceStatus` fits in one unsegmented message (≤ 8 payload bytes).
+- [x] Messages are encoded and decoded per `proto/stone_ocean/mesh/v1/node.proto`, checked by host known-answer tests whose vectors live in `proto/testdata/`.
+- [x] Every `DeviceGet`, `OnOffSet` and `DeviceStatus` fits in one unsegmented message (≤ 8 payload bytes).
 - [ ] `DeviceListGet` and `DeviceGet` (one device and all) work against the gateway.
 - [ ] `OnOffSet` and `OnOffSetUnack` work, and the LED changes physically.
 - [ ] Publications are emitted per the event rules when a publish address is configured, and none when it isn't.
-- [ ] Faulted devices, and devices with no value yet, report no value fields instead of stale ones.
+- [x] Faulted devices, and devices with no value yet, report no value fields instead of stale ones.
 - [ ] Spec 10's changes are applied: element 0 only, no composition hash, and adding a device needs no reprovisioning.
-- [ ] The hardware build still fits the factory app partition with ≥ 15 % headroom (`idf.py size`).
+- [x] The hardware build still fits the factory app partition with ≥ 15 % headroom (`idf.py size`).
+
+Verified so far, on the host and in the build (ESP-IDF v5.4.4 container):
+- AC 2, 3: `test_node_mesh_msg` (30 tests) checks the encoders and decoders against the 26 vectors in `proto/testdata/node_vectors.json`, whose bytes were computed with an encoder independent of nanopb: tenths and rounding, the SHTC3 clamp, unknown values, the 8-byte budget (the largest status is exactly 8 bytes; nanopb's worst-case sizes of every request are at most 8), the 168-byte device list, and bad input. Mutations (truncating instead of rounding, removing the clamp, flipping a vector byte) each fail it.
+- AC 7: `test_node_mesh_msg` for the encoding, and `test_node_mesh_models` for the models AO: a device entering FAULT is published with the fault flag only, and after it recovers it reports no values until its next reading.
+- AC 1, 4, 5, 6 (host-testable parts): `test_node_mesh_models` (31 tests) runs the real models AO on the host AO port with fakes for the vendor model port and `node_dev_set_onoff()`. It checks that the vendor model is registered at start; the four publication rules, and no publication or log line without a publish address; `DeviceListGet` and `DeviceGet` answers (configured devices, safe mode, every device in index order, the latest value, replies to the sender with its keys); `OnOffSet` routing and replies (requested state, last known state on FAULT or a full devices queue, sensors refused, no reply when unacknowledged); and dropped and lost requests.
+- AC 9: `idf.py size` of the hardware build gives a 985,299-byte image; `mesh_node.bin` is 0xf0950 bytes, leaving 53 % of the 2 MB factory partition free (+15.3 KB for nanopb, the messages, the models AO and the vendor model port).
+- The whole host suite (28 test executables) passes under ASan, LSan and UBSan. The QEMU build (mesh compiled out) still builds.
+
+Not yet verified, needing hardware and the spec 12 gateway tool:
+- AC 1: the boot log line `element 0: primary, 2 SIG models (config + health server), 1 vendor models`, and `composition-get` showing vendor model `0x02E5:0x0001` on element 0 (possible with `mesh-cfgclient` before spec 12).
+- AC 4, 5: `DeviceListGet`, `DeviceGet` and `OnOffSet` over the air; the LED switching physically. `mesh-cfgclient` cannot send vendor messages, so these wait for spec 12.
+- AC 6: publications reaching the gateway once it sets a publish address, motion within 1 s, and none before.
+- AC 8: adding a device to the config, reflashing it and rebooting leaves the node provisioned with the same composition.
+- Spec 10's heap floor with the models AO running: free internal RAM after the mesh start stays ≥ 40 KB.
 
 ## Open questions
 - Stone Ocean's own Bluetooth SIG company ID, to replace Espressif's `0x02E5` (`TODO(confirm)`).
-- Exact nanopb release to pin. Pick the latest stable 0.4.x at implementation and record it here.
+- ~~Exact nanopb release to pin.~~ nanopb 0.4.9.1: the runtime is vendored in `firmware/components/nanopb` and the generator pinned in `proto/requirements.txt` (with protobuf 7.36.2, grpcio-tools 1.84.0 and grpcio 1.84.0).
