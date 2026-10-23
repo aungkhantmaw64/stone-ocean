@@ -227,6 +227,10 @@ add_host_test(test_node_dev_led test_node_dev_led.c)
 target_include_directories(test_node_dev_led PRIVATE ${NODE_DEV_DIR})
 target_link_libraries(test_node_dev_led PRIVATE node_dev)
 
+add_host_test(test_node_status test_node_status.c)
+target_include_directories(test_node_status PRIVATE ${NODE_STATUS_DIR})
+target_link_libraries(test_node_status PRIVATE node_status)
+
 add_host_test(test_node_config_parse test_node_config_parse.c)
 target_link_libraries(test_node_config_parse PRIVATE node_config
                       node_config_example)

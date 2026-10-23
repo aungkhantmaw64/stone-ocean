@@ -39,7 +39,7 @@
 void node_hal_mock_reset(void);
 
 /** @brief Clear all GPIO state: pins unconfigured, levels low, no callbacks,
- *         no write counts and no pending write failure. */
+ *         no write counts and no pending write or config failure. */
 void node_hal_gpio_mock_reset(void);
 
 /**
@@ -72,6 +72,15 @@ size_t node_hal_gpio_mock_write_count(int pin);
  * @param err Error the write returns, for example NODE_HAL_ERR_IO.
  */
 void node_hal_gpio_mock_fail_next_write(node_hal_err_t err);
+
+/**
+ * @brief Make the next node_hal_gpio_config() of a valid pin fail.
+ *
+ * The failing call leaves the pin unconfigured.
+ *
+ * @param err Error the call returns, for example NODE_HAL_ERR_IO.
+ */
+void node_hal_gpio_mock_fail_next_config(node_hal_err_t err);
 
 /**
  * @brief Clear all I2C state: buses, devices, the script, present addresses
