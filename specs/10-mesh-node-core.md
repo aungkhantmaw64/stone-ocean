@@ -83,17 +83,30 @@ node_mesh_err_t node_mesh_set_models_builder(node_mesh_models_builder_t builder)
   - Change the config to add a device, reboot → the WARN log appears and device elements are disabled.
 
 ## Acceptance criteria
-- [ ] Node beacons unprovisioned with a stable, MAC-derived UUID.
-- [ ] BlueZ `bluetooth-meshd` can provision it over PB-ADV, and the log shows it provisioned, with its address.
+- [x] Node beacons unprovisioned with a stable, MAC-derived UUID.
+- [x] BlueZ `bluetooth-meshd` can provision it over PB-ADV, and the log shows it provisioned, with its address.
 - [ ] Provisioning survives reboot. Factory reset (both triggers) clears it.
-- [ ] Composition = primary element + one element per device, in config order (host test + boot log).
+- [x] Composition = primary element + one element per device, in config order (host test + boot log).
 - [ ] Composition-hash mismatch is detected and logged as specified.
-- [ ] Relay is enabled, and free internal heap after start is ≥ 40 KB (logged).
+- [x] Relay is enabled, and free internal heap after start is ≥ 40 KB (logged).
 - [x] The hardware build, with the mesh code linked in, fits the factory app partition with ≥ 15% headroom (check with `idf.py size`). Moved here from spec 01, where nothing called the mesh code yet, so the linker dropped it.
 
 Verified so far: `idf.py size` of the hardware build gives a 972,723-byte image; `mesh_node.bin` is 0xed830 bytes, leaving 54% of the 2 MB factory partition free. Host tests `test_node_mesh_comp` (20 tests: element count from config, safe mode, match / mismatch / unprovisioned, the hash stored at provisioning, the UUID) and `test_node_mesh_ao` (11 tests: hash stored and line logged at provisioning, gateway node reset erases and restarts, provisioning notices, lost events) pass under ASan, LSan and UBSan, and cover the host-testable parts of AC 1, 2, 3, 4 and 5. The QEMU build (mesh compiled out) still builds and boots with the example config.
 
-Not yet verified on hardware: AC 1–6. They need a BlueZ provisioner, which cannot run on the development laptop (`bluetooth-meshd` needs the `algif_aead` kernel module, disabled there for CVE-2026-31431). They will be checked against a BeagleBone Black gateway with a USB BLE dongle. The boot-log parts of AC 1, 4 and 6 (UUID, element lines, heap, start time) need only the board.
+Verified on hardware against the BeagleBone Black gateway (stone-ocean-gateway image, BlueZ 5.86 `bluetooth-meshd` and `mesh-cfgclient`, USB BLE dongle). The development laptop cannot run `bluetooth-meshd`: it needs the `algif_aead` kernel module, which is disabled there for CVE-2026-31431. Node: custom ESP32 WROVER board, config `lab-node-1` with 2 devices (`env1` shtc3, `pir1` pir).
+- AC 1: the boot log shows `uuid=73746f6e656f6365616eb0b21ca220ee`, the `stoneocean` prefix followed by the BT MAC `b0:b2:1c:a2:20:ee`. After the button factory reset the node beaconed unprovisioned again, and `mesh-cfgclient` found it with the same UUID.
+- AC 2: `mesh-cfgclient` provisioned the node over PB-ADV. The node logged `mesh=prov` with the address (0x00aa, then 0x00ab after a reprovision). `composition-get` and `appkey-add 0` both succeeded.
+- AC 3 (partial): a reboot of the provisioned node resumed at `mesh=prov addr=0x00aa` with no reprovisioning. The button factory reset (≥ 5 s) cleared provisioning, and the node came back unprovisioned in safe mode (config erased, per spec 09); `composition-get` after reprovisioning showed the primary element only. A Config Node Reset from the gateway (`node-reset`) also unprovisioned the node and restarted it, with its config kept.
+- AC 4: the boot log lists element 0 (primary, config + health server, 2 models), element 1 `env1` and element 2 `pir1`, `elements=3`. From the gateway, `composition-get` returns a 27-byte Composition Data Status: CID 0x02E5, relay yes, proxy/friend/LPN no, element 0 with Configuration Server and Health Server, and elements 1 and 2 with no models (spec 11 adds them).
+- AC 6: `relay=on`. `free heap after mesh start: internal=178351 total=4321052`, well above the 40 KB limit. `mesh started in 708 ms`, under the 2 s limit.
+
+Not yet verified on hardware:
+- AC 3: the PC trigger, `tools/config_flash.py factory-reset`.
+- AC 5: the mismatch WARN line on the board (host tests cover the decision).
+
+Observed on hardware: ESP-BLE-MESH raises `ESP_BLE_MESH_NODE_PROV_COMPLETE_EVT` again when it restores a provisioned node at boot. So the provisioning-complete lines are logged twice per boot, and the mesh AO stores the hash again on every boot. The effect is harmless (the value written is the hash already in use), but it is one extra NVS write per boot.
+
+Gateway note: if the gateway's `mesh-cfgclient` database loses a node (an interrupted provisioning, or `create` run again), the node stays provisioned with keys that the gateway doesn't have. `composition-get` then fails with `Failed to send`, and `list-nodes` shows only the gateway's own node (0x0001). To recover, factory-reset the node and reprovision it.
 
 ## Open questions
 - Should Mesh 1.1 (Remote Provisioning / Composition Data Page 128 refresh) be adopted later to avoid reprovisioning on config change? This depends on the ESP-IDF and BlueZ versions in use.
