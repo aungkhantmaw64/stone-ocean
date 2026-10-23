@@ -1,6 +1,6 @@
 # 09 — Watchdog, reset reason & factory reset
 
-**Status:** in-progress
+**Status:** done
 **Depends on:** 02, 04, 05
 **Target:** custom ESP32 WROVER board · ESP-IDF v5.x · `firmware/components/node_health`
 
@@ -68,9 +68,11 @@ Boot log line: `reset_reason=<reason> crash_count=<n>`. PC tool addition: `confi
   - A short press does nothing.
 
 ## Acceptance criteria
-- [ ] TWDT resets a hung subscribed task within ~10 s, and the next boot logs the reason and increments the crash counter.
-- [ ] The boot log shows the reset reason and crash count. Factory reset clears the count.
-- [ ] A 5 s reset-button press erases the config, runs the hooks and reboots into safe mode.
-- [ ] `config_flash.py factory-reset` erases the `config` and `nvs` partitions, and the node boots unprovisioned in safe mode.
-- [ ] Long-press logic is host-tested with virtual time.
-- [ ] `NODE_HEALTH_DEBUG_HANG` is off in the hardware and QEMU builds.
+- [x] TWDT resets a hung subscribed task within ~10 s, and the next boot logs the reason and increments the crash counter.
+- [x] The boot log shows the reset reason and crash count. Factory reset clears the count.
+- [x] A 5 s reset-button press erases the config, runs the hooks and reboots into safe mode.
+- [x] `config_flash.py factory-reset` erases the `config` and `nvs` partitions, and the node boots unprovisioned in safe mode.
+- [x] Long-press logic is host-tested with virtual time.
+- [x] `NODE_HEALTH_DEBUG_HANG` is off in the hardware and QEMU builds.
+
+Host tests: `test_node_health` (25 tests: reset reasons, crash counter, NVS recovery, factory reset and hooks), `test_node_health_ao` (8 tests: 4.9 s vs 5 s hold, bounce, a press held at boot, a missed release edge, clock wrap-around) and a CTest that the debug hang is off in `sdkconfig.defaults`, `sdkconfig.qemu` and the Kconfig default all pass under ASan, LSan and UBSan; `pytest tools` adds 8 tests for `factory-reset` and the `nvs` partition lookup (58 in all). In QEMU, a fresh image logs `reset_reason=poweron crash_count=0`; a `NODE_HEALTH_DEBUG_HANG` build hangs the health AO 15 s after boot, the TWDT names `node_health` about 10 s later, and the next boot logs `reset_reason=task_wdt crash_count=1`; `config_flash.py --flash-image … factory-reset` on that image, then a `--reuse` boot, gives `crash_count=0` and `SAFE MODE: no config stored`. On the custom board, the boot line, a short press (no reset), a press held through boot (ignored), a 5 s press (`FACTORY RESET`, safe mode, `crash_count=0`), the debug-hang build (`task_wdt`, count kept across a reflash) and `config_flash.py --port … factory-reset` all behaved as specified (2026-10-23).
