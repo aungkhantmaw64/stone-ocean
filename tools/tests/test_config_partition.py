@@ -1,12 +1,15 @@
-"""Tests for tools/config_partition.py: finding the config partition and its images."""
+"""Tests for tools/config_partition.py: finding the config and nvs partitions, and config
+partition images."""
 
 import pytest
 
 from config_format import ConfigFormatError, pack_config
 from config_partition import (ConfigNotFoundError, PartitionTableError, build_config_image,
-                              extract_config, find_config_partition, littlefs_for)
+                              extract_config, find_config_partition, find_nvs_partition,
+                              littlefs_for)
 from flash_layout import (CONFIG_OFFSET, CONFIG_SIZE, DATA_TYPE, LITTLEFS_SUBTYPE,
-                          NODE_PARTITIONS, TABLE_LEN, partition_table)
+                          NODE_PARTITIONS, NVS_OFFSET, NVS_SIZE, NVS_SUBTYPE, TABLE_LEN,
+                          partition_table)
 
 SMALL_CONFIG = b'{"version":1}'
 CONFIG_FILE = "config.bin"
@@ -16,6 +19,12 @@ def partitions_with_config(ptype=DATA_TYPE, size=CONFIG_SIZE) -> list:
     """Return the node's partitions with the config partition's type or size changed."""
     others = [row for row in NODE_PARTITIONS if row[0] != "config"]
     return others + [("config", ptype, LITTLEFS_SUBTYPE, CONFIG_OFFSET, size)]
+
+
+def partitions_with_nvs(subtype=NVS_SUBTYPE, offset=NVS_OFFSET) -> list:
+    """Return the node's partitions with the nvs partition's subtype or offset changed."""
+    others = [row for row in NODE_PARTITIONS if row[0] != "nvs"]
+    return [("nvs", DATA_TYPE, subtype, offset, NVS_SIZE)] + others
 
 
 def image_with_config_file(contents: bytes) -> bytes:
@@ -74,6 +83,30 @@ class TestFindingTheConfigPartition:
 
         with pytest.raises(PartitionTableError, match="multiple of 4096"):
             find_config_partition(table)
+
+
+class TestFindingTheNvsPartition:
+    # AC: specs/09-health-factory-reset.md #4
+    def test_nvs_partition_is_found_in_the_partition_table(self):
+        partition = find_nvs_partition(partition_table())
+
+        assert partition.name == "nvs"
+        assert partition.offset == NVS_OFFSET
+        assert partition.size == NVS_SIZE
+
+    # AC: specs/09-health-factory-reset.md #4
+    def test_nvs_partition_that_is_not_aligned_to_flash_sectors_is_rejected(self):
+        table = partition_table(partitions_with_nvs(offset=NVS_OFFSET + 512))
+
+        with pytest.raises(PartitionTableError, match="not aligned"):
+            find_nvs_partition(table)
+
+    # AC: specs/09-health-factory-reset.md #4
+    def test_partition_named_nvs_that_is_not_an_nvs_data_partition_is_rejected(self):
+        table = partition_table(partitions_with_nvs(subtype=LITTLEFS_SUBTYPE))
+
+        with pytest.raises(PartitionTableError, match="not an NVS data partition"):
+            find_nvs_partition(table)
 
 
 class TestConfigPartitionImages:
