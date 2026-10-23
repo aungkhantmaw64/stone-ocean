@@ -54,15 +54,17 @@ static const int g_missing_pins[] = {24, 28, 29, 30, 31};
 /** @brief GPIO numbers above the highest one, 39. */
 static const int g_pins_above_39[] = {40, 41, 100};
 
-/** @brief GPIOs that have no output driver and no pull resistors. */
-static const int g_input_only_pins[] = {34, 35, 36, 37, 38, 39};
+/** @brief GPIOs that have no output driver and no pull resistors; GPIO 34,
+ *         the reset button's, is left out. */
+static const int g_input_only_pins[] = {35, 36, 37, 38, 39};
 
-/** @brief Every GPIO an LED may use. */
-static const int g_usable_output_pins[] = {
-    0, 2, 4, 5, 12, 13, 14, 15, 18, 19, 20, 21, 22, 23, 25, 26, 27, 32, 33};
+/** @brief Every GPIO an LED may use; GPIO 0 is the status LED's. */
+static const int g_usable_output_pins[] = {2,  4,  5,  12, 13, 14, 15, 18, 19,
+                                           20, 21, 22, 23, 25, 26, 27, 32, 33};
 
-/** @brief Pins that set the boot mode at reset. */
-static const int g_strapping_pins[] = {0, 2, 5, 12, 15};
+/** @brief Pins that set the boot mode at reset and a config may use; GPIO 0
+ *         is the status LED's. */
+static const int g_strapping_pins[] = {2, 5, 12, 15};
 
 /* ==========================================================================
  * PRIVATE FUNCTION PROTOTYPES
