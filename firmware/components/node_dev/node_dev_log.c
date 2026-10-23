@@ -18,9 +18,9 @@
 /** @brief ESP-IDF log tag of the node_dev component. */
 #define NODE_DEV_LOG_TAG "node_dev"
 
-/** @brief Size of the buffer a warning is formatted into, including the
- *         terminating NUL; longer warnings are truncated. */
-#define NODE_DEV_LOG_WARNING_LEN 128
+/** @brief Size of the buffer an info line or warning is formatted into,
+ *         including the terminating NUL; longer lines are truncated. */
+#define NODE_DEV_LOG_TEXT_LEN 128
 
 /* ==========================================================================
  * PRIVATE FUNCTION PROTOTYPES
@@ -93,11 +93,24 @@ void node_dev_log_event(const char *id, const node_dev_evt_t *evt) {
   }
 }
 
+void node_dev_log_info(const char *fmt, ...) {
+  if (fmt == NULL) {
+    return;
+  }
+  char text[NODE_DEV_LOG_TEXT_LEN] = {0};
+  va_list args;
+  va_start(args, fmt);
+  /* Truncating an over-long line is acceptable for a log line. */
+  (void)vsnprintf(text, sizeof(text), fmt, args);
+  va_end(args);
+  ESP_LOGI(NODE_DEV_LOG_TAG, "%s", text);
+}
+
 void node_dev_log_warning(const char *fmt, ...) {
   if (fmt == NULL) {
     return;
   }
-  char text[NODE_DEV_LOG_WARNING_LEN] = {0};
+  char text[NODE_DEV_LOG_TEXT_LEN] = {0};
   va_list args;
   va_start(args, fmt);
   /* Truncating an over-long warning is acceptable for a log line. */

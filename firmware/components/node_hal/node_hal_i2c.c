@@ -96,7 +96,7 @@ static struct node_hal_i2c_dev *node_hal_i2c_free_device_slot(void);
 static node_hal_err_t node_hal_i2c_probe_result(esp_err_t err);
 
 /**
- * @brief Map the result of a write or write-read to a HAL error, telling a
+ * @brief Map the result of a transfer to a HAL error, telling a
  *        NACK of the address from a failure later in the transfer.
  *
  * @param dev        Device the transfer was for; must be valid.
@@ -183,6 +183,16 @@ node_hal_err_t node_hal_i2c_write(node_hal_i2c_dev_t dev, const uint8_t *buf,
   }
   esp_err_t err = i2c_master_transmit(dev->handle, buf, len,
                                       node_hal_i2c_timeout_for_idf(timeout_ms));
+  return node_hal_i2c_transfer_result(dev, err, timeout_ms);
+}
+
+node_hal_err_t node_hal_i2c_read(node_hal_i2c_dev_t dev, uint8_t *buf,
+                                 size_t len, uint32_t timeout_ms) {
+  if (!node_hal_i2c_dev_is_valid(dev) || buf == NULL || len == 0) {
+    return NODE_HAL_ERR_ARG;
+  }
+  esp_err_t err = i2c_master_receive(dev->handle, buf, len,
+                                     node_hal_i2c_timeout_for_idf(timeout_ms));
   return node_hal_i2c_transfer_result(dev, err, timeout_ms);
 }
 

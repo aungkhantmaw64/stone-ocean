@@ -27,6 +27,10 @@
  *         longer warnings are truncated. */
 #define NODE_DEV_LOG_MOCK_WARNING_LEN 128
 
+/** @brief Size of the recorded info text, including the terminating NUL;
+ *         longer lines are truncated. */
+#define NODE_DEV_LOG_MOCK_INFO_LEN 128
+
 /** @brief Most published events the mock keeps; later ones are counted but
  *         not stored. */
 #define NODE_DEV_LOG_MOCK_MAX_EVENTS 32
@@ -110,6 +114,20 @@ const node_dev_evt_t *node_dev_log_mock_event(size_t index);
  * @return The count.
  */
 size_t node_dev_log_mock_warning_count(void);
+
+/**
+ * @brief Number of info lines logged since the last reset.
+ *
+ * @return The count.
+ */
+size_t node_dev_log_mock_info_count(void);
+
+/**
+ * @brief Text of the last info line.
+ *
+ * @return A NUL-terminated string; empty if none was logged.
+ */
+const char *node_dev_log_mock_last_info(void);
 
 /**
  * @brief Text of the last warning.

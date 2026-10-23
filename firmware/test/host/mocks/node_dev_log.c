@@ -45,6 +45,12 @@ static size_t g_warning_count = 0;
 /** @brief Text of the last warning, NUL-terminated. */
 static char g_last_warning[NODE_DEV_LOG_MOCK_WARNING_LEN] = {0};
 
+/** @brief Info lines logged since the last reset. */
+static size_t g_info_count = 0;
+
+/** @brief Text of the last info line, NUL-terminated. */
+static char g_last_info[NODE_DEV_LOG_MOCK_INFO_LEN] = {0};
+
 /* ==========================================================================
  * PRIVATE FUNCTION PROTOTYPES
  * ========================================================================== */
@@ -75,6 +81,8 @@ void node_dev_log_mock_reset(void) {
   (void)memset(g_events, 0, sizeof(g_events));
   g_warning_count = 0;
   (void)memset(g_last_warning, 0, sizeof(g_last_warning));
+  g_info_count = 0;
+  (void)memset(g_last_info, 0, sizeof(g_last_info));
 }
 
 size_t node_dev_log_mock_table_count(void) { return g_table_count; }
@@ -112,6 +120,10 @@ size_t node_dev_log_mock_warning_count(void) { return g_warning_count; }
 
 const char *node_dev_log_mock_last_warning(void) { return g_last_warning; }
 
+size_t node_dev_log_mock_info_count(void) { return g_info_count; }
+
+const char *node_dev_log_mock_last_info(void) { return g_last_info; }
+
 void node_dev_log_table_title(int n_dev) {
   (void)n_dev;
   if (g_table_count < SIZE_MAX) {
@@ -143,6 +155,20 @@ void node_dev_log_event(const char *id, const node_dev_evt_t *evt) {
   }
   if (g_event_count < SIZE_MAX) {
     g_event_count++;
+  }
+}
+
+void node_dev_log_info(const char *fmt, ...) {
+  if (fmt == NULL) {
+    return;
+  }
+  va_list args;
+  va_start(args, fmt);
+  /* Truncation to the buffer is deliberate; tests check short prefixes. */
+  (void)vsnprintf(g_last_info, sizeof(g_last_info), fmt, args);
+  va_end(args);
+  if (g_info_count < SIZE_MAX) {
+    g_info_count++;
   }
 }
 

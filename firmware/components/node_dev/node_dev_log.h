@@ -60,6 +60,16 @@ void node_dev_log_state_change(int dev_index, const char *id, bool fault);
 void node_dev_log_event(const char *id, const node_dev_evt_t *evt);
 
 /**
+ * @brief Log a fact about a device at INFO level, for example a sensor's
+ *        serial number read at init.
+ *
+ * @param fmt printf-style format; NULL is ignored.
+ * @param ... Format arguments.
+ */
+void node_dev_log_info(const char *fmt, ...)
+    __attribute__((format(printf, 1, 2)));
+
+/**
  * @brief Log a problem at WARNING level, for example a failed init or a
  *        dropped command.
  *

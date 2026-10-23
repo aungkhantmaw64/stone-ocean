@@ -28,7 +28,7 @@ The HAL does not hard-code these lists. It relies on ESP-IDF to reject unusable 
 ## Scope
 - In scope:
   - GPIO configure, read, write, and edge interrupt with a callback.
-  - I2C bus init and device add, write, write-then-read with timeout, and probing an address without adding a device.
+  - I2C bus init and device add, write, read, write-then-read with timeout, and probing an address without adding a device.
   - Monotonic time in ms, a delay, and a busy-wait of at most 1 ms for short device timings (added for spec 08).
   - Mock implementation with call recording and scripted responses.
 - Out of scope: ADC and PWM (later), SPI.
@@ -55,6 +55,7 @@ node_hal_err_t node_hal_i2c_bus_init(int port, int sda, int scl, uint32_t freq_h
 node_hal_err_t node_hal_i2c_dev_add(node_hal_i2c_bus_t bus, uint8_t addr7, node_hal_i2c_dev_t *out);
 node_hal_err_t node_hal_i2c_probe(node_hal_i2c_bus_t bus, uint8_t addr7, uint32_t timeout_ms); /* OK on ACK, ERR_NACK if absent */
 node_hal_err_t node_hal_i2c_write(node_hal_i2c_dev_t dev, const uint8_t *buf, size_t len, uint32_t timeout_ms);
+node_hal_err_t node_hal_i2c_read(node_hal_i2c_dev_t dev, uint8_t *buf, size_t len, uint32_t timeout_ms); /* added for spec 08 */
 node_hal_err_t node_hal_i2c_write_read(node_hal_i2c_dev_t dev, const uint8_t *w, size_t wlen,
                                        uint8_t *r, size_t rlen, uint32_t timeout_ms);
 
@@ -67,7 +68,7 @@ node_hal_err_t node_hal_time_busy_wait_us(uint32_t us);  /* spins, no yield; ERR
 Mock-only helpers (host), declared in `node_hal_mock.h`:
 - `node_hal_mock_reset()` clears all mock state.
 - `node_hal_gpio_mock_set_input(pin, level)` sets an input level and triggers the ISR on a matching edge.
-- `node_hal_i2c_mock_expect_write(...)`, `node_hal_i2c_mock_queue_read(...)`, `node_hal_i2c_mock_queue_error(...)` and `node_hal_i2c_mock_set_present(...)` script I2C traffic. Steps are consumed in order; a transfer that does not match returns `NODE_HAL_ERR_IO`.
+- `node_hal_i2c_mock_expect_write(...)`, `node_hal_i2c_mock_queue_read(...)`, `node_hal_i2c_mock_queue_error(...)` and `node_hal_i2c_mock_set_present(...)` script I2C traffic. Steps are consumed in order; a transfer that does not match returns `NODE_HAL_ERR_IO`. An error step takes the place of a write or a read.
 - `node_hal_i2c_mock_failure()` describes the first mismatching transfer (NULL if none) and `node_hal_i2c_mock_pending_steps()` counts unconsumed steps, so tests can check the whole script ran.
 - `node_hal_gpio_mock_reset()`, `node_hal_i2c_mock_reset()` and `node_hal_time_mock_reset()` reset one area each.
 - `node_hal_time_mock_advance(ms)` and `node_hal_time_mock_set(ms)` control virtual time. `node_hal_time_mock_busy_wait_total_us()` reports the time busy-waited; busy-waits also move virtual time forward.
