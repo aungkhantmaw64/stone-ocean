@@ -112,6 +112,24 @@ target_include_directories(node_dev PUBLIC mocks PRIVATE ${NODE_DEV_DIR})
 target_compile_options(node_dev PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(node_dev PUBLIC node_dev_api node_ao node_config PRIVATE m)
 
+add_library(node_status_api INTERFACE)
+target_include_directories(node_status_api INTERFACE
+  ${FIRMWARE_DIR}/components/node_status/include)
+
+add_library(node_status_header_check OBJECT node_status_header_check.c)
+target_compile_options(node_status_header_check PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_status_header_check PRIVATE node_status_api)
+
+# The real node_status source, on the host node_ao port and the mock HAL,
+# with the host log mock in place of node_status_log.c.
+set(NODE_STATUS_DIR ${FIRMWARE_DIR}/components/node_status)
+add_library(node_status STATIC
+  ${NODE_STATUS_DIR}/node_status.c
+  mocks/node_status_log.c)
+target_include_directories(node_status PUBLIC mocks PRIVATE ${NODE_STATUS_DIR})
+target_compile_options(node_status PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_status PUBLIC node_status_api node_ao)
+
 add_library(config_store_api INTERFACE)
 target_include_directories(config_store_api INTERFACE
   ${FIRMWARE_DIR}/components/config_store/include)
