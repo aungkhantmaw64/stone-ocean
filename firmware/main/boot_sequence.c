@@ -5,6 +5,7 @@
 #include "boot_sequence.h"
 
 #include "esp_log.h"
+#include "sdkconfig.h"
 
 #include "config_store_mode.h"
 #include "node_dev.h"
@@ -14,6 +15,10 @@
 #include "node_hal_selftest.h"
 #include "node_health.h"
 #include "node_status.h"
+
+#if CONFIG_NODE_MESH_ENABLE
+#include "node_mesh.h"
+#endif
 
 /* ==========================================================================
  * MACROS
@@ -58,6 +63,13 @@ static void boot_sequence_start_devices(void);
  */
 static void boot_sequence_register_drivers(void);
 
+/**
+ * @brief Start the BLE mesh node, in normal and safe mode, when the build
+ *        has Bluetooth. In safe mode it has only the primary element. A
+ *        failure is logged; the boot goes on without the mesh.
+ */
+static void boot_sequence_start_mesh(void);
+
 /* ==========================================================================
  * PUBLIC FUNCTIONS
  * ========================================================================== */
@@ -67,6 +79,7 @@ void boot_sequence_run(void) {
   boot_sequence_start_status();
   config_store_mode_boot();
   boot_sequence_start_devices();
+  boot_sequence_start_mesh();
   node_hal_selftest_start();
 }
 
@@ -111,4 +124,14 @@ static void boot_sequence_register_drivers(void) {
   if (err != NODE_DEV_OK) {
     ESP_LOGE(TAG, "could not register the SHTC3 driver: %d", (int)err);
   }
+}
+
+static void boot_sequence_start_mesh(void) {
+#if CONFIG_NODE_MESH_ENABLE
+  const node_mesh_err_t err =
+      node_mesh_start(config_store_mode_active_config());
+  if (err != NODE_MESH_OK) {
+    ESP_LOGE(TAG, "could not start the mesh: %d", (int)err);
+  }
+#endif
 }
