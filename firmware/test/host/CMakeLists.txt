@@ -139,6 +139,17 @@ add_library(node_health_header_check OBJECT node_health_header_check.c)
 target_compile_options(node_health_header_check PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(node_health_header_check PRIVATE node_health_api)
 
+# The real node_health logic, with the in-memory fake in place of
+# node_health_port.c and the host log mock in place of node_health_log.c.
+set(NODE_HEALTH_DIR ${FIRMWARE_DIR}/components/node_health)
+add_library(node_health STATIC
+  ${NODE_HEALTH_DIR}/node_health.c
+  mocks/node_health_port.c
+  mocks/node_health_log.c)
+target_include_directories(node_health PUBLIC mocks ${NODE_HEALTH_DIR})
+target_compile_options(node_health PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_health PUBLIC node_health_api)
+
 add_library(config_store_api INTERFACE)
 target_include_directories(config_store_api INTERFACE
   ${FIRMWARE_DIR}/components/config_store/include)
