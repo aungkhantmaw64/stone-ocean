@@ -258,6 +258,9 @@ add_host_test(test_node_status test_node_status.c)
 target_include_directories(test_node_status PRIVATE ${NODE_STATUS_DIR})
 target_link_libraries(test_node_status PRIVATE node_status)
 
+add_host_test(test_node_health test_node_health.c)
+target_link_libraries(test_node_health PRIVATE node_health)
+
 add_host_test(test_node_config_parse test_node_config_parse.c)
 target_link_libraries(test_node_config_parse PRIVATE node_config
                       node_config_example)
