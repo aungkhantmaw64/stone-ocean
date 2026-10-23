@@ -107,6 +107,7 @@ add_library(node_dev STATIC
   ${NODE_DEV_DIR}/node_dev_led.c
   ${NODE_DEV_DIR}/node_dev_pir.c
   ${NODE_DEV_DIR}/node_dev_report.c
+  ${NODE_DEV_DIR}/node_dev_shtc3.c
   mocks/node_dev_log.c)
 target_include_directories(node_dev PUBLIC mocks PRIVATE ${NODE_DEV_DIR})
 target_compile_options(node_dev PRIVATE -Wall -Wextra -Werror)
