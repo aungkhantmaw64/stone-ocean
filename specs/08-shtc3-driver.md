@@ -1,6 +1,6 @@
 # 08 — SHTC3 driver
 
-**Status:** in-progress
+**Status:** done
 **Depends on:** 06
 **Target:** ESP32-DevKitC · ESP-IDF v5.x · `firmware/components/node_dev/node_dev_shtc3.c`
 
@@ -65,11 +65,15 @@ float   node_dev_shtc3_raw_to_rh_pct(uint16_t raw);
   - Unplugging it leads to a fault after 3 samples. Replugging recovers it within 30 s.
 
 ## Acceptance criteria
-- [ ] CRC-8 and conversion functions pass known-answer tests from the datasheet.
-- [ ] The sample transaction matches the datasheet command sequence (host test with the scripted mock).
-- [ ] Bad CRC and I2C errors never produce a reading.
-- [ ] Driver registers and instantiates from config. The ID is read and logged at init.
-- [ ] On hardware, plausible readings appear and the fault/recovery path works.
+- [x] CRC-8 and conversion functions pass known-answer tests from the datasheet.
+- [x] The sample transaction matches the datasheet command sequence (host test with the scripted mock).
+- [x] Bad CRC and I2C errors never produce a reading.
+- [x] Driver registers and instantiates from config. The ID is read and logged at init.
+- [x] On hardware, plausible readings appear and the fault/recovery path works.
+
+Host tests: `test_node_dev_shtc3` (26 tests) runs the real driver on the framework, the mock HAL and the host AO port, and passes under ASan, LSan and UBSan (commit b0b8b61). Every bus test checks that the scripted transfers ran exactly and in full. Mutation checks confirmed the tests catch a wrong CRC initial value or polynomial, a wrong conversion span or full scale, a missing soft-reset wait, a skipped sleep at init or after a failed read, a missing product-code check, an init retry that adds the I2C device again, a measurement read after 12 ms, a stale measuring step, an ignored failed sleep, an unchecked humidity CRC and humidity taken from the temperature word.
+
+On the custom WROVER board (SHTC3 on I2C port 0, SDA 32 / SCL 33, 100 kHz), the log showed `SHTC3 id 0x0887` at init, readings of about 27.1 °C and 54.5 % RH, and a report when RH rose by more than 2 %. Unplugging the sensor marked it FAULT after 3 failed samples, and replugging it recovered it.
 
 ## Open questions
 - None. Resolved: command codes, timings, CRC test vector and the ID product code were confirmed against the datasheet.
