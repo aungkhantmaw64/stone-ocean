@@ -12,6 +12,7 @@
 #include "node_dev_pir.h"
 #include "node_dev_shtc3.h"
 #include "node_hal_selftest.h"
+#include "node_health.h"
 #include "node_status.h"
 
 /* ==========================================================================
@@ -62,6 +63,7 @@ static void boot_sequence_register_drivers(void);
  * ========================================================================== */
 
 void boot_sequence_run(void) {
+  node_health_init();
   boot_sequence_start_status();
   config_store_mode_boot();
   boot_sequence_start_devices();
