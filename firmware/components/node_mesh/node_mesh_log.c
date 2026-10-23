@@ -160,6 +160,27 @@ void node_mesh_log_reset_timeout(void) {
            "mesh reset did not finish in time; factory reset goes on");
 }
 
+void node_mesh_log_models_unknown_device(int dev_index) {
+  ESP_LOGW(NODE_MESH_LOG_TAG, "[%d] device event ignored: no such device",
+           dev_index);
+}
+
+void node_mesh_log_models_fault(int dev_index, bool fault) {
+  if (fault) {
+    ESP_LOGW(NODE_MESH_LOG_TAG,
+             "[%d] in FAULT: reported on the mesh with unknown values",
+             dev_index);
+    return;
+  }
+  ESP_LOGI(NODE_MESH_LOG_TAG, "[%d] left FAULT: values reported again",
+           dev_index);
+}
+
+void node_mesh_log_models_publish_failed(int dev_index, node_mesh_err_t err) {
+  ESP_LOGE(NODE_MESH_LOG_TAG, "[%d] device status not published: %d", dev_index,
+           (int)err);
+}
+
 /* ==========================================================================
  * PRIVATE FUNCTIONS
  * ========================================================================== */

@@ -19,6 +19,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "node_mesh_err.h"
 #include "node_mesh_internal.h"
 
 /* ==========================================================================
@@ -90,3 +91,41 @@ node_mesh_ao_notice_t node_mesh_log_mock_last_notice(void);
  * @return The error; 0 if none was logged.
  */
 int32_t node_mesh_log_mock_last_notice_err(void);
+
+/**
+ * @brief Number of "device event ignored: no such device" lines logged
+ *        since the last reset.
+ *
+ * @return The count.
+ */
+size_t node_mesh_log_mock_unknown_device_count(void);
+
+/**
+ * @brief Number of "in FAULT" and "left FAULT" lines logged since the last
+ *        reset.
+ *
+ * @return The count.
+ */
+size_t node_mesh_log_mock_fault_count(void);
+
+/**
+ * @brief Whether the last FAULT line logged was for entering FAULT.
+ *
+ * @return True if it was; false if it was for leaving, or none was logged.
+ */
+bool node_mesh_log_mock_last_fault(void);
+
+/**
+ * @brief Number of "device status not published" lines logged since the
+ *        last reset.
+ *
+ * @return The count.
+ */
+size_t node_mesh_log_mock_publish_failed_count(void);
+
+/**
+ * @brief Error of the last "device status not published" line.
+ *
+ * @return The error; NODE_MESH_OK if none was logged.
+ */
+node_mesh_err_t node_mesh_log_mock_last_publish_err(void);

@@ -35,6 +35,21 @@ static node_mesh_ao_notice_t g_last_notice = NODE_MESH_AO_NOTICE_LINK_OPEN;
 /** @brief Error code of the last provisioning notice; 0 if none. */
 static int32_t g_last_notice_err = 0;
 
+/** @brief "No such device" lines logged since the last reset. */
+static size_t g_unknown_device_count = 0;
+
+/** @brief FAULT lines logged since the last reset. */
+static size_t g_fault_count = 0;
+
+/** @brief True if the last FAULT line was for entering FAULT. */
+static bool g_last_fault = false;
+
+/** @brief "Device status not published" lines logged since the last reset. */
+static size_t g_publish_failed_count = 0;
+
+/** @brief Error of the last "device status not published" line. */
+static node_mesh_err_t g_last_publish_err = NODE_MESH_OK;
+
 /* ==========================================================================
  * PUBLIC FUNCTIONS
  * ========================================================================== */
@@ -47,6 +62,11 @@ void node_mesh_log_mock_reset(void) {
   g_notice_count = 0;
   g_last_notice = NODE_MESH_AO_NOTICE_LINK_OPEN;
   g_last_notice_err = 0;
+  g_unknown_device_count = 0;
+  g_fault_count = 0;
+  g_last_fault = false;
+  g_publish_failed_count = 0;
+  g_last_publish_err = NODE_MESH_OK;
 }
 
 size_t node_mesh_log_mock_prov_complete_count(void) {
@@ -70,6 +90,22 @@ node_mesh_ao_notice_t node_mesh_log_mock_last_notice(void) {
 }
 
 int32_t node_mesh_log_mock_last_notice_err(void) { return g_last_notice_err; }
+
+size_t node_mesh_log_mock_unknown_device_count(void) {
+  return g_unknown_device_count;
+}
+
+size_t node_mesh_log_mock_fault_count(void) { return g_fault_count; }
+
+bool node_mesh_log_mock_last_fault(void) { return g_last_fault; }
+
+size_t node_mesh_log_mock_publish_failed_count(void) {
+  return g_publish_failed_count;
+}
+
+node_mesh_err_t node_mesh_log_mock_last_publish_err(void) {
+  return g_last_publish_err;
+}
 
 void node_mesh_log_prov_complete(uint16_t addr, uint8_t element_count,
                                  bool relay, uint16_t net_idx,
@@ -95,4 +131,21 @@ void node_mesh_log_notice(node_mesh_ao_notice_t notice, int32_t err) {
   g_notice_count++;
   g_last_notice = notice;
   g_last_notice_err = err;
+}
+
+void node_mesh_log_models_unknown_device(int dev_index) {
+  (void)dev_index;
+  g_unknown_device_count++;
+}
+
+void node_mesh_log_models_fault(int dev_index, bool fault) {
+  (void)dev_index;
+  g_fault_count++;
+  g_last_fault = fault;
+}
+
+void node_mesh_log_models_publish_failed(int dev_index, node_mesh_err_t err) {
+  (void)dev_index;
+  g_publish_failed_count++;
+  g_last_publish_err = err;
 }

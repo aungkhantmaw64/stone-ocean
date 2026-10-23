@@ -139,3 +139,30 @@ void node_mesh_log_started(uint32_t elapsed_ms);
  *        finish in time; the factory reset goes on.
  */
 void node_mesh_log_reset_timeout(void);
+
+/**
+ * @brief Log at WARNING level that the models AO got an event for a device
+ *        the config does not have, and ignored it.
+ *
+ * @param dev_index Device index in the event.
+ */
+void node_mesh_log_models_unknown_device(int dev_index);
+
+/**
+ * @brief Log that a device entered FAULT, at WARNING level, and is reported
+ *        on the mesh with unknown values; or that it left FAULT, at INFO
+ *        level.
+ *
+ * @param dev_index Device index.
+ * @param fault     True if the device entered FAULT.
+ */
+void node_mesh_log_models_fault(int dev_index, bool fault);
+
+/**
+ * @brief Log at ERROR level that a device's DeviceStatus could not be
+ *        published.
+ *
+ * @param dev_index Device index.
+ * @param err       Why: an encoding or ESP-BLE-MESH error.
+ */
+void node_mesh_log_models_publish_failed(int dev_index, node_mesh_err_t err);

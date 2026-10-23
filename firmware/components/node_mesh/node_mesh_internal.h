@@ -99,3 +99,11 @@ node_mesh_err_t node_mesh_ao_post_notice(node_mesh_ao_notice_t notice,
  * the mesh AO.
  */
 void node_mesh_ao_reset(void);
+
+/**
+ * @brief Forget that the models AO was started and clear its state.
+ *
+ * Host tests only, after node_ao_port_mock_reset(), which also drops its
+ * subscriptions, while no thread uses the models AO.
+ */
+void node_mesh_models_reset(void);
