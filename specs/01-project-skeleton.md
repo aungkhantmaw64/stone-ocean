@@ -1,6 +1,6 @@
 # 01 — Project skeleton
 
-**Status:** in-progress
+**Status:** done
 **Depends on:** none
 **Target:** ESP32-DevKitC (ESP32) · ESP-IDF v5.4.4 / FreeRTOS · idf.py, CMake, Python 3
 
@@ -46,11 +46,11 @@ ESP32-DevKitC with on-board USB-UART bridge. Flashing and logging go through `id
 - [x] `idf.py build` succeeds with the default (hardware) config, with BLE Mesh compiled in.
 - [x] QEMU build boots in Espressif QEMU and prints the banner with flavour `qemu`.
 - [x] Host test build compiles with no ESP-IDF dependency and the sample test passes.
-- [ ] CI runs host tests + hardware build on every push and fails on any error.
+- [x] CI runs host tests + hardware build on every push and fails on any error.
 
-Still to verify:
-- CI (AC 4): the steps pass in `espressif/idf:v5.4.4` locally, but no GitHub remote exists yet, so the workflow has not run on GitHub.
-- Hardware: banner with flavour `hw` on a DevKitC, the 16 MB flash size (`esptool.py flash_id`), and PSRAM detected at boot.
+CI (AC 4): `.github/workflows/ci.yml` runs on every push and pull request, with the host tests and the hardware build in `espressif/idf:v5.4.4`, plus the config schema and PC tool checks. It is green on `main` on GitHub. Every step runs under GitHub's `bash -eo pipefail` and the scripts use `set -euo pipefail`, so any failing command fails its job.
+
+On hardware (the custom WROVER board, during spec 08's check): the boot banner shows flavour `hw`, PSRAM is detected (`Adding pool of 4096K of PSRAM memory to heap allocator`, the 4 MB mapped part), and `esptool.py flash_id` reports 16 MB of flash.
 
 ## Open questions
 - None. Resolved: flash is 16 MB; modules are WROVER with 8 MB PSRAM; CI runs on GitHub Actions.

@@ -86,7 +86,7 @@ tools/
 
 | # | Spec | Depends on | Status |
 |---|---|---|---|
-| 01 | [Project skeleton](01-project-skeleton.md) | none | in-progress |
+| 01 | [Project skeleton](01-project-skeleton.md) | none | done |
 | 02 | [HAL abstraction](02-hal.md) | 01 | done |
 | 03 | [Config schema & parser](03-config-parser.md) | 01 | done |
 | 04 | [Config storage](04-config-storage.md) | 03 | done |
