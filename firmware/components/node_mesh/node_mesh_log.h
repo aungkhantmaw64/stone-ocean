@@ -14,7 +14,12 @@
  * ========================================================================== */
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
+
+#include "node_config.h"
+#include "node_mesh_err.h"
+#include "node_mesh_internal.h"
 
 /* ==========================================================================
  * PUBLIC FUNCTIONS
@@ -59,3 +64,136 @@ void node_mesh_log_meta_erase_failed(void);
  * @param what NUL-terminated name of the event, such as "prov complete".
  */
 void node_mesh_log_post_failed(const char *what);
+
+/**
+ * @brief Log at INFO level a provisioning notice from the mesh AO.
+ *
+ * @param notice What happened.
+ * @param err    ESP-BLE-MESH error code, or 0.
+ */
+void node_mesh_log_notice(node_mesh_ao_notice_t notice, int32_t err);
+
+/**
+ * @brief Log at WARNING level that the config's composition differs from
+ *        the one the node was provisioned with: `config composition changed
+ *        since provisioning; factory-reset and reprovision required`.
+ *
+ * @param stored_hash Hash stored at provisioning.
+ * @param config_hash Hash of the active config.
+ */
+void node_mesh_log_mismatch(uint32_t stored_hash, uint32_t config_hash);
+
+/**
+ * @brief Log at WARNING level that the composition hash could not be read,
+ *        so the node is treated as never provisioned this boot.
+ */
+void node_mesh_log_hash_load_failed(void);
+
+/**
+ * @brief Log at WARNING level that the node is provisioned but no
+ *        composition hash was stored, so the one in use is stored now.
+ */
+void node_mesh_log_hash_missing(void);
+
+/**
+ * @brief Log at WARNING level that a composition hash was stored but the
+ *        node is not provisioned, so the hash is erased.
+ */
+void node_mesh_log_hash_stale(void);
+
+/**
+ * @brief Log at ERROR level that a device element gets no models because
+ *        the models builder failed.
+ *
+ * @param dev_index Index of the device in the config.
+ * @param err       The builder's error.
+ */
+void node_mesh_log_builder_failed(int dev_index, node_mesh_err_t err);
+
+/**
+ * @brief Log at ERROR level that an ESP-IDF call failed.
+ *
+ * @param what NUL-terminated name of the call, such as "esp_ble_mesh_init".
+ * @param err  ESP-IDF error code.
+ */
+void node_mesh_log_call_failed(const char *what, int32_t err);
+
+/**
+ * @brief Log at ERROR level that the factory-reset hook could not be
+ *        registered, so a factory reset leaves the node provisioned.
+ */
+void node_mesh_log_hook_failed(void);
+
+/**
+ * @brief Log at INFO level the device UUID, as 32 hex digits.
+ *
+ * @param uuid UUID bytes; must not be NULL.
+ * @param len  Number of bytes in @p uuid.
+ */
+void node_mesh_log_uuid(const uint8_t *uuid, size_t len);
+
+/**
+ * @brief Log at INFO level the mesh state at boot: `mesh=unprov|prov
+ *        addr=<addr> elements=<n> relay=<on|off>`.
+ *
+ * @param provisioned   True if the node is provisioned.
+ * @param addr          Unicast address of the primary element; 0 when
+ *                      unprovisioned.
+ * @param element_count Elements registered.
+ * @param relay         True if the relay feature is enabled.
+ */
+void node_mesh_log_state(bool provisioned, uint16_t addr, uint8_t element_count,
+                         bool relay);
+
+/**
+ * @brief Log at INFO level the IV index and the network and application key
+ *        indexes of a provisioned node.
+ *
+ * @param iv_index IV index of the network.
+ * @param net_idx  Network key indexes; may be NULL if @p n_net is 0.
+ * @param n_net    Number of entries in @p net_idx.
+ * @param app_idx  Application key indexes; may be NULL if @p n_app is 0.
+ * @param n_app    Number of entries in @p app_idx.
+ */
+void node_mesh_log_keys(uint32_t iv_index, const uint16_t *net_idx,
+                        size_t n_net, const uint16_t *app_idx, size_t n_app);
+
+/**
+ * @brief Log at INFO level the primary element of the composition.
+ *
+ * @param model_count Number of SIG models on it.
+ */
+void node_mesh_log_primary_element(uint8_t model_count);
+
+/**
+ * @brief Log at INFO level one device element of the composition.
+ *
+ * @param element     Element number, from 1.
+ * @param dev         The device's config entry; must not be NULL.
+ * @param model_count Number of SIG models on it.
+ */
+void node_mesh_log_device_element(uint8_t element, const node_config_dev_t *dev,
+                                  uint8_t model_count);
+
+/**
+ * @brief Log the free heap after the mesh started, at INFO level, or at
+ *        ERROR level if internal RAM is below the spec's 40 KB floor.
+ *
+ * @param internal Free internal RAM, in bytes.
+ * @param total    Free heap of every kind, PSRAM included, in bytes.
+ * @param low      True if @p internal is below the floor.
+ */
+void node_mesh_log_heap(size_t internal, size_t total, bool low);
+
+/**
+ * @brief Log at INFO level how long the mesh start took.
+ *
+ * @param elapsed_ms Time spent in node_mesh_start(), in ms.
+ */
+void node_mesh_log_started(uint32_t elapsed_ms);
+
+/**
+ * @brief Log at ERROR level that the mesh reset of a factory reset did not
+ *        finish in time; the factory reset goes on.
+ */
+void node_mesh_log_reset_timeout(void);

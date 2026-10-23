@@ -45,6 +45,9 @@ enum {
                                                         task. */
   NODE_MESH_AO_SIG_NODE_RESET, /**< The gateway reset the node; a plain
                                   node_ao_evt_t. From Bluedroid's task. */
+  NODE_MESH_AO_SIG_NOTICE,     /**< Provisioning progress to log; carries a
+                                  node_mesh_ao_notice_evt_t. From
+                                  Bluedroid's task. */
 };
 
 /** @brief Event of NODE_MESH_AO_SIG_PROV_COMPLETE. */
@@ -58,6 +61,17 @@ typedef struct {
 
 _Static_assert(sizeof(node_mesh_ao_prov_evt_t) <= NODE_AO_MAX_EVT_SIZE,
                "the provisioning event must fit an AO queue slot");
+
+/** @brief Event of NODE_MESH_AO_SIG_NOTICE. */
+typedef struct {
+  node_ao_evt_t super;          /**< Header; sig is NODE_MESH_AO_SIG_NOTICE. */
+  int32_t err;                  /**< ESP-BLE-MESH error code, or 0. */
+  node_mesh_ao_notice_t notice; /**< What happened. */
+} node_mesh_ao_notice_evt_t;
+
+_Static_assert(sizeof(node_mesh_ao_notice_evt_t) <=
+                   sizeof(node_mesh_ao_prov_evt_t),
+               "the queue slot is sized for the provisioning event");
 
 /** @brief The mesh active object. */
 typedef struct {
@@ -161,6 +175,16 @@ node_mesh_err_t node_mesh_ao_post_node_reset(void) {
   return node_mesh_ao_post(&evt, sizeof(evt), "node reset");
 }
 
+node_mesh_err_t node_mesh_ao_post_notice(node_mesh_ao_notice_t notice,
+                                         int32_t err) {
+  const node_mesh_ao_notice_evt_t evt = {
+      .super = {.sig = NODE_MESH_AO_SIG_NOTICE},
+      .err = err,
+      .notice = notice,
+  };
+  return node_mesh_ao_post(&evt, sizeof(evt), "notice");
+}
+
 void node_mesh_ao_reset(void) {
   g_started = false;
   (void)memset(&g_mesh, 0, sizeof(g_mesh));
@@ -182,6 +206,12 @@ static void node_mesh_ao_dispatch(node_ao_t *me, const node_ao_evt_t *e) {
     case NODE_MESH_AO_SIG_NODE_RESET:
       node_mesh_ao_on_node_reset();
       break;
+    case NODE_MESH_AO_SIG_NOTICE: {
+      const node_mesh_ao_notice_evt_t *notice =
+          (const node_mesh_ao_notice_evt_t *)e;
+      node_mesh_log_notice(notice->notice, notice->err);
+      break;
+    }
     default:
       break;
   }

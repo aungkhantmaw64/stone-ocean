@@ -20,6 +20,19 @@
 #include "node_mesh_err.h"
 
 /* ==========================================================================
+ * TYPES
+ * ========================================================================== */
+
+/** @brief Provisioning progress that the mesh AO only logs. */
+typedef enum {
+  NODE_MESH_AO_NOTICE_LINK_OPEN,          /**< A provisioner opened a PB-ADV
+                                             link. */
+  NODE_MESH_AO_NOTICE_LINK_CLOSE,         /**< The PB-ADV link closed. */
+  NODE_MESH_AO_NOTICE_PROV_ENABLE_FAILED, /**< Unprovisioned beacons could
+                                             not be started. */
+} node_mesh_ao_notice_t;
+
+/* ==========================================================================
  * PUBLIC FUNCTIONS
  * ========================================================================== */
 
@@ -65,6 +78,21 @@ node_mesh_err_t node_mesh_ao_post_prov_complete(uint16_t net_idx, uint16_t addr,
  *         its queue is full.
  */
 node_mesh_err_t node_mesh_ao_post_node_reset(void);
+
+/**
+ * @brief Tell the mesh AO about provisioning progress, which it logs. Never
+ *        blocks.
+ *
+ * Task context, such as Bluedroid's task. A failure to post is logged.
+ *
+ * @param notice What happened.
+ * @param err    ESP-BLE-MESH error code for
+ *               NODE_MESH_AO_NOTICE_PROV_ENABLE_FAILED; 0 otherwise.
+ * @return NODE_MESH_OK, or NODE_MESH_ERR_STATE if the AO is not started or
+ *         its queue is full.
+ */
+node_mesh_err_t node_mesh_ao_post_notice(node_mesh_ao_notice_t notice,
+                                         int32_t err);
 
 /**
  * @brief Forget that the mesh AO was started and clear its state.
