@@ -14,6 +14,10 @@
 #include "node_health_internal.h"
 #include "node_health_log.h"
 
+#ifdef ESP_PLATFORM
+#include "sdkconfig.h"
+#endif
+
 /* ==========================================================================
  * MACROS
  * ========================================================================== */
@@ -34,6 +38,12 @@
 /** @brief Events the health AO's queue holds; enough for a bouncing press. */
 #define NODE_HEALTH_AO_QUEUE_LEN 8
 
+#ifdef CONFIG_NODE_HEALTH_DEBUG_HANG
+/** @brief Time from the health AO's start until the debug hang, in ms
+ *         (spec 09). */
+#define NODE_HEALTH_AO_DEBUG_HANG_AFTER_MS 15000
+#endif
+
 /* ==========================================================================
  * TYPES
  * ========================================================================== */
@@ -47,20 +57,27 @@ enum {
                                                  for
                                                  NODE_HEALTH_RESET_HOLD_MS;
                                                  from the hold timer. */
+  NODE_HEALTH_AO_SIG_DEBUG_HANG,              /**< Time to hang, with
+                                                 NODE_HEALTH_DEBUG_HANG
+                                                 only; from the debug
+                                                 timer. */
 };
 
 /** @brief The health active object. */
 typedef struct {
-  node_ao_t super;               /**< Framework part; must be first. */
-  bool pin_ready;                /**< True once the button's pin and
-                                    interrupt are set up; while false,
-                                    edges are ignored. */
-  bool wait_for_release;         /**< True while a press that was already
-                                    held at boot is still held; it does not
-                                    count. */
-  node_ao_time_evt_t hold_timer; /**< One-shot, armed for
-                                    NODE_HEALTH_RESET_HOLD_MS while the
-                                    button is held. */
+  node_ao_t super;                /**< Framework part; must be first. */
+  bool pin_ready;                 /**< True once the button's pin and
+                                     interrupt are set up; while false,
+                                     edges are ignored. */
+  bool wait_for_release;          /**< True while a press that was already
+                                     held at boot is still held; it does not
+                                     count. */
+  node_ao_time_evt_t hold_timer;  /**< One-shot, armed for
+                                     NODE_HEALTH_RESET_HOLD_MS while the
+                                     button is held. */
+  node_ao_time_evt_t debug_timer; /**< One-shot to the debug hang; only
+                                     initialised with
+                                     NODE_HEALTH_DEBUG_HANG. */
 } node_health_ao_t;
 
 /* ==========================================================================
@@ -110,6 +127,20 @@ static void node_health_ao_on_edge(node_health_ao_t *me);
 static void node_health_ao_on_hold_done(node_health_ao_t *me);
 
 /**
+ * @brief Arm the debug hang if NODE_HEALTH_DEBUG_HANG is set; otherwise do
+ *        nothing.
+ *
+ * @param me The health AO.
+ */
+static void node_health_ao_arm_debug_hang(node_health_ao_t *me);
+
+/**
+ * @brief Stop returning from dispatch, so the health AO's thread stops
+ *        feeding the task watchdog. Never returns.
+ */
+static void node_health_ao_debug_hang(void);
+
+/**
  * @brief Whether the reset button is pressed now.
  *
  * @return True if pressed; false if released or unreadable.
@@ -136,6 +167,12 @@ node_health_err_t node_health_ao_start(void) {
                             NODE_HEALTH_AO_SIG_HOLD_DONE) != NODE_AO_OK) {
     return NODE_HEALTH_ERR_STATE;
   }
+#ifdef CONFIG_NODE_HEALTH_DEBUG_HANG
+  if (node_ao_time_evt_init(&g_health.debug_timer, &g_health.super,
+                            NODE_HEALTH_AO_SIG_DEBUG_HANG) != NODE_AO_OK) {
+    return NODE_HEALTH_ERR_STATE;
+  }
+#endif
   const node_ao_config_t ao_cfg = {
       .name = NODE_HEALTH_AO_NAME,
       .priority = NODE_HEALTH_AO_PRIORITY,
@@ -166,8 +203,12 @@ static void node_health_ao_dispatch(node_ao_t *me, const node_ao_evt_t *e) {
   }
   node_health_ao_t *health = (node_health_ao_t *)me;
   if (e->sig == NODE_AO_SIG_INIT) {
+    node_health_ao_arm_debug_hang(health);
     node_health_ao_init(health);
     return;
+  }
+  if (e->sig == NODE_HEALTH_AO_SIG_DEBUG_HANG) {
+    node_health_ao_debug_hang();
   }
   if (!health->pin_ready) {
     return;
@@ -228,6 +269,28 @@ static void node_health_ao_on_hold_done(node_health_ao_t *me) {
     return;
   }
   node_health_factory_reset();
+}
+
+static void node_health_ao_arm_debug_hang(node_health_ao_t *me) {
+#ifdef CONFIG_NODE_HEALTH_DEBUG_HANG
+  /* The delay is far below the arm limit of INT32_MAX, and the timer is
+   * initialised at start, so arming cannot fail. */
+  (void)node_ao_time_evt_arm(&me->debug_timer,
+                             NODE_HEALTH_AO_DEBUG_HANG_AFTER_MS, 0);
+  node_health_log_debug_hang_armed(NODE_HEALTH_AO_DEBUG_HANG_AFTER_MS);
+#else
+  (void)me;
+#endif
+}
+
+static void node_health_ao_debug_hang(void) {
+  node_health_log_debug_hang();
+  /* Deliberately endless: the task watchdog must reset the node. Delaying
+   * instead of spinning keeps lower-priority tasks running, so only this
+   * thread misses its feed. */
+  for (;;) {
+    node_hal_time_delay_ms(1000);
+  }
 }
 
 static bool node_health_ao_button_pressed(void) {

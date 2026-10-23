@@ -177,3 +177,7 @@ void node_health_log_button_held(uint32_t hold_ms) {
 void node_health_log_button_released_early(void) {
   g_button_released_early_count++;
 }
+
+void node_health_log_debug_hang_armed(uint32_t after_ms) { (void)after_ms; }
+
+void node_health_log_debug_hang(void) {}

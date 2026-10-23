@@ -73,3 +73,13 @@ void node_health_log_button_held(uint32_t hold_ms) {
 void node_health_log_button_released_early(void) {
   ESP_LOGI(NODE_HEALTH_LOG_TAG, "reset button: released; no factory reset");
 }
+
+void node_health_log_debug_hang_armed(uint32_t after_ms) {
+  ESP_LOGW(NODE_HEALTH_LOG_TAG, "debug hang: the health AO hangs in %lu ms",
+           (unsigned long)after_ms);
+}
+
+void node_health_log_debug_hang(void) {
+  ESP_LOGE(NODE_HEALTH_LOG_TAG,
+           "debug hang: the health AO stops feeding the task watchdog");
+}

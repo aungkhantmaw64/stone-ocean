@@ -99,3 +99,16 @@ void node_health_log_button_held(uint32_t hold_ms);
  *        time, so no factory reset happens. Health AO thread only.
  */
 void node_health_log_button_released_early(void);
+
+/**
+ * @brief Log at WARNING level that the debug hang is armed.
+ *
+ * @param after_ms Time until the hang, in ms.
+ */
+void node_health_log_debug_hang_armed(uint32_t after_ms);
+
+/**
+ * @brief Log at ERROR level that the health AO hangs now, for the task
+ *        watchdog to catch.
+ */
+void node_health_log_debug_hang(void);
