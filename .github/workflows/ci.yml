@@ -28,6 +28,15 @@ jobs:
           pipx run check-jsonschema==0.38.2 --check-metaschema configs/node-config.schema.json
           pipx run check-jsonschema==0.38.2 --schemafile configs/node-config.schema.json configs/example-*.json
 
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check C sources are clang-formatted
+        run: |
+          git ls-files -z '*.c' '*.h' '*.cpp' '*.hpp' '*.cc' \
+            | xargs -0 pipx run clang-format==18.1.3 --dry-run --Werror
+
   tool-tests:
     runs-on: ubuntu-latest
     steps:

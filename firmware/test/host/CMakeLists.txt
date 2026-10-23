@@ -153,6 +153,31 @@ target_include_directories(node_health PUBLIC mocks ${NODE_HEALTH_DIR})
 target_compile_options(node_health PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(node_health PUBLIC node_health_api config_store node_ao)
 
+add_library(node_mesh_api INTERFACE)
+target_include_directories(node_mesh_api INTERFACE
+  ${FIRMWARE_DIR}/components/node_mesh/include)
+
+# node_mesh.h needs ESP-BLE-MESH, so only the ESP-IDF-free headers are
+# checked on the host.
+set(NODE_MESH_DIR ${FIRMWARE_DIR}/components/node_mesh)
+add_library(node_mesh_header_check OBJECT node_mesh_header_check.c)
+target_compile_options(node_mesh_header_check PRIVATE -Wall -Wextra -Werror)
+target_include_directories(node_mesh_header_check PRIVATE ${NODE_MESH_DIR})
+target_link_libraries(node_mesh_header_check PRIVATE node_mesh_api
+                      node_config_api)
+
+# The node_mesh sources free of ESP-BLE-MESH: the composition plan and the
+# mesh AO, on the host node_ao port, with the in-memory fake in place of
+# node_mesh_port.c and the host log mock in place of node_mesh_log.c.
+add_library(node_mesh STATIC
+  ${NODE_MESH_DIR}/node_mesh_ao.c
+  ${NODE_MESH_DIR}/node_mesh_comp.c
+  mocks/node_mesh_port.c
+  mocks/node_mesh_log.c)
+target_include_directories(node_mesh PUBLIC mocks ${NODE_MESH_DIR})
+target_compile_options(node_mesh PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(node_mesh PUBLIC node_mesh_api node_config node_ao)
+
 add_library(config_store_api INTERFACE)
 target_include_directories(config_store_api INTERFACE
   ${FIRMWARE_DIR}/components/config_store/include)
@@ -263,6 +288,12 @@ target_link_libraries(test_node_health PRIVATE node_health)
 
 add_host_test(test_node_health_ao test_node_health_ao.c)
 target_link_libraries(test_node_health_ao PRIVATE node_health)
+
+add_host_test(test_node_mesh_comp test_node_mesh_comp.c)
+target_link_libraries(test_node_mesh_comp PRIVATE node_mesh)
+
+add_host_test(test_node_mesh_ao test_node_mesh_ao.c)
+target_link_libraries(test_node_mesh_ao PRIVATE node_mesh)
 
 add_host_test(test_node_config_parse test_node_config_parse.c)
 target_link_libraries(test_node_config_parse PRIVATE node_config
