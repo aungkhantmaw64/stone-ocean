@@ -1,7 +1,7 @@
 # nanopb runtime
 
 The C runtime of [nanopb](https://github.com/nanopb/nanopb), vendored
-unchanged. Spec 11 encodes every mesh message with it.
+unchanged. The mesh vendor model encodes every mesh message with it.
 
 | | |
 |---|---|

@@ -122,7 +122,7 @@ Any failure fails the build.
 
 ## Coming next: system tests
 
-Spec 13 (not built yet) adds an end-to-end suite that drives everything
+A later chunk (not built yet) adds an end-to-end suite that drives everything
 through the real tools:
 
 - **QEMU tests in CI:** the safe mode, config write, factory reset and watchdog

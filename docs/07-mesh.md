@@ -217,7 +217,7 @@ sent before the node is provisioned.
 
 ## The gateway side
 
-The gateway (spec 12, not built yet) is a Python tool on a Linux machine
+The gateway (not built yet) is a Python tool on a Linux machine
 talking to BlueZ's `bluetooth-meshd` over D-Bus. The plan:
 
 ```
