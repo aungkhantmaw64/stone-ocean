@@ -4,7 +4,7 @@ These standards apply to every unit test in this repository:
 - **Firmware host tests:** C, Unity, CMake, under `firmware/test/host/`, run with `scripts/host_test.sh`.
 - **PC tools:** Python, pytest, under `tools/` (for example `tools/gateway/tests/`).
 
-System and hardware-in-the-loop tests (`tests/system/`, spec 13) follow the naming rules below too. Their structure is defined in spec 13.
+System and hardware-in-the-loop tests (`tests/system/`) follow the naming rules below too.
 
 ## 1. Test names are sentences
 
@@ -29,7 +29,7 @@ Read it aloud without the `test_` prefix and the underscores. It should sound li
 
 Rules:
 - **Describe the outcome, not the implementation.** Prefer "is rejected", "is saved", "turns on", "is reported" over function names, return codes or variable names. Put code-level detail (`returns NODE_CONFIG_ERR_TYPE`) in the assertions, not in the name.
-- **Use product words.** Use "sensor", "config", "LED", "gateway", "reboot", "flash memory", not `hal_i2c_xfer` or `nvs_blob`. Domain terms from `specs/README.md` (mesh, provisioning, safe mode, factory reset) are fine.
+- **Use product words.** Use "sensor", "config", "LED", "gateway", "reboot", "flash memory", not `hal_i2c_xfer` or `nvs_blob`. Domain terms from the [glossary](10-glossary.md) (mesh, provisioning, safe mode, factory reset) are fine.
 - **No abbreviations** except widely understood units (`ms`, `kb`, `c`). Write `temperature`, not `temp`. Write `config`, not `cfg`.
 - **One behaviour per name.** If the name needs "and" to join two unrelated outcomes, split the test. "Is rejected and names the bad entry" is fine, because it is one outcome described fully.
 - **State the situation** with `when_…` (or `with_…`, `after_…`, `if_…`) whenever the outcome depends on it.
@@ -84,7 +84,7 @@ void test_temperature_is_reported_in_hundredths_of_a_degree(void)
 
 ## 3. What to test
 
-- **Every acceptance criterion** in the spec that can be checked on the host has at least one test. Note the criterion in a comment above the test (`/* AC: specs/03-config-parser.md #4 */`), so the spec and the tests can be traced in both directions.
+- **Every acceptance criterion** in the spec that can be checked on the host has at least one test. Note the criterion in a comment above the test (`/* AC: specs/03-config-parser.md #4 */`), so the spec and the tests can be traced in both directions. Specs are kept locally under `specs/`, which is git-ignored.
 - **Behaviour through the public interface.** Test what the module's header promises, not its static helpers. If a private function seems to need its own tests, it probably belongs in its own module.
 - **Error paths, not only the happy path:** invalid arguments, malformed input, bus errors from the HAL, a full or failing flash store, timeouts.
 - **Boundaries:** sizes at, below and above limits (for example a 4 KB config), minimum and maximum intervals, empty lists, the largest device count.
@@ -98,11 +98,11 @@ void test_temperature_is_reported_in_hundredths_of_a_degree(void)
 
 Do not unit-test:
 - vendor SDK or third-party code (ESP-IDF, cJSON, Unity, BlueZ);
-- behaviour that needs real radio or hardware. That belongs in QEMU or HIL tests (spec 13). Say so in the test plan.
+- behaviour that needs real radio or hardware. That belongs in QEMU or HIL tests. Say so in the test plan.
 
 ## 4. Mocks, fakes and time
 
-- Code under test reaches hardware only through the HAL (spec 02). Host tests link the `node_hal_mock` library (`firmware/test/host/mocks/`), never ESP-IDF headers.
+- Code under test reaches hardware only through the HAL. Host tests link the `node_hal_mock` library (`firmware/test/host/mocks/`), never ESP-IDF headers.
 - Prefer **fakes with scriptable behaviour** (scripted I2C responses, injected GPIO edges) over strict call-by-call mocks. Tests should check outcomes, not the exact sequence of internal calls, unless that sequence is the requirement (for example a sensor's wake-up → measure → sleep protocol).
 - **Time is virtual.** Advance it with the mock clock (`node_hal_time_mock_advance`). Never `sleep()` or busy-wait in a unit test.
 - **No randomness and no real I/O.** Tests must be deterministic and must not touch the network, serial ports or real files, except temporary files created by pytest's `tmp_path` fixture.
@@ -122,7 +122,7 @@ scripts/host_test.sh          # firmware host unit tests (Unity)
 pytest tools                  # PC tool unit tests
 ```
 
-CI runs both on every push (spec 01). A change must not be merged while they fail.
+CI runs both on every push. A change must not be merged while they fail.
 
 ## 7. Review checklist
 

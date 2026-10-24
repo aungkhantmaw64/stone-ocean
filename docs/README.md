@@ -3,8 +3,7 @@
 Welcome! These pages explain how the Stone Ocean BLE mesh node works as a
 *system*: what the pieces are, how they talk to each other, and why things are
 built the way they are. They stay out of the code on purpose. If you want the
-exact interfaces, the specs in [`specs/`](../specs/README.md) and the headers
-are the place to go.
+exact interfaces, the headers are the place to go.
 
 If you only have five minutes, read the overview. If you're about to change the
 firmware, read the overview and the active objects page, because that page
@@ -32,8 +31,7 @@ Other docs in this folder:
 
 ## A note on status
 
-The system is being built in numbered chunks (the specs). At the time of
-writing, everything on the node is in place, the mesh vendor model is being
-verified on hardware, and the PC gateway script (spec 12) and system tests
-(spec 13) are still to come. Wherever a page talks about something that isn't
+The system is being built in small chunks. At the time of writing,
+everything on the node is in place, the mesh vendor model is being verified on
+hardware, and the PC gateway script and system tests are still to come. Wherever a page talks about something that isn't
 built yet, it says so.

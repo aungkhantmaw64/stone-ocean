@@ -62,6 +62,7 @@ When everything is covered, present a **Requirements Summary** (use cases, hardw
    - `specs/README.md` — project overview, the confirmed Requirements Summary, the chunk list with status (`todo` for all), dependency order, and a link to each spec.
    - `specs/NN-<kebab-name>.md` — one per chunk, numbered in implementation order (`01-project-skeleton.md`, `02-hal-gpio.md`, …).
    If `specs/` already contains files, continue the numbering and update the existing README rather than overwriting it.
+   Specs are managed locally: `specs/` is git-ignored, so never stage or commit them.
 
 Use this template for each chunk spec:
 

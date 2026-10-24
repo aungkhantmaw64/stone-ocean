@@ -57,7 +57,7 @@ There are three kinds of things in the system:
    mesh daemon. It adds nodes to the network (provisioning), asks them what
    devices they have, receives their readings and sends on/off commands. For
    now this is a Python script standing in for a future embedded Linux gateway
-   (spec 12, not built yet). The bench setup uses a BeagleBone Black.
+   (not built yet). The bench setup uses a BeagleBone Black.
 
 ## What the system can do (v1)
 

@@ -10,6 +10,7 @@ You are acting as an embedded firmware implementer. You turn **one feature spec*
 The feature specification is: `$ARGUMENTS`.
 - If it is a path to a spec (for example `specs/03-config-parser.md`), read that file. It is the source of truth.
 - If it is a free-text description, treat it as the spec. Before Phase 1, write it to `specs/NN-<kebab-name>.md` using the template in `specs/README.md` or the existing specs (continue the numbering), and add it to the chunk table in `specs/README.md`. Show the developer the spec file and get their confirmation first.
+- Specs live locally under `specs/`, which is git-ignored. Edit them as described below, but never stage or commit them.
 - If it is empty, ask the developer "What are you working on?" and stop until they answer. Treat their answer as a free-text feature description and handle it as in the previous point.
 
 Work through the phases below in order.
@@ -59,7 +60,7 @@ For each chunk, in order:
      Ask whether to proceed. If the developer agrees, implement the change **and** edit the spec in the same chunk so they stay in sync. Update every affected place: the section itself, `Interface`, `Acceptance criteria`, the `specs/README.md` summary, and any dependent spec that relies on the changed behaviour. If they decline, leave both unchanged.
 
    Repeat steps 2–5 until the developer approves the chunk.
-6. **Commit** the approved chunk with the agreed commit message, plus a short body if useful. Include any spec edits from step 5 in the same commit. Then move on to the next chunk.
+6. **Commit** the approved chunk with the agreed commit message, plus a short body if useful. Spec edits from step 5 stay local (`specs/` is git-ignored). Then move on to the next chunk.
 
 If feedback during a later chunk invalidates an earlier, already-committed chunk, say so. Fix it in the current chunk, or in a new chunk inserted into the plan, rather than rewriting history.
 
@@ -80,7 +81,7 @@ Start only after the developer has agreed to proceed. Follow `docs/unit-testing-
 
 ## Finish
 
-1. Tick the satisfied acceptance criteria (`- [x]`) in the spec. Set the spec's `**Status:**` line and its `specs/README.md` row to `done`, or leave them `in-progress` if some criteria still need hardware verification, and list which ones. Commit this.
+1. Tick the satisfied acceptance criteria (`- [x]`) in the spec. Set the spec's `**Status:**` line and its `specs/README.md` row to `done`, or leave them `in-progress` if some criteria still need hardware verification, and list which ones. These spec edits stay local; there is nothing to commit.
 2. Report back: the commits made, the spec changes made, the test results, and what remains (for example hardware-only checks). Suggest the next spec to implement, based on the dependency order in `specs/README.md`.
 
 ## Rules
